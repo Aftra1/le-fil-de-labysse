@@ -3,39 +3,19 @@ extends Node2D
 ## L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire,
 ## et départ en plongée en cliquant sur la cloche (ou E / Espace).
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
+## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
 signal plongee_demandee
 
 const POSITION_CLOCHE := Vector2(320.0, 318.0)
 const ATTACHE_CABLE := Vector2(320.0, 288.0)
 const ZONE_CLOCHE := Vector2(16.0, 18.0)      # demi-taille de la zone cliquable
-const BANDE_CIEL := 6.0                       # le dégradé du ciel est dessiné par bandes
 const DUREE_EFFET := 0.8
 const MONTEE_EFFET := 18.0
 
-# Formes de l'île (coordonnées écran)
-const DESSOUS := [
-	Vector2(140, 200), Vector2(500, 200), Vector2(470, 232), Vector2(420, 262), Vector2(360, 282),
-	Vector2(320, 288), Vector2(280, 282), Vector2(220, 262), Vector2(170, 232),
-]
-const DESSUS := [Vector2(140, 200), Vector2(500, 200), Vector2(493, 208), Vector2(147, 208)]
-const CENTRE_SOLEIL := Vector2(560.0, 58.0)
+const K := 0.5   # échelle du monde (320x180) par rapport aux positions du jeu (640x360)
 
-const COULEUR_ROCHE := Color("9a93b5")
-const COULEUR_ROCHE_SOMBRE := Color("7a7397")
-const COULEUR_DESSUS := Color("f4efe6")
-const COULEUR_BORD := Color("e8b923")
-const COULEUR_SOLEIL := Color("ffe08a")
-const COULEUR_TREUIL := Color("4a4660")
-const COULEUR_CABLE := Color("d8dde6")
-const COULEUR_SURVOL := Color(1.0, 1.0, 1.0, 0.8)
-const COULEUR_EFFET := Color("ffffff")
-const COULEUR_EFFET_CONTOUR := Color("2a3550")
-
-var cloche_visible := true:
-	set(valeur):
-		cloche_visible = valeur
-		queue_redraw()
+var cloche_visible := true
 
 var _reglages: Dictionary = {}
 var _eolienne: SourceRessource
@@ -48,6 +28,8 @@ var _progres_maintien := 0.0
 var _attente_nuage := 0.0
 var _hasard := RandomNumberGenerator.new()
 
+var _monde := VueMonde.new()
+
 @onready var _nuages: Node2D = $Nuages
 @onready var _sources: Node2D = $Sources
 @onready var _effets: Node2D = $Effets
@@ -56,6 +38,12 @@ var _hasard := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	_monde.name = "Monde"
+	_monde.dessiner = _dessiner_monde
+	# La vue continue de se redessiner quand l'île est figée (départ en plongée : la cloche part).
+	_monde.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_monde)
+	move_child(_monde, 0)
 	_hasard.randomize()
 	_reglages = Donnees.charger_json("res://data/ile.json")
 	_creer_sources()
@@ -157,16 +145,14 @@ func _recolter(source: SourceRessource, nombre: int) -> void:
 func _afficher_gain(lieu: Vector2, nombre: int) -> void:
 	var etiquette := Label.new()
 	etiquette.text = "+%d" % nombre
-	etiquette.position = lieu + Vector2(-8.0, -30.0)
-	etiquette.add_theme_font_size_override("font_size", 12)
-	etiquette.add_theme_color_override("font_color", COULEUR_EFFET)
-	etiquette.add_theme_color_override("font_outline_color", COULEUR_EFFET_CONTOUR)
-	etiquette.add_theme_constant_override("outline_size", 3)
+	etiquette.position = (lieu + Vector2(-8.0, -30.0)).round()
+	Pixel.texte(etiquette, "nuage.4", ArtIle.CONTOUR)
 	_effets.add_child(etiquette)
-	var animation := etiquette.create_tween().set_parallel()
-	animation.tween_property(etiquette, "position:y", etiquette.position.y - MONTEE_EFFET, DUREE_EFFET)
-	animation.tween_property(etiquette, "modulate:a", 0.0, DUREE_EFFET)
-	animation.chain().tween_callback(etiquette.queue_free)
+	# Pas de fondu (il créerait des couleurs hors palette) : le texte monte au pixel près, puis disparaît.
+	var animation := etiquette.create_tween()
+	animation.tween_method(func(y: float) -> void: etiquette.position.y = roundf(y),
+		etiquette.position.y, etiquette.position.y - MONTEE_EFFET, DUREE_EFFET)
+	animation.tween_callback(etiquette.queue_free)
 
 
 func _souris_sur_cloche() -> bool:
@@ -188,9 +174,7 @@ func _mettre_a_jour_survol() -> void:
 	var survol: SourceRessource = null
 	if not _panneau.est_ouvert() and not sur_cloche:
 		survol = _source_sous_souris()
-	if sur_cloche != _survol_cloche:
-		_survol_cloche = sur_cloche
-		queue_redraw()
+	_survol_cloche = sur_cloche
 	if survol != _survol:
 		if is_instance_valid(_survol):
 			_survol.en_survol = false
@@ -364,38 +348,22 @@ func _sauvees(nombre: int) -> String:
 	return "%d sauvée" % nombre if nombre <= 1 else "%d sauvées" % nombre
 
 
-# --- Dessin -------------------------------------------------------------------
+# --- Dessin du monde (320x180) --------------------------------------------------------
 
-func _draw() -> void:
-	var y := 0.0
-	while y < 360.0:
-		draw_rect(Rect2(0.0, y, 640.0, BANDE_CIEL + 1.0), DecorCiel.couleur(y + BANDE_CIEL / 2.0))
-		y += BANDE_CIEL
-	draw_circle(CENTRE_SOLEIL, 26.0, Color(COULEUR_SOLEIL, 0.3))
-	draw_circle(CENTRE_SOLEIL, 18.0, COULEUR_SOLEIL)
-	Ile.dessiner_ile(self, cloche_visible)
-	if cloche_visible and _survol_cloche:
-		draw_rect(Rect2(POSITION_CLOCHE - ZONE_CLOCHE, ZONE_CLOCHE * 2.0), COULEUR_SURVOL, false, 1.0)
-
-
-## Corps de l'île, treuil et (si demandé) câble et cloche amarrée.
-static func dessiner_ile(toile: CanvasItem, avec_cloche: bool, decalage: Vector2 = Vector2.ZERO) -> void:
-	var dessous := PackedVector2Array()
-	for point: Vector2 in DESSOUS:
-		dessous.append(point + decalage)
-	toile.draw_colored_polygon(dessous, COULEUR_ROCHE)
-	var ombre := PackedVector2Array([
-		Vector2(220, 262) + decalage, Vector2(280, 282) + decalage, Vector2(320, 288) + decalage,
-		Vector2(360, 282) + decalage, Vector2(420, 262) + decalage, Vector2(320, 270) + decalage,
-	])
-	toile.draw_colored_polygon(ombre, COULEUR_ROCHE_SOMBRE)
-	var dessus := PackedVector2Array()
-	for point: Vector2 in DESSUS:
-		dessus.append(point + decalage)
-	toile.draw_colored_polygon(dessus, COULEUR_DESSUS)
-	toile.draw_line(Vector2(140, 200) + decalage, Vector2(500, 200) + decalage, COULEUR_BORD, 2.0)
-	toile.draw_rect(Rect2(Vector2(312, 282) + decalage, Vector2(16, 8)), COULEUR_TREUIL)
-	if avec_cloche:
-		var haut_cloche := POSITION_CLOCHE + decalage - Vector2(0.0, Cloche.HAUTEUR / 2.0)
-		toile.draw_line(ATTACHE_CABLE + decalage, haut_cloche, COULEUR_CABLE, 2.0)
-		Cloche.dessiner(toile, POSITION_CLOCHE + decalage)
+func _dessiner_monde(toile: Node2D) -> void:
+	toile.draw_texture(ArtIle.fond_ile(K), Vector2.ZERO)
+	for enfant in _nuages.get_children():
+		if not enfant.is_queued_for_deletion():
+			(enfant as SourceRessource).dessiner_monde(toile)
+	for enfant in _sources.get_children():
+		(enfant as SourceRessource).dessiner_monde(toile)
+	if cloche_visible:
+		var cloche := VueMonde.vers_monde(POSITION_CLOCHE)
+		var texture := ArtIle.cloche(K)
+		var haut := floorf(cloche.y - texture.get_height() / 2.0)
+		var attache := VueMonde.vers_monde(ATTACHE_CABLE)
+		toile.draw_rect(Rect2(attache.x, attache.y, 1, haut - attache.y + 1), Palette.couleur("metal.3"))
+		Pixel.sprite_ombre(toile, texture, cloche, Palette.plus_sombre(ArtIle.couleur_ciel_monde(cloche.y)))
+		if _survol_cloche:
+			var zone := (ZONE_CLOCHE * K).round()
+			Pixel.cadre(toile, Rect2(cloche - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))

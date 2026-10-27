@@ -10,23 +10,14 @@ extends Node2D
 enum Mode { CLIC, MAINTIEN, RESERVE }
 enum Forme { EOLIENNE, FILON, NUAGE }
 
-const SEGMENTS_ARC := 32
-const RAYON_POINT := 1.5
-const ECART_POINTS := 5.0
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
-const LONGUEUR_PALE := 16.0
-const HAUTEUR_MAT := 50.0
+const IMAGES_PAR_SECONDE := 60   # cadence de la physique : les nuages avancent par pas réguliers
 
-const COULEUR_SURVOL := Color(1.0, 1.0, 1.0, 0.7)
-const COULEUR_JAUGE := Color("ffffff")
-const COULEUR_VIDE := Color(1.0, 1.0, 1.0, 0.35)
-const COULEUR_MAT := Color("6d6a80")
-const COULEUR_PALE := Color("f4efe6")
-const COULEUR_MOYEU := Color("e8b923")
-const COULEUR_FILON := Color("ffd34d")
-const COULEUR_FILON_BORD := Color("b8860b")
-const COULEUR_FILON_VIDE := Color("b9b2a0")
-const COULEUR_NUAGE := Color("ffffff")
+# Dessin dans le monde 320x180 (voir VueMonde)
+const K := 0.5
+const FILON := ArtIle.FILON
+const TAILLE_NUAGE := Vector2i(16, 8)
+const HAUTEUR_MAT := 25          # pixels du monde, du moyeu au sol
 
 var id_ressource := ""
 var mode := Mode.CLIC
@@ -36,7 +27,13 @@ var plafond := 1
 var recharge_s := 0.0          # 0 : pas de recharge
 var duree_maintien := 1.0
 var rayon_clic := 20.0
-var derive := 0.0              # vitesse horizontale (nuages), en px/s
+## Vitesse horizontale (nuages), en px/s (640x360). Elle est arrondie pour que le nuage avance
+## d'un pixel du monde toutes les N images de physique exactement : un pas régulier, jamais saccadé.
+var derive := 0.0:
+	set(valeur):
+		derive = valeur
+		_images_par_pas = maxi(roundi(IMAGES_PAR_SECONDE * VueMonde.ECHELLE / valeur), 1) if valeur > 0.0 else 0
+		_compteur_pas = 0
 
 var progres := 0.0:
 	set(valeur):
@@ -52,14 +49,23 @@ var en_survol := false:
 
 var _accumulateur := 0.0
 var _angle := 0.0
+var _images_par_pas := 0
+var _compteur_pas := 0
 
 
 func _process(delta: float) -> void:
 	recharger(delta)
-	position.x += derive * delta
 	if forme == Forme.EOLIENNE:
 		_angle = fmod(_angle + VITESSE_PALES * delta, TAU)
-		queue_redraw()
+
+
+func _physics_process(_delta: float) -> void:
+	if _images_par_pas <= 0:
+		return
+	_compteur_pas += 1
+	if _compteur_pas >= _images_par_pas:
+		_compteur_pas = 0
+		position.x += VueMonde.ECHELLE   # un pixel du monde
 
 
 ## Fait avancer la recharge de « secondes » (aussi utilisé pour rattraper le temps de plongée).
@@ -94,50 +100,46 @@ func prendre(nombre: int) -> int:
 	return pris
 
 
-func _draw() -> void:
+# --- Dessin dans le monde 320x180 ----------------------------------------------------
+
+func dessiner_monde(toile: CanvasItem) -> void:
+	var p := VueMonde.vers_monde(position)
 	match forme:
 		Forme.EOLIENNE:
-			_dessiner_eolienne()
+			_dessiner_eolienne(toile, p)
 		Forme.FILON:
-			_dessiner_filon()
+			_dessiner_filon(toile, p)
 		Forme.NUAGE:
-			_dessiner_nuage()
+			_dessiner_nuage(toile, p)
+	var rayon := roundi(rayon_clic * K)
 	if en_survol and est_disponible():
-		draw_arc(Vector2.ZERO, rayon_clic, 0.0, TAU, SEGMENTS_ARC, COULEUR_SURVOL, 1.0)
+		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("nuage.4")), p)
 	if progres > 0.0:
-		draw_arc(Vector2.ZERO, rayon_clic, -PI / 2.0, -PI / 2.0 + TAU * progres, SEGMENTS_ARC, COULEUR_JAUGE, 3.0)
+		Pixel.sprite(toile, Pixel.jauge(rayon, progres, Palette.couleur("nuage.4")), p)
 
 
-func _dessiner_eolienne() -> void:
-	draw_line(Vector2.ZERO, Vector2(0.0, HAUTEUR_MAT), COULEUR_MAT, 2.0)
-	for i in 3:
-		var direction := Vector2.from_angle(_angle + i * TAU / 3.0)
-		draw_line(Vector2.ZERO, direction * LONGUEUR_PALE, COULEUR_PALE, 3.0)
-	draw_circle(Vector2.ZERO, 3.0, COULEUR_MOYEU)
-	_dessiner_points(Vector2(0.0, -LONGUEUR_PALE - 8.0), COULEUR_PALE)
+func _dessiner_eolienne(toile: CanvasItem, moyeu: Vector2) -> void:
+	var sol := moyeu.y + HAUTEUR_MAT
+	toile.draw_rect(Rect2(moyeu.x + 1, sol - 1, 3, 1), Palette.couleur("herbe.3"))
+	toile.draw_rect(Rect2(moyeu.x - 1, moyeu.y, 3, sol - moyeu.y), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(moyeu.x, moyeu.y, 1, sol - moyeu.y - 1), Palette.couleur("terre.2"))
+	Pixel.sprite(toile, ArtIle.pales(K, _angle), moyeu)
+	_dessiner_points(toile, moyeu + Vector2(0, -10), "nuage.4")
 
 
-func _dessiner_filon() -> void:
-	var teinte := COULEUR_FILON if est_disponible() else COULEUR_FILON_VIDE
-	var grand := PackedVector2Array([Vector2(0, -9), Vector2(5, 0), Vector2(0, 7), Vector2(-5, 0)])
-	var petit := PackedVector2Array([Vector2(-7, -3), Vector2(-4, 2), Vector2(-7, 7), Vector2(-10, 2)])
-	draw_colored_polygon(petit, teinte.darkened(0.15))
-	draw_colored_polygon(grand, teinte)
-	grand.append(grand[0])
-	draw_polyline(grand, COULEUR_FILON_BORD, 1.0)
-	_dessiner_points(Vector2(0.0, -15.0), COULEUR_FILON)
+func _dessiner_filon(toile: CanvasItem, centre: Vector2) -> void:
+	Pixel.sprite_ombre(toile, ArtIle.filon(K, est_disponible()), centre, Palette.couleur("herbe.3"))
+	_dessiner_points(toile, centre + Vector2(0, -6), "or.4")
 
 
-func _dessiner_nuage() -> void:
-	draw_circle(Vector2(-12.0, 2.0), 9.0, COULEUR_NUAGE)
-	draw_circle(Vector2(0.0, -3.0), 12.0, COULEUR_NUAGE)
-	draw_circle(Vector2(12.0, 2.0), 8.0, COULEUR_NUAGE)
-	draw_rect(Rect2(-12.0, 2.0, 24.0, 9.0), COULEUR_NUAGE)
-	_dessiner_points(Vector2(0.0, 16.0), COULEUR_NUAGE)
+func _dessiner_nuage(toile: CanvasItem, centre: Vector2) -> void:
+	var ombre := Palette.plus_sombre(ArtIle.couleur_ciel_monde(centre.y))
+	Pixel.sprite_ombre(toile, ArtIle.nuage(TAILLE_NUAGE.x, TAILLE_NUAGE.y), centre, ombre)
+	_dessiner_points(toile, centre + Vector2(0, 7), "nuage.4")
 
 
-## Un point par unité de plafond : plein si disponible, transparent sinon.
-func _dessiner_points(centre: Vector2, teinte: Color) -> void:
+## Un pixel du monde par unité de plafond, espacés d'un pixel : plein si disponible, sombre sinon.
+func _dessiner_points(toile: CanvasItem, centre: Vector2, couleur: String) -> void:
 	for i in plafond:
-		var point := centre + Vector2((i - (plafond - 1) / 2.0) * ECART_POINTS, 0.0)
-		draw_circle(point, RAYON_POINT, teinte if i < stock else COULEUR_VIDE)
+		var point := (centre + Vector2((i - (plafond - 1) / 2.0) * 2.0, 0.0)).floor()
+		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur(couleur if i < stock else "roche.2"))

@@ -1,6 +1,13 @@
 extends SceneTree
 ## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
-## 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
+## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
+## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
+## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
+## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
+## pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent
+## au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte.
+## Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée =
+## début de la remontée, au pixel près (horloge des particules figée pendant la comparaison).
 ## Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 const DOSSIER := "res://docs/captures/"
@@ -8,6 +15,8 @@ const ECHELLE := 2  # 640x360 agrandi ×2 en « plus proche voisin » pour reste
 
 var _plongee: Node
 var _bell: CharacterBody2D
+var _palette: Dictionary = {}      # couleur RGBA8 -> nom
+var _captures_hors_palette := 0
 
 
 func _initialize() -> void:
@@ -16,9 +25,49 @@ func _initialize() -> void:
 
 func _scenarios() -> void:
 	await process_frame
+	for nom: String in Palette.noms():
+		_palette[Palette.couleur(nom).to_rgba32()] = nom
+	await _planche_palette()
 	await _scenario_plongee()
 	await _scenario_jeu()
-	quit(0)
+	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
+		else "%d capture(s) avec des couleurs hors palette" % _captures_hors_palette))
+	quit(0 if _captures_hors_palette == 0 else 1)
+
+
+# --- 00 : planche de la palette ------------------------------------------------------
+
+func _planche_palette() -> void:
+	var planche := Control.new()
+	var fond := ColorRect.new()
+	fond.color = Palette.couleur("interface.4")
+	fond.size = Vector2(640, 360)
+	planche.add_child(fond)
+	var rampes := ["ciel", "nuage", "roche", "terre", "herbe", "or", "lagon", "corail", "abysse", "cyan", "interface", "metal"]
+	for i in rampes.size():
+		var y := 6 + i * 29
+		var nom := Label.new()
+		nom.text = rampes[i]
+		nom.position = Vector2(12, y + 3)
+		Pixel.texte(nom, "interface.0", "")
+		planche.add_child(nom)
+		var tons := Palette.rampe(rampes[i])
+		for j in tons.size():
+			var bord := ColorRect.new()
+			bord.color = Palette.couleur("interface.0")
+			bord.position = Vector2(140 + j * 50, y)
+			bord.size = Vector2(46, 26)
+			planche.add_child(bord)
+			var echantillon := ColorRect.new()
+			echantillon.color = tons[j]
+			echantillon.position = Vector2(141 + j * 50, y + 1)
+			echantillon.size = Vector2(44, 24)
+			planche.add_child(echantillon)
+	root.add_child(planche)
+	await _images(3)
+	await _capturer("00-palette")
+	root.remove_child(planche)
+	planche.queue_free()
 
 
 # --- 01-05 : plongée seule ------------------------------------------------------
@@ -35,6 +84,7 @@ func _scenario_plongee() -> void:
 	_placer_pres_de(cristal, Vector2(-48.0, -22.0))
 	await _images(20)
 	await _capturer("02-zone1-gisement")
+	await _verifier_grille_plongee(_plongee)
 
 	_placer_pres_de(cristal, Vector2(18.0, 8.0))
 	Input.action_press("interact")
@@ -69,6 +119,7 @@ func _scenario_jeu() -> void:
 	var transition: Node = jeu.get_node("Transition")
 	await _images(30)
 	await _capturer("06-ile")
+	await _verifier_grille_monde(ile)
 
 	# Récolte : éolienne et un nuage d'un clic, puis un filon en maintenant le clic
 	var eolienne: Node2D = ile._eolienne
@@ -98,17 +149,30 @@ func _scenario_jeu() -> void:
 	transition.afficher_image(0.25)
 	await _images(2)
 	await _capturer("09-descente-25")
+	await _verifier_grille(transition.decalage_ecran, "transition à 25 %, île et ciel")
 	transition.afficher_image(0.75)
 	await _images(2)
 	await _capturer("10-descente-75")
-	transition.reprendre()
-	while jeu.etat != 2:  # PLONGEE
-		await _images(1)
+	await _verifier_grille(transition.decalage_ecran, "transition à 75 %")
+	transition.afficher_image(0.95)
+	await _images(2)
+	await _capturer("10b-descente-hud-entre")
+	await _verifier_raccord_descente(jeu, transition)
 	await _images(2)
 	await _capturer("11-plongee-arrivee")
 
-	# Remontée d'urgence avec un sac plein : image figée à 50 %, puis retour sur l'île
 	var plongee: Node = jeu.plongee()
+	await _verifier_raccord_remontee(jeu, transition, plongee)
+	# Remontée d'urgence avec un sac plein : image figée à 50 %, puis retour sur l'île
+	transition.reprendre()
+	while jeu.etat != 0:  # ILE
+		await _images(1)
+	await _images(5)
+	await _cliquer(Vector2(320, 318))
+	transition.passer()
+	while jeu.etat != 2:  # PLONGEE
+		await _images(1)
+	plongee = jeu.plongee()
 	plongee.get_node("Bell").position.y = 400.0
 	for i in 5:
 		plongee._sac.ajouter("cristal_lagon")
@@ -192,8 +256,133 @@ func _touche(code: Key) -> void:
 func _capturer(nom: String) -> void:
 	await RenderingServer.frame_post_draw
 	var image := root.get_viewport().get_texture().get_image()
+	_verifier_palette(nom, image)
 	if image.get_width() != 640 * ECHELLE:
 		image.resize(640 * ECHELLE, 360 * ECHELLE, Image.INTERPOLATE_NEAREST)
 	var chemin := ProjectSettings.globalize_path(DOSSIER + nom + ".png")
 	var erreur := image.save_png(chemin)
 	print("%s  %s (%dx%d)" % ["OK  " if erreur == OK else "ERREUR", chemin, image.get_width(), image.get_height()])
+
+
+func _verifier_palette(nom: String, image: Image) -> void:
+	var hors := {}
+	for y in image.get_height():
+		for x in image.get_width():
+			var couleur := image.get_pixel(x, y)
+			couleur.a = 1.0
+			if not _palette.has(couleur.to_rgba32()):
+				hors[couleur.to_html(false)] = int(hors.get(couleur.to_html(false), 0)) + 1
+	if hors.is_empty():
+		print("      palette OK : %s" % nom)
+	else:
+		_captures_hors_palette += 1
+		var exemples := hors.keys().slice(0, 5)
+		print("      HORS PALETTE : %s (%d couleurs, ex. %s)" % [nom, hors.size(), exemples])
+
+
+func _verifier_grille_monde(ile: Node) -> void:
+	ile.get_node("HUD").visible = false
+	await _verifier_grille(func() -> Vector2i: return Vector2i.ZERO, "île")
+	ile.get_node("HUD").visible = true
+
+
+## Plongée : on attend une image où la caméra est décalée d'un pixel d'écran (cas le plus délicat),
+## puis on vérifie aussi une image sans décalage.
+func _verifier_grille_plongee(plongee: Node) -> void:
+	var monde: Node = plongee.get_node("Monde")
+	plongee.get_node("HUD").visible = false
+	var cloche: Node2D = plongee.get_node("Bell")
+	cloche.position.y += 37.0
+	for i in 60:
+		await _images(1)
+		if monde.decalage_ecran().y == 1:
+			break
+	await _verifier_grille(monde.decalage_ecran, "plongée")
+	for i in 120:
+		await _images(1)
+		if monde.decalage_ecran().y == 0:
+			break
+	await _verifier_grille(monde.decalage_ecran, "plongée")
+	plongee.get_node("HUD").visible = true
+
+
+## decalage : Callable() -> Vector2i, lu juste après le rendu de l'image vérifiée (la caméra bouge
+## pendant la vérification : un décalage lu une image trop tôt fausserait le résultat).
+func _verifier_grille(decalage: Callable, nom: String) -> void:
+	await RenderingServer.frame_post_draw
+	var image := root.get_viewport().get_texture().get_image()
+	var decalage_attendu: Vector2i = decalage.call()
+	var ecarts := _blocs_non_uniformes(image, decalage_attendu)
+	if ecarts == 0:
+		print("      grille du monde OK (%s, décalage %s) : chaque pixel du monde fait 2x2 pixels d'écran" % [nom, decalage_attendu])
+	else:
+		_captures_hors_palette += 1
+		print("      GRILLE DU MONDE (%s, décalage %s) : %d blocs 2x2 non uniformes" % [nom, decalage_attendu, ecarts])
+
+
+## Les pixels du monde commencent au décalage d'écran (0 ou 1) : on compte les blocs 2x2 bigarrés.
+func _blocs_non_uniformes(image: Image, decalage: Vector2i) -> int:
+	var ecarts := 0
+	var depart := Vector2i((2 - decalage.x) % 2, (2 - decalage.y) % 2)
+	for y in range(depart.y, image.get_height() - 1, 2):
+		for x in range(depart.x, image.get_width() - 1, 2):
+			var couleur := image.get_pixel(x, y)
+			if image.get_pixel(x + 1, y) != couleur or image.get_pixel(x, y + 1) != couleur \
+					or image.get_pixel(x + 1, y + 1) != couleur:
+				ecarts += 1
+	return ecarts
+
+
+## Fin de la descente (image figée à 100 %) contre première image de la plongée.
+func _verifier_raccord_descente(jeu: Node, transition: Node) -> void:
+	ArtAbysse.figer_temps = true
+	transition.afficher_image(1.0)
+	await _images(2)
+	var fin_transition := await _image_ecran()
+	transition.reprendre()
+	while jeu.etat != 2:  # PLONGEE
+		await _images(1)
+	await _images(2)
+	var debut_plongee := await _image_ecran()
+	ArtAbysse.figer_temps = false
+	_comparer(fin_transition, debut_plongee, "fin de la descente / début de la plongée, HUD compris")
+
+
+## Dernière image de la plongée (cloche revenue en surface) contre première image de la remontée.
+func _verifier_raccord_remontee(jeu: Node, transition: Node, plongee: Node) -> void:
+	ArtAbysse.figer_temps = true
+	var cloche: Node2D = plongee.get_node("Bell")
+	cloche.position = Vector2(60.0, 2.0)
+	await _images(90)
+	var fin_plongee := await _image_ecran()
+	plongee._armee = true
+	plongee._sous_leau_avant = true
+	while jeu.etat != 3:  # REMONTEE
+		await _images(1)
+	transition.afficher_image(0.0)
+	await _images(2)
+	var debut_remontee := await _image_ecran()
+	ArtAbysse.figer_temps = false
+	_comparer(fin_plongee, debut_remontee, "fin de la plongée / début de la remontée, HUD compris")
+	transition.afficher_image(0.05)
+	await _images(2)
+	await _capturer("11b-remontee-hud-sort")
+
+
+func _image_ecran() -> Image:
+	await RenderingServer.frame_post_draw
+	return root.get_viewport().get_texture().get_image()
+
+
+func _comparer(a: Image, b: Image, nom: String) -> void:
+	var differences := 0
+	for y in a.get_height():
+		for x in a.get_width():
+			if a.get_pixel(x, y) != b.get_pixel(x, y):
+				differences += 1
+	if differences == 0:
+		print("      raccord OK (%s) : images identiques au pixel près" % nom)
+	else:
+		_captures_hors_palette += 1
+		print("      RACCORD (%s) : %d pixels différents" % [nom, differences])
+

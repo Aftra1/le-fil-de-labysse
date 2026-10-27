@@ -2,34 +2,38 @@ class_name Transition
 extends Node2D
 ## Transition entre l'île et la plongée : la cloche descend du ciel jusqu'à l'océan
 ## (ou remonte), la caméra la suit à travers 3 calques de nuages en parallaxe.
-## Tout est dessiné en code, dans le repère « monde » de DecorCiel :
-## l'île occupe y = 0..360, la surface de l'océan est à y = HAUTEUR_CIEL.
-## La dernière image de la descente correspond à la première image de la plongée
-## (surface à 90 px du haut, cloche au centre en x) : le changement de scène ne se voit pas.
-## Un clic ou une touche accélère la fin (DUREE_SAUT) avec un court fondu au noir.
+##
+## Rendu : deux vues du monde 320x180 (VueMonde) qui partagent la même caméra, l'une sous l'île
+## (ciel, nuages lointains, mer), l'autre par-dessus (câble, cloche, nuages proches, fondu).
+## Repère « colonne » en 640x360 : l'écran de l'île occupe y = 0..360, la mer est à y = HAUTEUR_MER.
+##
+## Raccords sans coupure :
+## - le ciel est la même colonne de paliers que celle de l'île (ArtIle.dessiner_ciel) ;
+## - sous la surface, on appelle le dessin de la plongée elle-même (dive.gd, dessiner_monde) ;
+## - la dernière image de la descente est la première de la plongée (cloche en surface, à 90 px
+##   du haut) ; la remontée part exactement de la cloche et de la caméra de la plongée.
+## Un clic ou une touche accélère la fin (DUREE_SAUT) avec un court fondu tramé.
 
 signal terminee
 
 const DUREE := 2.5
 const DUREE_SAUT := 0.25
-const OPACITE_SAUT := 0.9
-const HAUTEUR_ECRAN := 360.0
-const LARGEUR_ECRAN := 640.0
-const Y_SURFACE_ECRAN_FIN := 90.0  # surface de l'océan dans la première image de la plongée
-const BANDE := 6.0
-const LONGUEUR_ZONE_1 := 1500.0    # px : même dégradé d'eau que la plongée
+const NIVEAU_SAUT_MAX := 14       # densité maximale de la trame noire (sur 16)
+const ECRAN := Vector2(640.0, 360.0)
+const HAUTEUR_MER := ArtIle.HAUTEUR_CIEL * VueMonde.ECHELLE    # 1800 en 640x360
+const HAUT_CAMERA_PLONGEE := -90.0    # haut de la vue de la plongée quand la cloche est en surface
+const CENTRE_PLONGEE := 320.0         # x de la colonne qui correspond au x = 0 de la plongée
 
-# Calques de nuages : facteur de parallaxe, nombre, rayon, opacité
+# Calques de nuages : facteur de parallaxe, nombre, taille du sprite (pixels du monde)
 const CALQUES := [
-	{ "facteur": 0.3, "nombre": 3, "rayon": 10.0, "opacite": 0.45 },
-	{ "facteur": 0.6, "nombre": 6, "rayon": 14.0, "opacite": 0.7 },
-	{ "facteur": 1.0, "nombre": 8, "rayon": 20.0, "opacite": 0.85 },
+	{ "facteur": 0.3, "nombre": 3, "taille": Vector2i(10, 5) },
+	{ "facteur": 0.6, "nombre": 6, "taille": Vector2i(14, 7) },
+	{ "facteur": 1.0, "nombre": 8, "taille": Vector2i(22, 11) },
 ]
 const GRAINE_NUAGES := 7
-
-const COULEUR_SURFACE := Color("ffffff")
-const COULEUR_CABLE := Color("d8dde6")
-const COULEUR_NUAGE := Color("ffffff")
+const COULEUR_CABLE := "metal.3"
+const SEUIL_SURFACE_MONDE := 3.0      # cloche « en surface » (même seuil que la plongée, en pixels du monde)
+const COULEUR_SAUT := "abysse.0"
 
 var _actif := false
 var _descente := true
@@ -38,25 +42,26 @@ var _saut := false
 var _t_debut_saut := 0.0
 var _avance_saut := 0.0
 var _fige := false
-var _x_bas := LARGEUR_ECRAN / 2.0
 var _ile: Node2D = null
-var _eau_haut := Color("5fb4d9")
-var _eau_bas := Color("1b4a78")
-var _nuages: Array = []          # par calque : liste de Vector2 (repère monde du calque)
-
-@onready var _fond: Node2D = $Fond
-@onready var _avant: Node2D = $Avant
+var _plongee: Node2D = null
+var _cloche_bas := Vector2.ZERO  # position de la cloche dans la plongée (640x360)
+var _decalage_camera_bas := 0.0  # écart de la caméra de la plongée par rapport à sa vue de surface
+var _nuages: Array = []          # par calque : liste de Vector2 (repère colonne, 640x360)
+var _fond := VueMonde.new()
+var _avant := VueMonde.new()
 
 
 func _ready() -> void:
 	visible = false
+	_fond.name = "Fond"
 	_fond.z_index = -10
+	_fond.dessiner = _dessiner_fond
+	add_child(_fond)
+	_avant.name = "Avant"
 	_avant.z_index = 10
-	_fond.draw.connect(_dessiner_fond)
-	_avant.draw.connect(_dessiner_avant)
-	var zones: Array = Donnees.charger_json("res://data/zones.json")
-	_eau_haut = Color.html(str(zones[0]["couleur_haut"]))
-	_eau_bas = Color.html(str(zones[0]["couleur_bas"]))
+	_avant.transparent = true
+	_avant.dessiner = _dessiner_avant
+	add_child(_avant)
 	_placer_nuages()
 
 
@@ -64,11 +69,16 @@ func est_active() -> bool:
 	return _actif
 
 
-## descente : île → océan ; sinon océan → île. x_bas : position x (écran) de la cloche côté océan.
-func lancer(descente: bool, ile: Node2D, x_bas: float = LARGEUR_ECRAN / 2.0) -> void:
+## descente : île → océan ; sinon océan → île.
+## plongee : la scène de plongée (dessinée sous la surface) ; cloche_bas : position de sa cloche
+## (640x360) ; haut_camera_bas : haut de sa vue (pour une remontée qui part de la vue exacte).
+func lancer(descente: bool, ile: Node2D, plongee: Node2D = null, cloche_bas: Vector2 = Vector2.ZERO,
+		haut_camera_bas: float = HAUT_CAMERA_PLONGEE) -> void:
 	_descente = descente
 	_ile = ile
-	_x_bas = x_bas
+	_plongee = plongee
+	_cloche_bas = cloche_bas
+	_decalage_camera_bas = haut_camera_bas - HAUT_CAMERA_PLONGEE
 	_t = 0.0
 	_saut = false
 	_fige = false
@@ -86,6 +96,23 @@ func afficher_image(avancement: float) -> void:
 
 func reprendre() -> void:
 	_fige = false
+
+
+## Temps restant avant la fin (en secondes), y compris quand la transition est passée.
+func temps_restant() -> float:
+	if _saut:
+		return (1.0 - _avance_saut) * DUREE_SAUT
+	return (1.0 - _t) * DUREE
+
+
+## Temps écoulé depuis le début, à la vitesse normale (un saut l'accélère).
+func temps_ecoule() -> float:
+	return _t * DUREE
+
+
+## Décalage d'écran (0 ou 1 px) de la grille du monde dans l'image actuelle.
+func decalage_ecran() -> Vector2i:
+	return _fond.decalage_ecran()
 
 
 func _unhandled_input(evenement: InputEvent) -> void:
@@ -122,86 +149,85 @@ func _process(delta: float) -> void:
 		terminee.emit()
 
 
-## e : 0 = vue de l'île, 1 = vue de l'océan (première image de la plongée).
+## e : 0 = vue de l'île, 1 = vue de la plongée en surface.
 func _profondeur_visuelle() -> float:
 	var lisse := smoothstep(0.0, 1.0, _t)
 	return lisse if _descente else 1.0 - lisse
 
 
-func _cloche_monde(e: float) -> Vector2:
-	var x := lerpf(Ile.POSITION_CLOCHE.x, _x_bas, e)
-	return Vector2(x, lerpf(Ile.POSITION_CLOCHE.y, DecorCiel.HAUTEUR_CIEL, e))
+## Cloche dans la colonne (640x360) : du ponton de l'île à sa position dans la plongée.
+func _cloche(e: float) -> Vector2:
+	var bas := Vector2(CENTRE_PLONGEE, HAUTEUR_MER) + _cloche_bas
+	return Ile.POSITION_CLOCHE.lerp(bas, e)
 
 
-## Centre vertical de la caméra (repère monde) : au départ l'écran de l'île,
-## à la fin la cloche est à la surface, à 90 px du haut comme dans la plongée.
-func _camera(e: float) -> float:
-	var depart := HAUTEUR_ECRAN / 2.0 - Ile.POSITION_CLOCHE.y
-	var fin := HAUTEUR_ECRAN / 2.0 - Y_SURFACE_ECRAN_FIN
-	return _cloche_monde(e).y + lerpf(depart, fin, e)
-
-
-func _vers_ecran(y_monde: float, camera: float, facteur: float = 1.0) -> float:
-	return y_monde - (camera - HAUTEUR_ECRAN / 2.0) * facteur
+## Haut de la vue (640x360, entier) : au départ l'écran de l'île ; à la fin, la vue de la plongée.
+func _haut_camera(e: float) -> float:
+	# Écart entre le haut de la vue et la cloche : la cloche en bas de l'écran de l'île au départ,
+	# à 90 px sous le haut de la vue à l'arrivée (comme dans la plongée).
+	var ecart := lerpf(-Ile.POSITION_CLOCHE.y, HAUT_CAMERA_PLONGEE, e)
+	return roundf(Ile.POSITION_CLOCHE.lerp(Vector2(CENTRE_PLONGEE, HAUTEUR_MER), e).y + ecart + _decalage_camera_bas * e)
 
 
 func _appliquer() -> void:
-	# La transition dessine en coordonnées écran : on neutralise une éventuelle caméra restée active.
-	get_viewport().canvas_transform = Transform2D.IDENTITY
-	var camera := _camera(_profondeur_visuelle())
+	var haut := _haut_camera(_profondeur_visuelle())
+	_fond.camera = Vector2(0.0, haut)
+	_avant.camera = Vector2(0.0, haut)
 	if is_instance_valid(_ile):
-		_ile.position.y = _vers_ecran(0.0, camera)
-	_fond.queue_redraw()
-	_avant.queue_redraw()
+		_ile.position.y = -haut
 
 
-# --- Dessin ---------------------------------------------------------------------
+# --- Dessin (pixels du monde de la colonne : 640x360 / 2) ---------------------------------
 
-func _couleur_monde(y_monde: float) -> Color:
-	if y_monde < DecorCiel.HAUTEUR_CIEL:
-		return DecorCiel.couleur(y_monde)
-	var t := clampf((y_monde - DecorCiel.HAUTEUR_CIEL) / LONGUEUR_ZONE_1, 0.0, 1.0)
-	return _eau_haut.lerp(_eau_bas, t)
-
-
-func _dessiner_fond() -> void:
-	var camera := _camera(_profondeur_visuelle())
-	var y := 0.0
-	while y < HAUTEUR_ECRAN:
-		var y_monde := y + BANDE / 2.0 + camera - HAUTEUR_ECRAN / 2.0
-		_fond.draw_rect(Rect2(0.0, y, LARGEUR_ECRAN, BANDE + 1.0), _couleur_monde(y_monde))
-		y += BANDE
-	var surface := _vers_ecran(DecorCiel.HAUTEUR_CIEL, camera)
-	_fond.draw_line(Vector2(0.0, surface), Vector2(LARGEUR_ECRAN, surface), COULEUR_SURFACE, 2.0)
+func _dessiner_fond(toile: Node2D) -> void:
+	var vue := _fond.vue_monde()
+	var mer := float(ArtIle.HAUTEUR_CIEL)
+	if vue.position.y < mer:
+		ArtIle.dessiner_ciel(toile, Rect2(vue.position, Vector2(vue.size.x, minf(mer - vue.position.y, vue.size.y))), 0, 0)
+	if vue.end.y > mer - 3.0 and is_instance_valid(_plongee):
+		# Sous la surface : le décor de la plongée elle-même, recalé sur la colonne.
+		var origine := Vector2(ArtAbysse.DECALAGE_COLONNE)
+		toile.draw_set_transform(origine)
+		_plongee.dessiner_monde(toile, Rect2(vue.position - origine, vue.size), false, false)
+		toile.draw_set_transform(Vector2.ZERO)
 	for calque in 2:
-		_dessiner_calque(_fond, calque, camera)
+		_dessiner_calque(toile, calque)
 
 
-func _dessiner_avant() -> void:
-	var e := _profondeur_visuelle()
-	var camera := _camera(e)
-	var cloche := _cloche_monde(e)
-	var cloche_ecran := Vector2(cloche.x, _vers_ecran(cloche.y, camera))
-	var attache := Vector2(Ile.ATTACHE_CABLE.x, _vers_ecran(Ile.ATTACHE_CABLE.y, camera))
-	_avant.draw_line(attache, cloche_ecran - Vector2(0.0, Cloche.HAUTEUR / 2.0), COULEUR_CABLE, 2.0)
-	Cloche.dessiner(_avant, cloche_ecran)
-	_dessiner_calque(_avant, 2, camera)
+func _dessiner_avant(toile: Node2D) -> void:
+	var cloche := VueMonde.vers_monde(_cloche(_profondeur_visuelle()))
+	var dans_plongee := cloche - Vector2(ArtAbysse.DECALAGE_COLONNE)
+	var texture := ArtIle.cloche(0.5, ArtAbysse.contour_cloche(dans_plongee.y))
+	var haut_cloche := cloche.y - ceilf(texture.get_height() / 2.0)
+	var attache := VueMonde.vers_monde(Ile.ATTACHE_CABLE)
+	# Câble : vertical sous le treuil, puis droit vers la cloche. Quand la cloche est à la surface,
+	# il descend jusqu'à la surface puis rejoint la cloche, exactement comme dans la plongée.
+	var mer := float(ArtIle.HAUTEUR_CIEL)
+	var coude := Vector2(attache.x, mer if cloche.y >= mer - SEUIL_SURFACE_MONDE else haut_cloche)
+	toile.draw_rect(Rect2(attache.x, attache.y, 1, coude.y - attache.y + 1), Palette.couleur(COULEUR_CABLE))
+	if coude != Vector2(cloche.x, haut_cloche):
+		Pixel.ligne(toile, coude, Vector2(cloche.x, haut_cloche), Palette.couleur(COULEUR_CABLE))
+	Pixel.sprite_ombre(toile, texture, cloche, Palette.plus_sombre(ArtAbysse.couleur_fond(dans_plongee)))
+	_dessiner_calque(toile, 2)
 	if _saut:
-		var opacite := sin(PI * _avance_saut) * OPACITE_SAUT
-		_avant.draw_rect(Rect2(0.0, 0.0, LARGEUR_ECRAN, HAUTEUR_ECRAN), Color(0.0, 0.0, 0.0, opacite))
+		var niveau := roundi(sin(PI * _avance_saut) * NIVEAU_SAUT_MAX)
+		if niveau > 0:
+			toile.draw_texture_rect(Pixel.trame(niveau, Palette.couleur(COULEUR_SAUT)), _avant.vue_monde(), true)
 
 
-func _dessiner_calque(toile: Node2D, calque: int, camera: float) -> void:
+## Un calque de nuages : position à l'écran = y - haut × facteur, ramenée au pixel du monde.
+func _dessiner_calque(toile: Node2D, calque: int) -> void:
 	var reglage: Dictionary = CALQUES[calque]
-	var rayon := float(reglage["rayon"])
-	var teinte := Color(COULEUR_NUAGE, float(reglage["opacite"]))
+	var taille: Vector2i = reglage["taille"]
+	var facteur := float(reglage["facteur"])
+	var haut := _fond.camera.y
+	var texture := ArtIle.nuage(taille.x, taille.y)
 	for centre: Vector2 in _nuages[calque]:
-		var ecran := Vector2(centre.x, _vers_ecran(centre.y, camera, float(reglage["facteur"])))
-		if ecran.y < -rayon * 2.0 or ecran.y > HAUTEUR_ECRAN + rayon * 2.0:
+		var ecran_y := centre.y - haut * facteur
+		if ecran_y < -taille.y * 2.0 or ecran_y > ECRAN.y + taille.y * 2.0:
 			continue
-		toile.draw_circle(ecran + Vector2(-rayon, rayon * 0.2), rayon * 0.75, teinte)
-		toile.draw_circle(ecran, rayon, teinte)
-		toile.draw_circle(ecran + Vector2(rayon, rayon * 0.2), rayon * 0.7, teinte)
+		var monde := VueMonde.vers_monde(Vector2(centre.x, ecran_y + haut))
+		Pixel.sprite_ombre(toile, texture, monde, Palette.plus_sombre(ArtIle.couleur_ciel_monde(monde.y)))
 
 
 ## Les nuages sont placés pour être hors écran au début et à la fin :
@@ -209,18 +235,14 @@ func _dessiner_calque(toile: Node2D, calque: int, camera: float) -> void:
 func _placer_nuages() -> void:
 	var hasard := RandomNumberGenerator.new()
 	hasard.seed = GRAINE_NUAGES
-	var camera_fin := _camera_fin()
+	var haut_fin := HAUT_CAMERA_PLONGEE + HAUTEUR_MER
 	for reglage: Dictionary in CALQUES:
 		var facteur := float(reglage["facteur"])
-		var marge := float(reglage["rayon"]) * 2.0
-		var y_min := HAUTEUR_ECRAN + marge
-		var y_max := (camera_fin - HAUTEUR_ECRAN / 2.0) * facteur - marge
+		var marge := float((reglage["taille"] as Vector2i).y) * 4.0
+		var y_min := ECRAN.y + marge
+		var y_max := haut_fin * facteur - marge
 		var liste: Array[Vector2] = []
 		for i in int(reglage["nombre"]):
 			var y := lerpf(y_min, y_max, (i + hasard.randf_range(0.2, 0.8)) / float(reglage["nombre"]))
-			liste.append(Vector2(hasard.randf_range(30.0, LARGEUR_ECRAN - 30.0), y))
+			liste.append(Vector2(hasard.randf_range(40.0, ECRAN.x - 40.0), y))
 		_nuages.append(liste)
-
-
-func _camera_fin() -> float:
-	return DecorCiel.HAUTEUR_CIEL + HAUTEUR_ECRAN / 2.0 - Y_SURFACE_ECRAN_FIN

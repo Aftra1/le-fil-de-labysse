@@ -7,8 +7,12 @@
 		"conso_oxygene": 1.0,
 		"gisements": 12,
 		"minerai": "cristal_lagon",
-		"couleur_haut": "#5fb4d9",
-		"couleur_bas": "#1b4a78"
+		"paliers": [
+			"lagon.4",
+			"lagon.3",
+			"lagon.2",
+			"lagon.1"
+		]
 	},
 	{
 		"id": "coraux",
@@ -18,7 +22,12 @@
 		"conso_oxygene": 1.4,
 		"gisements": 8,
 		"minerai": "corail",
-		"couleur_haut": "#1b4a78",
-		"couleur_bas": "#1d0f3a"
+		"paliers": [
+			"abysse.4",
+			"abysse.3",
+			"corail.0",
+			"abysse.2",
+			"abysse.1"
+		]
 	}
 ]

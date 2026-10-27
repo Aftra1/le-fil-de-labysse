@@ -77,11 +77,19 @@ func _lancer() -> void:
 	await _test_scene_principale()
 	await _test_transitions()
 
+	_titre("HUD de plongée : entrée et sortie en glissant")
+	await _test_glissement_hud()
+
 	_titre("Étape 3 : recharge de l'île pendant la plongée")
 	await _test_recharge_pendant_plongee()
 
 	_titre("Étape 3 : remontée d'urgence, butin rangé dans l'inventaire")
 	await _test_flux_urgence()
+
+	_titre("Rendu pixel art")
+	_test_rendu_pixel()
+	await _test_monde_320()
+	await _test_camera_plongee()
 
 	print("")
 	print("TOTAL : %d/%d PASS" % [_reussis, _total])
@@ -638,6 +646,7 @@ func _test_panneau_inventaire() -> void:
 
 	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
 	nuage.derive = 0.0
+	nuage.position = Vector2(60.0, 60.0)  # hors du panneau (sinon le clic tombe sur le panneau)
 	panneau.ouvrir()
 	await _cliquer(nuage.position)
 	_verifier(_jeu.inventaire.quantite("nuage") == 0, "inventaire ouvert : un clic ne récolte pas")
@@ -797,5 +806,143 @@ func _test_flux_urgence() -> void:
 	_verifier(ranges == 5, "urgence : 5 unités sur 8 rangées dans l'inventaire", "%d" % ranges)
 	var annonce: String = jeu.get_node("Ile/HUD").texte_annonce()
 	_verifier(annonce.contains("perdu 3"), "urgence : l'île annonce la perte", annonce)
+	await _fermer_jeu(jeu)
+
+
+# --- Rendu pixel art ------------------------------------------------------------
+
+func _test_rendu_pixel() -> void:
+	var noms := Palette.noms()
+	_verifier(noms.size() >= 48 and noms.size() <= 64, "palette : entre 48 et 64 couleurs", "%d" % noms.size())
+	var rampes_ok := true
+	for nom_rampe in ["ciel", "nuage", "roche", "herbe", "or", "lagon", "corail", "abysse", "interface"]:
+		rampes_ok = rampes_ok and Palette.rampe(nom_rampe).size() >= 4
+	_verifier(rampes_ok, "palette : une rampe de tons par matière (ciel, nuage, roche, herbe, or, lagon, corail, abysse, interface)")
+	var ombre := Palette.plus_sombre(Palette.couleur("herbe.4"))
+	_verifier(ombre == Palette.couleur("herbe.3") and Palette.plus_sombre(Palette.couleur("herbe.0")) == Palette.couleur("herbe.0"),
+		"palette : « un ton plus sombre » descend d'un cran dans la même rampe")
+
+	var inconnues: Array = []
+	var ressources: Dictionary = Donnees.charger_json("res://data/ressources.json")
+	for id: String in ressources:
+		if not Palette.contient(str(ressources[id]["couleur"])):
+			inconnues.append(ressources[id]["couleur"])
+	for zone: Dictionary in Donnees.charger_json("res://data/zones.json"):
+		for nom: String in zone["paliers"]:
+			if not Palette.contient(nom):
+				inconnues.append(nom)
+	_verifier(inconnues.is_empty(), "données : toutes les couleurs sont des noms de la palette", str(inconnues))
+
+	var police: FontFile = load("res://assets/fonts/DotGothic16-Regular.ttf")
+	_verifier(police.antialiasing == TextServer.FONT_ANTIALIASING_NONE
+		and police.subpixel_positioning == TextServer.SUBPIXEL_POSITIONING_DISABLED,
+		"police : sans antialiasing ni positionnement sous-pixel")
+	_verifier(ProjectSettings.get_setting("gui/theme/custom_font") == "res://assets/fonts/DotGothic16-Regular.ttf",
+		"police : DotGothic16 est la police du projet")
+	_verifier(FileAccess.file_exists("res://assets/fonts/OFL-DotGothic16.txt"), "police : licence OFL fournie")
+	_verifier(ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter") == 0,
+		"textures : filtrage « nearest »")
+
+	var cloche := Pixel.motif(Cloche.MOTIF, Cloche.COULEURS_MOTIF)
+	_verifier(cloche.get_width() >= 16 and cloche.get_width() <= 24 and cloche.get_height() >= 16 and cloche.get_height() <= 24,
+		"cloche : sprite de 16 à 24 px", "%dx%d" % [cloche.get_width(), cloche.get_height()])
+	var lignes_regulieres := true
+	for motif: PackedStringArray in [Cloche.MOTIF, Gisement.CRISTAL, Gisement.CORAIL, SourceRessource.FILON]:
+		for ligne in motif:
+			lignes_regulieres = lignes_regulieres and ligne.length() == motif[0].length()
+	_verifier(lignes_regulieres, "sprites : dessins rectangulaires (toutes les lignes ont la même largeur)")
+
+
+func _test_monde_320() -> void:
+	var ile := await _ouvrir_ile()
+	var monde: Node = ile.get_node("Monde")
+	_verifier(monde.taille_monde() == Vector2i(320, 180) and VueMonde.ECHELLE == 2,
+		"île : le monde est rendu en 320x180, affiché ×2")
+	var eolienne: Node2D = ile._eolienne
+	_verifier(eolienne.position == Vector2(206, 150), "île : la logique garde ses positions en 640x360")
+	await _fermer_ile(ile)
+
+	# Un nuage lent avance d'un pixel du monde (2 px en 640x360) à intervalle fixe.
+	var nuage := SourceRessource.new()
+	nuage.derive = 8.0
+	root.add_child(nuage)
+	var pas_ok := true
+	var intervalles: Array[int] = []
+	var depuis := 0
+	var x := nuage.position.x
+	for i in 240:
+		await physics_frame
+		depuis += 1
+		var avance := nuage.position.x - x
+		if avance != 0.0:
+			pas_ok = pas_ok and is_equal_approx(avance, 2.0)
+			intervalles.append(depuis)
+			depuis = 0
+			x = nuage.position.x
+	root.remove_child(nuage)
+	nuage.free()
+	var reguliers := intervalles.size() > 2
+	for i in range(1, intervalles.size()):
+		reguliers = reguliers and intervalles[i] == intervalles[1]
+	_verifier(pas_ok, "nuages : chaque pas fait exactement un pixel du monde")
+	_verifier(reguliers, "nuages : les pas sont réguliers (pas de saccades)", "un pas toutes les %s images" % [intervalles.slice(1, 4)])
+
+
+func _test_camera_plongee() -> void:
+	await _demarrer()
+	_verifier(_plongee.get_node("Monde").taille_monde() == Vector2i(320, 180), "plongée : le monde est rendu en 320x180, affiché ×2")
+	_bell.position.y = 1201.0
+	_bell.velocity = Vector2.ZERO
+	_bell.controle_actif = false   # cloche immobile (ni pilotage ni flottabilité)
+	await _images(1)
+	var cible: Vector2 = _plongee._cible_camera()
+	_verifier(int(cible.y) % 2 == 0 and cible.y == roundf(cible.y),
+		"caméra : vise la position dessinée de la cloche (pixel entier du monde)", "haut %.0f" % cible.y)
+	var apres_une_image: float = _plongee._camera.y
+	_verifier(apres_une_image > -90.0 and apres_une_image < cible.y,
+		"caméra : rattrape la cloche en douceur (pas de saut)", "%.1f après une image, cible %.0f" % [apres_une_image, cible.y])
+	await _secondes(2.0)
+	_verifier(_plongee._camera == _plongee._cible_camera(), "caméra : s'arrête exactement sur sa cible (pas de tremblement)",
+		"%s / %s, cloche %s" % [_plongee._camera, _plongee._cible_camera(), _bell.position])
+	await _terminer()
+
+
+func _test_glissement_hud() -> void:
+	var jeu := await _ouvrir_jeu()
+	var transition: Node = jeu.get_node("Transition")
+	_touche(KEY_E)
+	await _images(2)
+	var interface: CanvasLayer = jeu.plongee().get_node("HUD")
+	while transition.temps_restant() > 0.5:
+		await _images(1)
+	_verifier(not interface.visible, "descente : le HUD est absent avant les 0,3 dernières secondes")
+	while transition.temps_restant() > 0.15:
+		await _images(1)
+	var progression: float = interface.progression_glissement()
+	var decalage: Vector2 = interface.decalage_panneau_etat()
+	_verifier(interface.visible and progression > 0.0 and progression < 1.0 and decalage.x < 0.0,
+		"descente : le HUD glisse depuis le bord gauche pendant les 0,3 dernières secondes",
+		"progression %.2f, décalage %s" % [progression, decalage])
+	_verifier(decalage == decalage.round(), "glissement : décalage au pixel entier")
+	await _attendre_etat(jeu, ETAT_PLONGEE)
+	_verifier(interface.visible and interface.progression_glissement() == 1.0 and interface.decalage_panneau_etat() == Vector2.ZERO,
+		"arrivée : le HUD est en place")
+	var opaque := true
+	for enfant in interface.get_children():
+		if enfant is CanvasItem:
+			opaque = opaque and (enfant as CanvasItem).modulate.a == 1.0 and (enfant as CanvasItem).self_modulate.a == 1.0
+	_verifier(opaque, "glissement : aucune transparence")
+
+	var label_profondeur: String = jeu.plongee()._interface._profondeur.text
+	_verifier(label_profondeur != "", "le HUD est rempli dès son entrée", label_profondeur)
+
+	await _remonter(jeu)
+	await _secondes(0.1)
+	progression = interface.progression_glissement()
+	_verifier(interface.visible and progression > 0.0 and progression < 1.0 and interface.decalage_panneau_etat().x < 0.0,
+		"remontée : le HUD ressort en glissant pendant les 0,3 premières secondes", "progression %.2f" % progression)
+	await _secondes(0.4)
+	_verifier(not interface.visible, "remontée : le HUD a disparu après 0,3 s")
+	await _attendre_etat(jeu, ETAT_ILE)
 	await _fermer_jeu(jeu)
 

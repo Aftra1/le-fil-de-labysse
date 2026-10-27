@@ -1,15 +1,13 @@
 class_name Gisement
 extends Node2D
-## Un gisement de minerai : un cercle coloré, un stock limité et une jauge de minage.
+## Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage.
+## Il ne se dessine pas lui-même : la plongée appelle dessiner_monde() dans le monde 320x180.
 
 const RAYON := 7.0
-const RAYON_ANNEAU := 12.0
-const EPAISSEUR_ANNEAU := 1.0
-const EPAISSEUR_JAUGE := 3.0
-const SEGMENTS_ARC := 32
-const COULEUR_GRISE := Color("5a6270")
-const COULEUR_ANNEAU := Color(1.0, 1.0, 1.0, 0.5)
-const COULEUR_JAUGE := Color("ffffff")
+const RAYON_ANNEAU := 12
+
+const CRISTAL := ArtAbysse.CRISTAL
+const CORAIL := ArtAbysse.CORAIL
 
 var minerai := ""
 var couleur := Color.WHITE
@@ -54,14 +52,17 @@ func retirer_unite() -> void:
 		queue_redraw()
 
 
-func _draw() -> void:
-	var teinte := COULEUR_GRISE if grise else couleur
-	draw_circle(Vector2.ZERO, RAYON, teinte)
-	draw_arc(Vector2.ZERO, RAYON, 0.0, TAU, SEGMENTS_ARC, teinte.darkened(0.4), 1.0)
-	# Un petit point par unité restante
+## Dessin dans le monde 320x180 (appelé par la plongée) : sprite avec contour bleu nuit et ombre
+## d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan.
+func dessiner_monde(toile: CanvasItem) -> void:
+	var p := VueMonde.vers_monde(position)
+	Pixel.sprite_ombre(toile, ArtAbysse.gisement(minerai, grise), p, Palette.plus_sombre(ArtAbysse.couleur_eau(p.y)))
+	var plein := Palette.couleur("corail.4" if minerai == "corail" else "cyan.3")
 	for i in stock:
-		draw_circle(Vector2((i - (stock - 1) / 2.0) * 4.0, RAYON + 4.0), 1.0, teinte)
+		var point := (p + Vector2((i - (stock - 1) / 2.0) * 2.0, 6.0)).floor()
+		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur("metal.3") if grise else plein)
+	var rayon: int = RAYON_ANNEAU / VueMonde.ECHELLE
 	if en_evidence and not grise:
-		draw_arc(Vector2.ZERO, RAYON_ANNEAU, 0.0, TAU, SEGMENTS_ARC, COULEUR_ANNEAU, EPAISSEUR_ANNEAU)
+		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("cyan.3")), p)
 	if progres > 0.0:
-		draw_arc(Vector2.ZERO, RAYON_ANNEAU, -PI / 2.0, -PI / 2.0 + TAU * progres, SEGMENTS_ARC, COULEUR_JAUGE, EPAISSEUR_JAUGE)
+		Pixel.sprite(toile, Pixel.jauge(rayon, progres, Palette.couleur("cyan.3")), p)

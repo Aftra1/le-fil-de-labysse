@@ -14,11 +14,36 @@ const FREINAGE := 120.0               # décélération quand on lâche les touc
 const DEMI_LARGEUR_ZONE := 280.0
 const PROFONDEUR_MAX_PX := 3000.0
 
-# Dessin (formes simples)
-const LARGEUR := 22.0
-const HAUTEUR := 26.0
-const COULEUR_CORPS := Color("e8b923")
-const COULEUR_HUBLOT := Color("3fe0e8")
+# Dessin : sprite pixel art de 20x22 px (une lettre = une couleur de la palette, « . » = transparent)
+const LARGEUR := 20.0
+const HAUTEUR := 22.0
+const MOTIF: PackedStringArray = [
+	"........oooo........",
+	"......ooOOOOoo......",
+	".....oOjjOOOOOo.....",
+	"....oOjjOOOOOOOo....",
+	"....oOjOOOOOOOOo....",
+	"...oOjOOOaaaaOOOo...",
+	"...oOjOOaCCccaOOo...",
+	"...oOjOOaCcccaOOo...",
+	"...oOjOOaccccaOOo...",
+	"...oOjOOOaaaaOOOo...",
+	"...oOOOOOOOOOOOOo...",
+	"..ooOOOOOOOOOOOOoo..",
+	"..oaaaaaaaaaaaaaao..",
+	"..oajajajajajajaao..",
+	"..oaaaaaaaaaaaaaao..",
+	".ooOOOOOOOOOOOOOOoo.",
+	".oOjOOOOOOOOOOOOOOo.",
+	".oOOOOOOOOOOOOOOOOo.",
+	"oOOOOOOOOOOOOOOOOOOo",
+	"oooooooooooooooooooo",
+	".aaaaaaaaaaaaaaaaaa.",
+	"....................",
+]
+const COULEURS_MOTIF := {
+	"o": "or_fonce", "O": "or", "j": "or_clair", "a": "ardoise", "c": "cyan", "C": "cyan_clair",
+}
 
 var controle_actif := true
 var remontee_auto := false
@@ -54,6 +79,4 @@ func _draw() -> void:
 
 ## Dessin de la cloche, réutilisé par l'île et la transition.
 static func dessiner(toile: CanvasItem, centre: Vector2) -> void:
-	var demi := Vector2(LARGEUR, HAUTEUR) / 2.0
-	toile.draw_rect(Rect2(centre - demi, Vector2(LARGEUR, HAUTEUR)), COULEUR_CORPS)
-	toile.draw_rect(Rect2(centre - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), COULEUR_HUBLOT)
+	Pixel.sprite(toile, Pixel.motif(MOTIF, COULEURS_MOTIF), centre)

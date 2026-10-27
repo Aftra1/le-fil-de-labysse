@@ -5,7 +5,7 @@ extends Node
 ## donc ZQSD fonctionne tel quel en AZERTY.
 ## Garde aussi l'inventaire et la liste des ressources (data/ressources.json).
 
-## { id: { "nom": ..., "couleur": ... } }, dans l'ordre d'affichage.
+## { id: { "nom": ..., "couleur": nom dans la palette } }, dans l'ordre d'affichage.
 var ressources: Dictionary = {}
 var inventaire := Inventaire.new()
 
@@ -15,12 +15,19 @@ func _ready() -> void:
 	ressources = Donnees.charger_json("res://data/ressources.json")
 
 
+## Vide les caches de textures générées avant la fermeture (évite les avertissements de fuite).
+func _exit_tree() -> void:
+	ArtIle.vider_cache()
+	ArtAbysse.vider_cache()
+	Pixel.vider_cache()
+
+
 func nom_ressource(id: String) -> String:
 	return str(ressources[id]["nom"]) if ressources.has(id) else id
 
 
 func couleur_ressource(id: String) -> Color:
-	return Color.html(str(ressources[id]["couleur"])) if ressources.has(id) else Color.MAGENTA
+	return Palette.couleur(str(ressources[id]["couleur"])) if ressources.has(id) else Color.MAGENTA
 
 
 func _declarer_actions() -> void:

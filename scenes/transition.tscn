@@ -4,7 +4,3 @@
 
 [node name="Transition" type="Node2D"]
 script = ExtResource("1_transition")
-
-[node name="Fond" type="Node2D" parent="."]
-
-[node name="Avant" type="Node2D" parent="."]
