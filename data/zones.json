@@ -5,7 +5,8 @@
 		"debut_m": 0,
 		"fin_m": 150,
 		"conso_oxygene": 1.0,
-		"gisements": 12,
+		"gisements": 8,
+		"gisements_des_m": 30,
 		"minerai": "cristal_lagon",
 		"paliers": [
 			"lagon.4",
@@ -19,8 +20,9 @@
 		"nom": "Forêt de coraux",
 		"debut_m": 150,
 		"fin_m": 300,
-		"conso_oxygene": 1.4,
+		"conso_oxygene": 1.5,
 		"gisements": 8,
+		"gisements_des_m": 155,
 		"minerai": "corail",
 		"paliers": [
 			"abysse.4",

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Playtest robot : joue N parties complètes (sans fenêtre) et enregistre les mesures dans
-# docs/playtest/mesures-partieN.json ; avec --video, enregistre aussi la séquence de démonstration
-# (Xvfb + Movie Maker) et la convertit en MP4 et en GIF dans docs/playtest/.
+# Playtest robot : joue N parties complètes (sans fenêtre) avec chaque profil (robot parfait, joueur
+# humain) et enregistre les mesures dans docs/playtest/mesures-<profil>-N.json ; avec --video,
+# enregistre aussi la séquence de démonstration (Xvfb + Movie Maker) et la convertit en MP4 et en GIF.
 # Usage : tests/playtest.sh [nombre de parties] [--video]
 #         GODOT=/chemin/vers/godot tests/playtest.sh 4 --video
 set -euo pipefail
@@ -10,11 +10,13 @@ GODOT="${GODOT:-godot}"
 PARTIES="${1:-4}"
 mkdir -p docs/playtest
 
-for i in $(seq 1 "$PARTIES"); do
-	"$GODOT" --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- \
-		--sortie="$PWD/docs/playtest/mesures-partie$i.json" | grep -v "^MESURES" &
+for profil in parfait humain; do
+	for i in $(seq 1 "$PARTIES"); do
+		"$GODOT" --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- --profil="$profil" \
+			--sortie="$PWD/docs/playtest/mesures-$profil-$i.json" | grep -v "^MESURES" &
+	done
+	wait
 done
-wait
 
 if [[ "${2:-}" == "--video" ]]; then
 	TEMP="$(mktemp -d)"

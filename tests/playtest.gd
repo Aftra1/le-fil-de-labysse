@@ -10,8 +10,14 @@ extends SceneTree
 ## touches à la distance de freinage, mine en maintenant E, et remonte quand l'oxygène restant
 ## couvre tout juste la remontée plus une marge (comme un joueur qui surveille sa jauge).
 ##
+## Deux profils (-- --profil=parfait ou --profil=humain) :
+## - parfait : connaît la position de tous les gisements, réagit à chaque image, freine au pixel près ;
+## - humain : ne voit que les gisements à l'écran et éclairés (hors de l'obscurité, ou dans le halo
+##   de la lanterne), explore la zone en zigzag pour les trouver, ne réagit que toutes les 0,3 à 0,6 s,
+##   estime mal ses distances de freinage, garde une marge d'air plus grande et va moins vite à la souris.
+##
 ## Mesures (temps de jeu, 60 images par seconde) écrites dans le fichier passé après « -- » :
-##   godot --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- --sortie=<fichier.json>
+##   godot --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- --profil=humain --sortie=<fichier.json>
 ## Mode vidéo (séquence courte d'environ 40 s, pour Movie Maker) : -- --video
 ## Voir tests/playtest.sh et docs/playtest.md.
 
@@ -20,17 +26,33 @@ const SAUVEGARDE := "user://playtest_sauvegarde.json"
 const DUREE_MAX_S := 3600.0               # garde-fou : une partie ne doit pas dépasser une heure
 const ATTENTE_SIGNALEE_S := 10.0          # attentes « sans rien à faire » rapportées
 
-# Rythme d'un joueur (secondes)
-const GESTE := 0.25                       # déplacer la souris vers une cible
-const CLIC := 0.12                        # durée d'un clic
-const REFLEXION := 0.4                    # petit temps de lecture avant de cliquer dans un menu
-
 # Conduite de la cloche (mêmes valeurs que scripts/bell.gd)
 const VITESSE_CLOCHE := 110.0
 const FREINAGE := 120.0
-const DISTANCE_MINAGE := 18.0             # le jeu permet 28 px ; un joueur se place un peu plus près
-const MARGE_OXYGENE := 8.0                # air gardé en réserve à l'arrivée en surface
-const BLOCAGE_S := 6.0                    # cible abandonnée si on ne s'en approche plus
+
+## Réglages des deux profils. geste : déplacer la souris vers une cible ; clic : durée d'un clic ;
+## reflexion : lecture avant de cliquer dans un menu ; reaction : intervalle entre deux décisions en
+## plongée [min, max] ; erreur_freinage : erreur sur la distance de freinage estimée (±) ;
+## marge_oxygene : air gardé en réserve à l'arrivée en surface ; blocage : abandon d'une cible si on
+## ne s'en approche plus ; connait_gisements : voit tous les gisements, même hors de l'écran ;
+## distance_minage : distance à laquelle on maintient E (le jeu le permet à 28 px et l'affiche) ;
+## approche_douce : près de la cible (APPROCHE px), on n'accélère plus au-delà de VITESSE_APPROCHE,
+## comme un joueur qui tapote les touches pour se placer.
+const PROFILS := {
+	"parfait": {
+		"geste": 0.25, "clic": 0.12, "reflexion": 0.4, "reaction": [0.0, 0.0], "erreur_freinage": 0.0,
+		"marge_oxygene": 8.0, "blocage": 6.0, "connait_gisements": true, "lecture_butin": 1.0,
+		"distance_minage": 18.0, "approche_douce": false,
+	},
+	"humain": {
+		"geste": 0.5, "clic": 0.2, "reflexion": 1.0, "reaction": [0.3, 0.6], "erreur_freinage": 0.4,
+		"marge_oxygene": 25.0, "blocage": 10.0, "connait_gisements": false, "lecture_butin": 2.0,
+		"distance_minage": 24.0, "approche_douce": true,
+	},
+}
+const ECART_VISEE := 6.0                  # le joueur humain vise à quelques pixels près
+const APPROCHE := 70.0
+const VITESSE_APPROCHE := 35.0
 
 # Objectifs, dans l'ordre où un joueur les poursuit
 const OBJECTIFS := [
@@ -42,6 +64,10 @@ const OBJECTIFS := [
 
 var _video := false
 var _sortie := ""
+var _nom_profil := "parfait"
+var _profil: Dictionary = PROFILS["parfait"]
+var _hasard := RandomNumberGenerator.new()
+var _zones: Array = []
 var _game: Node
 var _jeu: Node
 var _ile: Node
@@ -67,6 +93,11 @@ func _initialize() -> void:
 			_video = true
 		elif argument.begins_with("--sortie="):
 			_sortie = argument.trim_prefix("--sortie=")
+		elif argument.begins_with("--profil="):
+			_nom_profil = argument.trim_prefix("--profil=")
+	_profil = PROFILS[_nom_profil]
+	_hasard.randomize()
+	_zones = Donnees.charger_json("res://data/zones.json")
 	_lancer()
 
 
@@ -228,7 +259,7 @@ func _maintenir_sur(source: SourceRessource, id: String) -> void:
 		await _image()
 		limite += 1
 	_bouton_souris(source.position, false)
-	await _attendre(CLIC)
+	await _attendre(_profil["clic"])
 
 
 func _recolter_bassin() -> void:
@@ -238,7 +269,7 @@ func _recolter_bassin() -> void:
 	_bouton_souris(bassin.position, true)
 	await _attendre(1.2)
 	_bouton_souris(bassin.position, false)
-	await _attendre(CLIC)
+	await _attendre(_profil["clic"])
 	_bassin_recolte = _game.inventaire.quantite("cristal_lagon") - avant
 	_noter("Bassin de lumière récolté : +%d cristal de lagon" % _bassin_recolte)
 
@@ -252,7 +283,7 @@ func _fabriquer_tout() -> void:
 		return
 	_fin_attente()
 	await _touche(KEY_C)
-	await _attendre(REFLEXION)
+	await _attendre(_profil["reflexion"])
 	while not plan.is_empty():
 		var onglet: String = plan[0]
 		var id: String = plan[1]
@@ -261,13 +292,13 @@ func _fabriquer_tout() -> void:
 		for bouton in _atelier_ui._liste.get_children():
 			if bouton.get_meta("id") == id and _atelier_ui.selection != id:
 				await _cliquer(_centre(bouton))
-		await _attendre(REFLEXION)
+		await _attendre(_profil["reflexion"])
 		await _cliquer(_centre(_atelier_ui._bouton))
 		_fabrications[id] = int(_fabrications.get(id, 0)) + 1
 		_noter("Atelier : %s" % id)
 		plan = _prochaine_fabrication()
 	await _touche(KEY_C)
-	await _attendre(GESTE)
+	await _attendre(_profil["geste"])
 
 
 ## [onglet, id] de la prochaine fabrication utile, ou [] s'il n'y a rien à faire.
@@ -315,7 +346,8 @@ func _plonger(besoins: Dictionary) -> void:
 	var mesure := {
 		"numero": _plongees.size() + 1, "debut_s": debut, "profondeur_max_m": 0.0, "oxygene_fin": -1.0,
 		"oxygene_max": plongee.oxygene_max, "urgence": false, "gardees": {}, "perdues": {},
-		"cable_m": _game.atelier.longueur_cable_m(), "duree_sous_eau_s": 0.0,
+		"cable_m": _game.atelier.longueur_cable_m(), "duree_sous_eau_s": 0.0, "exploration_s": 0.0,
+		"gisements_vus": 0,
 	}
 	plongee.retour_ile.connect(func(gardees: Dictionary, perdues: Dictionary, urgence: bool) -> void:
 		mesure["oxygene_fin"] = plongee.oxygene
@@ -332,24 +364,43 @@ func _plonger(besoins: Dictionary) -> void:
 	_plongees.append(mesure)
 	_noter("Plongée %d : retour, %s gardé(s), oxygène %.0f/%.0f%s" % [mesure["numero"], str(mesure["gardees"]),
 		mesure["oxygene_fin"], mesure["oxygene_max"], " (REMONTÉE AUTOMATIQUE)" if mesure["urgence"] else ""])
-	await _attendre(1.0)   # le joueur lit l'annonce du butin
+	await _attendre(_profil["lecture_butin"])   # le joueur lit l'annonce du butin
 
 
-## Conduite de la cloche jusqu'au retour en surface.
+## Conduite de la cloche jusqu'au retour en surface. Les décisions (touches, cible, remontée) sont
+## prises toutes les 0,3 à 0,6 s pour le joueur humain, à chaque image pour le robot parfait ;
+## entre deux décisions, les touches restent dans leur état.
 func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 	var cloche: CharacterBody2D = plongee.get_node("Bell")
 	var cible: Node2D = null
 	var meilleure_distance := INF
 	var temps_sans_progres := 0.0
 	var abandonnees: Array = []
+	var vus: Array = []                     # gisements aperçus pendant cette plongée
 	var remonter := false
+	var prochaine_decision := 0.0
+	var derniere_decision := 0.0
+	var en_exploration := false
+	var exploration := {"rang": -1, "sens": 1.0}
 	while _jeu.etat == 2:
 		mesure["profondeur_max_m"] = maxf(mesure["profondeur_max_m"], cloche.position.y / 10.0)
+		if en_exploration:
+			mesure["exploration_s"] += 1.0 / IPS
+		_regarder(plongee, cloche, vus)
+		mesure["gisements_vus"] = vus.size()
+		if _secondes() < prochaine_decision:
+			await _image()
+			continue
+		var reaction: Array = _profil["reaction"]
+		var ecoule := _secondes() - derniere_decision
+		derniere_decision = _secondes()
+		prochaine_decision = _secondes() + _hasard.randf_range(reaction[0], reaction[1])
+		en_exploration = false
 		var sac: Dictionary = plongee._sac.compter()
 		var voulus := _voulus(besoins, sac)
 		if not remonter:
 			remonter = plongee._sac.est_plein() or voulus.is_empty() \
-				or plongee.oxygene < _oxygene_pour_remonter(cloche.position.y) + _temps_vers(cloche, cible) * 1.7
+				or plongee.oxygene < _oxygene_pour_remonter(cloche.position.y) + _temps_vers(cloche, cible) * 1.8
 		if remonter:
 			_touche_maintenue(KEY_E, false)
 			# La plongée ne compte qu'après être descendu sous 10 m : sinon, on y descend d'abord.
@@ -360,31 +411,81 @@ func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 		if cible == null or not is_instance_valid(cible) or cible.is_queued_for_deletion() \
 				or not voulus.has(cible.minerai):
 			_touche_maintenue(KEY_E, false)
-			cible = _choisir_gisement(plongee, cloche, voulus, abandonnees)
+			cible = _choisir_gisement(plongee, cloche, voulus, abandonnees, vus)
 			meilleure_distance = INF
 			temps_sans_progres = 0.0
 			if cible == null:
-				remonter = true
+				# Rien de connu : le joueur humain explore ; le robot parfait n'a plus rien à chercher.
+				var point := _point_exploration(plongee, cloche, voulus, exploration)
+				if point == Vector2.INF:
+					remonter = true
+				else:
+					en_exploration = true
+					_diriger(cloche, point)
+				await _image()
 				continue
 		var distance := cloche.position.distance_to(cible.position)
 		if distance < meilleure_distance - 1.0:
 			meilleure_distance = distance
 			temps_sans_progres = 0.0
 		else:
-			temps_sans_progres += 1.0 / IPS
-		if distance <= DISTANCE_MINAGE or (Input.is_physical_key_pressed(KEY_E) and distance <= 26.0):
+			temps_sans_progres += ecoule
+		if distance < 60.0:
+			mesure["proche_s"] = float(mesure.get("proche_s", 0.0)) + ecoule
+		if distance <= float(_profil["distance_minage"]) or (Input.is_physical_key_pressed(KEY_E) and distance <= 26.0):
 			_diriger(cloche, cloche.position)   # lâcher les flèches, la cloche se stabilise en minant
 			_touche_maintenue(KEY_E, true)
 			temps_sans_progres = 0.0
 		else:
 			_touche_maintenue(KEY_E, false)
 			_diriger(cloche, cible.position)
-			if temps_sans_progres > BLOCAGE_S:
+			if temps_sans_progres > float(_profil["blocage"]):
 				abandonnees.append(cible)
 				cible = null
 		await _image()
 	_touche_maintenue(KEY_E, false)
-	mesure["urgence"] = mesure["urgence"] or false
+
+
+## Gisements visibles à l'écran et éclairés : hors de l'obscurité, ou dans le halo de la lanterne.
+func _regarder(plongee: Node, cloche: Node2D, vus: Array) -> void:
+	var haut: float = plongee._camera.y
+	var rayon: float = (_game.atelier.rayon_halo() + ArtAbysse.ANNEAU_HALO) * 2.0   # monde ×2 → 640x360
+	for enfant in plongee.get_node("Gisements").get_children():
+		if enfant.is_queued_for_deletion() or vus.has(enfant):
+			continue
+		var y: float = enfant.position.y
+		if y < haut or y > haut + 360.0:
+			continue
+		var sombre := ArtAbysse.niveau_obscurite(y / 10.0, _game.atelier.obscurite_max()) > 0
+		if sombre and cloche.position.distance_to(enfant.position) > rayon:
+			continue
+		vus.append(enfant)
+
+
+## Prochain point de l'exploration en zigzag (rangées horizontales de plus en plus profondes) dans la
+## bande où l'on trouve le minerai voulu ; Vector2.INF quand toute la bande a été parcourue.
+func _point_exploration(plongee: Node, cloche: Node2D, voulus: Dictionary, etat: Dictionary) -> Vector2:
+	if _profil["connait_gisements"]:
+		return Vector2.INF
+	var minerai := "corail" if voulus.has("corail") and plongee.limite_px > 1550.0 else "cristal_lagon"
+	if not voulus.has(minerai):
+		return Vector2.INF
+	var zone: Dictionary = _zones[1] if minerai == "corail" else _zones[0]
+	var haut := float(zone.get("gisements_des_m", zone["debut_m"])) * 10.0
+	var bas := minf(float(zone["fin_m"]) * 10.0, plongee.limite_px)
+	var sombre := ArtAbysse.niveau_obscurite(haut / 10.0, _game.atelier.obscurite_max()) > 0
+	var ecart: float = (_game.atelier.rayon_halo() * 2.0 + 20.0) * 1.6 if sombre else 260.0
+	if etat["rang"] < 0:
+		etat["rang"] = 0
+		etat["sens"] = -1.0 if cloche.position.x > 0.0 else 1.0
+	var y: float = haut + 40.0 + ecart * float(etat["rang"])
+	if y > bas + 20.0:
+		return Vector2.INF
+	var but := Vector2(240.0 * float(etat["sens"]), minf(y, bas))
+	if cloche.position.distance_to(but) < 40.0:
+		etat["rang"] = int(etat["rang"]) + 1
+		etat["sens"] = -float(etat["sens"])
+	return but
 
 
 ## Minerais encore voulus pendant cette plongée : { id: nombre }.
@@ -398,14 +499,17 @@ func _voulus(besoins: Dictionary, sac: Dictionary) -> Dictionary:
 
 
 ## Gisement voulu le plus proche, atteignable avec le câble ; le corail passe avant le cristal.
-func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abandonnees: Array) -> Node2D:
+## Le joueur humain ne choisit que parmi les gisements qu'il a aperçus.
+func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abandonnees: Array, vus: Array) -> Node2D:
 	var limite: float = plongee.limite_px + 24.0
+	var connus: Array = plongee.get_node("Gisements").get_children() if _profil["connait_gisements"] else vus
 	for minerai: String in ["corail", "cristal_lagon"]:
 		if not voulus.has(minerai):
 			continue
 		var meilleur: Node2D = null
-		for enfant in plongee.get_node("Gisements").get_children():
-			if enfant.is_queued_for_deletion() or enfant.minerai != minerai or abandonnees.has(enfant):
+		for enfant in connus:
+			if not is_instance_valid(enfant) or enfant.is_queued_for_deletion() or enfant.minerai != minerai \
+					or abandonnees.has(enfant):
 				continue
 			if enfant.position.y > limite:
 				continue
@@ -418,9 +522,12 @@ func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abando
 
 ## Oxygène qu'un joueur prudent garde pour remonter d'ici (consommation de chaque zone + marge).
 func _oxygene_pour_remonter(y: float) -> float:
-	var dans_coraux := maxf(y - 1500.0, 0.0)
-	var dans_lagon := minf(y, 1500.0)
-	return (dans_coraux / VITESSE_CLOCHE) * 1.2 * 1.4 + (dans_lagon / VITESSE_CLOCHE) * 1.2 + 1.0 + MARGE_OXYGENE
+	var debut_coraux := float(_zones[1]["debut_m"]) * 10.0
+	var dans_coraux := maxf(y - debut_coraux, 0.0)
+	var dans_lagon := minf(y, debut_coraux)
+	var conso := 1.2   # CONSOMMATION_PAR_S de dive.gd
+	return (dans_coraux / VITESSE_CLOCHE) * conso * float(_zones[1]["conso_oxygene"]) \
+		+ (dans_lagon / VITESSE_CLOCHE) * conso * float(_zones[0]["conso_oxygene"]) + 1.0 + float(_profil["marge_oxygene"])
 
 
 func _temps_vers(cloche: Node2D, cible: Variant) -> float:
@@ -431,6 +538,8 @@ func _temps_vers(cloche: Node2D, cible: Variant) -> float:
 
 ## Appuie sur les touches de direction pour aller vers « but », en relâchant à la distance de freinage.
 func _diriger(cloche: CharacterBody2D, but: Vector2) -> void:
+	if float(_profil["erreur_freinage"]) > 0.0 and but != cloche.position:
+		but += Vector2(_hasard.randf_range(-ECART_VISEE, ECART_VISEE), _hasard.randf_range(-ECART_VISEE, ECART_VISEE))
 	var ecart := but - cloche.position
 	var vitesse := cloche.velocity
 	_touche_maintenue(KEY_D, _pousser(ecart.x, vitesse.x))
@@ -443,7 +552,11 @@ func _diriger(cloche: CharacterBody2D, but: Vector2) -> void:
 func _pousser(distance: float, vitesse: float) -> bool:
 	if distance <= 4.0:
 		return false
+	if _profil["approche_douce"] and distance < APPROCHE and vitesse > VITESSE_APPROCHE:
+		return false
 	var freinage := maxf(vitesse, 0.0) * maxf(vitesse, 0.0) / (2.0 * FREINAGE)
+	var erreur := float(_profil["erreur_freinage"])
+	freinage *= 1.0 + _hasard.randf_range(-erreur, erreur)
 	return distance > freinage + 4.0
 
 
@@ -508,6 +621,7 @@ func _noter(texte: String) -> void:
 
 func _ecrire_mesures() -> void:
 	var mesures := {
+		"profil": _nom_profil,
 		"duree_totale_s": _secondes(),
 		"temps_s": {
 			"titre": _temps["titre"] / IPS, "ile": _temps["ile"] / IPS,
@@ -568,7 +682,7 @@ func _deplacer_souris(point: Vector2) -> void:
 	mouvement.position = _vers_fenetre(point)
 	mouvement.global_position = mouvement.position
 	Input.parse_input_event(mouvement)
-	await _attendre(GESTE)
+	await _attendre(_profil["geste"])
 
 
 func _bouton_souris(point: Vector2, appuye: bool) -> void:
@@ -590,9 +704,9 @@ func _cliquer(point: Vector2, avec_geste: bool = true) -> void:
 		Input.parse_input_event(mouvement)
 		await _image()
 	_bouton_souris(point, true)
-	await _attendre(CLIC / 2.0)
+	await _attendre(_profil["clic"] / 2.0)
 	_bouton_souris(point, false)
-	await _attendre(CLIC / 2.0)
+	await _attendre(_profil["clic"] / 2.0)
 
 
 ## Appui bref sur une touche physique.

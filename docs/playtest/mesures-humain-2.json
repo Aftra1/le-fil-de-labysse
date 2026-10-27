@@ -1,0 +1,185 @@
+{
+	"ameliorations": {
+		"cable": 1,
+		"lanterne": 1,
+		"reservoir": 1
+	},
+	"attentes": [],
+	"bassin_recolte": 1,
+	"duree_totale_s": 209.916666666667,
+	"evenements": [
+		[
+			1.7,
+			"Nouvelle partie"
+		],
+		[
+			14.1333333333333,
+			"Plongée 1 : départ (besoins { \"cristal_lagon\": 8, \"corail\": 7, \"nuage\": 11, \"vent\": 11 })"
+		],
+		[
+			55.0166666666667,
+			"Plongée 1 : retour, { \"cristal_lagon\": 8 } gardé(s), oxygène 57/100"
+		],
+		[
+			59.85,
+			"Atelier : fil_nuage"
+		],
+		[
+			61.55,
+			"Atelier : fil_nuage"
+		],
+		[
+			70.1,
+			"Atelier : fil_nuage"
+		],
+		[
+			72.5,
+			"Atelier : cable"
+		],
+		[
+			75.6,
+			"Atelier : lentille"
+		],
+		[
+			78.0,
+			"Atelier : poche_air"
+		],
+		[
+			80.4,
+			"Atelier : fil_nuage"
+		],
+		[
+			82.1,
+			"Atelier : fil_nuage"
+		],
+		[
+			84.1333333333333,
+			"Plongée 2 : départ (besoins { \"corail\": 7, \"vent\": 3 })"
+		],
+		[
+			141.966666666667,
+			"Plongée 2 : retour, { \"corail\": 5 } gardé(s), oxygène 25/100"
+		],
+		[
+			148.2,
+			"Atelier : lanterne"
+		],
+		[
+			150.233333333333,
+			"Plongée 3 : départ (besoins { \"corail\": 2 })"
+		],
+		[
+			191.55,
+			"Plongée 3 : retour, { \"corail\": 2 } gardé(s), oxygène 51/100"
+		],
+		[
+			197.783333333333,
+			"Atelier : poche_air"
+		],
+		[
+			200.883333333333,
+			"Atelier : reservoir"
+		],
+		[
+			203.283333333333,
+			"Atelier : fil_nuage"
+		],
+		[
+			204.983333333333,
+			"Atelier : fil_nuage"
+		],
+		[
+			207.383333333333,
+			"Atelier : passerelle"
+		],
+		[
+			208.016666666667,
+			"Toutes les améliorations et la passerelle sont installées"
+		],
+		[
+			209.916666666667,
+			"Bassin de lumière récolté : +1 cristal de lagon"
+		]
+	],
+	"fabrications": {
+		"cable": 1,
+		"fil_nuage": 7,
+		"lanterne": 1,
+		"lentille": 1,
+		"passerelle": 1,
+		"poche_air": 2,
+		"reservoir": 1
+	},
+	"ilots": [
+		"ilot_est"
+	],
+	"inventaire_final": {
+		"cristal_lagon": 1,
+		"vent": 3
+	},
+	"manques_s": {},
+	"plongees": [
+		{
+			"cable_m": 150.0,
+			"debut_s": 13.4333333333333,
+			"duree_sous_eau_s": 36.0833333333333,
+			"duree_totale_s": 41.5833333333333,
+			"exploration_s": 12.9666666666669,
+			"gardees": {
+				"cristal_lagon": 8
+			},
+			"gisements_vus": 4,
+			"numero": 1,
+			"oxygene_fin": 57.4566666666727,
+			"oxygene_max": 100.0,
+			"perdues": {},
+			"proche_s": 13.6833333333333,
+			"profondeur_max_m": 86.3612976074219,
+			"urgence": false
+		},
+		{
+			"cable_m": 300.0,
+			"debut_s": 83.4333333333333,
+			"duree_sous_eau_s": 53.0333333333333,
+			"duree_totale_s": 58.5333333333333,
+			"exploration_s": 21.75,
+			"gardees": {
+				"corail": 5
+			},
+			"gisements_vus": 9,
+			"numero": 2,
+			"oxygene_fin": 25.0566666666678,
+			"oxygene_max": 100.0,
+			"perdues": {},
+			"proche_s": 11.5333333333333,
+			"profondeur_max_m": 177.806213378906,
+			"urgence": false
+		},
+		{
+			"cable_m": 300.0,
+			"debut_s": 149.533333333333,
+			"duree_sous_eau_s": 38.7333333333333,
+			"duree_totale_s": 42.0166666666667,
+			"exploration_s": 18.2000000000002,
+			"gardees": {
+				"corail": 2
+			},
+			"gisements_vus": 4,
+			"numero": 3,
+			"oxygene_fin": 50.9066666666693,
+			"oxygene_max": 100.0,
+			"perdues": {},
+			"proche_s": 3.18333333333334,
+			"profondeur_max_m": 162.872448730469,
+			"urgence": false
+		}
+	],
+	"profil": "humain",
+	"temps_s": {
+		"ile": 67.7333333333333,
+		"plongee": 127.85,
+		"titre": 1.6,
+		"transition": 12.7333333333333
+	},
+	"termine": true
+}

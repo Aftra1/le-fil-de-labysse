@@ -1,7 +1,7 @@
 {
 	"composants": {
 		"fil_nuage": { "ingredients": { "nuage": 3, "vent": 1 } },
-		"lentille": { "ingredients": { "cristal_solaire": 2, "cristal_lagon": 2 } },
+		"lentille": { "ingredients": { "cristal_solaire": 2, "cristal_lagon": 1 } },
 		"poche_air": { "ingredients": { "vent": 3, "nuage": 1 } }
 	},
 	"ameliorations": {
@@ -20,7 +20,7 @@
 		"reservoir": {
 			"nom": "Réservoir d'air",
 			"niveaux": [
-				{ "ingredients": { "poche_air": 2, "cristal_lagon": 4, "corail": 2 }, "effet": "Oxygène : 100 → 150" }
+				{ "ingredients": { "poche_air": 2, "cristal_lagon": 3, "corail": 2 }, "effet": "Oxygène : 100 → 150" }
 			]
 		}
 	},

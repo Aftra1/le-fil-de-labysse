@@ -2,8 +2,8 @@
 	"eolienne": {
 		"ressource": "vent",
 		"position": [206, 150],
-		"plafond": 5,
-		"recharge_s": 12.0,
+		"plafond": 6,
+		"recharge_s": 8.0,
 		"stock_initial": 2
 	},
 	"filons": {

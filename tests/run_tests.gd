@@ -359,9 +359,10 @@ func _test_budget_oxygene() -> void:
 	print("   300 m : %.1f s, oxygène restant %.1f" % [t_300, o2_300])
 	print("   retour en surface : %.1f s, oxygène restant %.1f" % [t_retour, o2_retour])
 	_verifier(absf(t_150 - 13.9) < 0.6 and absf(o2_150 - 83.6) < 1.5, "budget : 150 m ≈ 13,9 s, ≈ 84 d'oxygène")
-	_verifier(absf(t_300 - 27.5) < 0.8 and absf(o2_300 - 60.7) < 1.5, "budget : 300 m ≈ 27,5 s, ≈ 61 d'oxygène")
+	_verifier(absf(t_300 - 27.5) < 0.8 and absf(o2_300 - 59.1) < 1.5, "budget : 300 m ≈ 27,5 s, ≈ 59 d'oxygène")
 	_verifier(not auto and o2_retour > 15.0, "budget : l'aller-retour à 300 m se fait sans remontée d'urgence")
-	var secondes_de_minage: float = o2_retour / (_dive_script.CONSOMMATION_PAR_S * 1.4)
+	var conso_coraux := float(Donnees.charger_json("res://data/zones.json")[1]["conso_oxygene"])
+	var secondes_de_minage: float = o2_retour / (_dive_script.CONSOMMATION_PAR_S * conso_coraux)
 	_verifier(secondes_de_minage >= 8.0, "budget : au moins 8 s de minage possibles en zone 2", "%.1f s" % secondes_de_minage)
 	await _terminer()
 
@@ -404,6 +405,9 @@ func _test_placement() -> void:
 	var x_max := 0.0
 	var y_max := 0.0
 	var comptes_ok := true
+	var zones: Array = Donnees.charger_json("res://data/zones.json")
+	var y_min_cristal := 1e9
+	var y_min_corail := 1e9
 	for generation in 5:
 		await _demarrer()
 		var liste := _gisements()
@@ -415,16 +419,22 @@ func _test_placement() -> void:
 			x_max = maxf(x_max, absf(gisement.position.x))
 			if gisement.minerai == "cristal_lagon":
 				cristaux += 1
+				y_min_cristal = minf(y_min_cristal, gisement.position.y)
 				comptes_ok = comptes_ok and gisement.position.y < 1500.0
 			else:
 				coraux += 1
+				y_min_corail = minf(y_min_corail, gisement.position.y)
 				comptes_ok = comptes_ok and gisement.position.y >= 1500.0
-		comptes_ok = comptes_ok and cristaux == 12 and coraux == 8
+		comptes_ok = comptes_ok and cristaux == int(zones[0]["gisements"]) and coraux == int(zones[1]["gisements"])
 		for i in liste.size():
 			for j in range(i + 1, liste.size()):
 				ecart_min = minf(ecart_min, liste[i].position.distance_to(liste[j].position))
 		await _terminer()
-	_verifier(comptes_ok, "placement : 12 cristaux en zone 1, 8 coraux en zone 2 (5 tirages)")
+	_verifier(comptes_ok, "placement : %d cristaux en zone 1, %d coraux en zone 2 (5 tirages)"
+		% [int(zones[0]["gisements"]), int(zones[1]["gisements"])])
+	_verifier(y_min_cristal >= 300.0, "placement : cristaux de lagon à partir de 30 m", "y min %.0f px" % y_min_cristal)
+	_verifier(y_min_corail >= 1550.0, "placement : coraux à partir de 155 m (hors de portée du câble de 150 m)",
+		"y min %.0f px" % y_min_corail)
 	_verifier(ecart_min >= _dive_script.ESPACEMENT_MIN, "placement : espacement ≥ 40 px", "min %.1f px" % ecart_min)
 	_verifier(y_min >= _dive_script.DISTANCE_MIN_SURFACE, "placement : aucun gisement dans les 10 premiers mètres", "y min %.0f px" % y_min)
 	_verifier(x_max <= Cloche.DEMI_LARGEUR_ZONE - _dive_script.MARGE_BORD, "placement : marge par rapport aux bords", "x max %.0f px" % x_max)
@@ -1312,13 +1322,13 @@ func _test_sauvegarde_jeu() -> void:
 	_verifier(jeu.partie_en_cours and not paused, "Continuer : la partie reprend (jeu non figé)")
 	await _fermer_jeu(jeu)
 
-	# Jeu fermé 30 s : l'éolienne (1 vent / 12 s) gagne 2 vents ; filons (1 / 20 s) : 1 cristal.
+	# Jeu fermé 30 s : l'éolienne (1 vent / 8 s) gagne 3 vents ; filons (1 / 20 s) : 1 cristal.
 	Sauvegarde.ecrire(partie, Time.get_unix_time_from_system() - 30.0)
 	jeu = await _ouvrir_jeu(true)
 	jeu.continuer()
 	await _images(2)
 	ile = jeu.get_node("Ile")
-	_verifier(ile._eolienne.stock == 3 and ile._filons[0].stock == 1, "hors jeu (30 s) : les sources ont rattrapé le temps",
+	_verifier(ile._eolienne.stock == 4 and ile._filons[0].stock == 1, "hors jeu (30 s) : les sources ont rattrapé le temps",
 		"éolienne %d, filon %d" % [ile._eolienne.stock, ile._filons[0].stock])
 	await _fermer_jeu(jeu)
 
