@@ -1,15 +1,11 @@
 {
-	"cristal": {
-		"nom": "Cristal de lagon",
-		"couleur": "#7ff0ff",
+	"cristal_lagon": {
 		"valeur": 1,
 		"duree_minage": 1.0,
 		"stock_min": 3,
 		"stock_max": 5
 	},
 	"corail": {
-		"nom": "Corail luisant",
-		"couleur": "#ff7fb0",
 		"valeur": 3,
 		"duree_minage": 1.0,
 		"stock_min": 3,

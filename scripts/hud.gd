@@ -1,6 +1,6 @@
 class_name Interface
 extends CanvasLayer
-## Interface de plongée : oxygène, profondeur, zone, sac, stock de l'île et messages.
+## Interface de plongée : oxygène, profondeur, zone, sac et messages.
 
 const POSITION_BARRE := Vector2(8.0, 8.0)
 const TAILLE_BARRE := Vector2(120.0, 8.0)
@@ -19,7 +19,6 @@ var _remplissage := ColorRect.new()
 var _profondeur := Label.new()
 var _zone := Label.new()
 var _sac := Label.new()
-var _stock := Label.new()
 var _annonce := Label.new()
 var _message := Label.new()
 var _annonce_restante := 0.0
@@ -39,10 +38,6 @@ func _ready() -> void:
 	_placer(_profondeur, Vector2(8.0, 22.0))
 	_placer(_zone, Vector2(8.0, 36.0))
 	_placer(_sac, Vector2(8.0, 50.0))
-
-	_placer(_stock, Vector2(LARGEUR_ECRAN - 308.0, 8.0))
-	_stock.size.x = 300.0
-	_stock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 	_placer(_annonce, Vector2(0.0, 36.0), TAILLE_POLICE_ANNONCE)
 	_annonce.size.x = LARGEUR_ECRAN
@@ -70,10 +65,6 @@ func mettre_a_jour(ratio_oxygene: float, profondeur_m: float, nom_zone: String, 
 
 func definir_sac(texte: String) -> void:
 	_sac.text = texte
-
-
-func definir_stock(texte: String) -> void:
-	_stock.text = texte
 
 
 ## Affiche un message temporaire au centre en haut.

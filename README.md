@@ -13,6 +13,19 @@ En ligne de commande : `godot --path .` (ou `godot --headless --path . --quit-af
 
 ## Contrôles
 
+Sur l'île (à la souris) :
+
+| Action | Commande |
+|---|---|
+| Récolter un nuage | Clic sur le nuage |
+| Vider l'éolienne (vent) | Clic sur l'éolienne |
+| Récolter un cristal solaire | Maintenir le clic sur un filon (1 s) |
+| Plonger | Clic sur la cloche, ou E / Espace |
+| Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
+| Passer la transition | N'importe quelle touche ou un clic |
+
+En plongée :
+
 | Action | Touches |
 |---|---|
 | Se déplacer | ZQSD (AZERTY) / WASD / flèches |
@@ -20,6 +33,7 @@ En ligne de commande : `godot --path .` (ou `godot --headless --path . --quit-af
 | Quitter | Échap |
 
 Les touches sont physiques : ZQSD fonctionne sur un clavier AZERTY.
+La plongée se termine quand la cloche revient en surface après être descendue sous 10 m.
 
 ## Tests
 
@@ -32,7 +46,7 @@ godot --headless --path . --fixed-fps 60 --script res://tests/run_tests.gd
 ou `tests/lancer.sh` (variable `GODOT=/chemin/vers/godot` si `godot` n'est pas dans le PATH).
 Code de sortie 0 si tout passe, 1 sinon. Durée : quelques secondes.
 
-Captures d'écran automatiques (Xvfb + rendu logiciel Mesa), enregistrées dans `docs/captures/` :
+Captures d'écran automatiques (Xvfb + rendu logiciel Mesa), enregistrées dans `docs/captures/` (01-05 : plongée, 06-13 : île et transitions) :
 
 ```
 tests/captures.sh
@@ -40,9 +54,9 @@ tests/captures.sh
 
 ## Structure
 
-- `scenes/`, `scripts/` : scènes et code (`scripts/autoload/game.gd` = contrôles centralisés)
+- `scenes/`, `scripts/` : scènes et code (`jeu.tscn` = scène principale, `scripts/autoload/game.gd` = contrôles et inventaire)
 - `assets/` : sprites, audio, polices
 - `data/` : données de jeu
 - `tests/` : tests de logique et captures d'écran
-- `docs/captures/` : captures générées par `tests/captures.sh`
+- `docs/captures/` : captures générées par `tests/captures.sh` (dossier ignoré par Godot grâce à `docs/.gdignore`)
 - `builds/` : exports (ignorés par git)

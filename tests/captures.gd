@@ -1,8 +1,8 @@
 extends SceneTree
-## Joue un scénario automatique et enregistre 5 captures PNG dans docs/captures/.
+## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
+## 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
 ## Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
-const SCENE_PLONGEE := "res://scenes/dive.tscn"
 const DOSSIER := "res://docs/captures/"
 const ECHELLE := 2  # 640x360 agrandi ×2 en « plus proche voisin » pour rester lisible
 
@@ -11,56 +11,125 @@ var _bell: CharacterBody2D
 
 
 func _initialize() -> void:
-	_scenario()
+	_scenarios()
 
 
-func _scenario() -> void:
+func _scenarios() -> void:
 	await process_frame
-	_plongee = load(SCENE_PLONGEE).instantiate()
+	await _scenario_plongee()
+	await _scenario_jeu()
+	quit(0)
+
+
+# --- 01-05 : plongée seule ------------------------------------------------------
+
+func _scenario_plongee() -> void:
+	_plongee = load("res://scenes/dive.tscn").instantiate()
 	root.add_child(_plongee)
 	_bell = _plongee.get_node("Bell")
 	await _images(30)
 
-	# 1. En surface
 	await _capturer("01-surface")
 
-	# 2. Zone 1 : un gisement de cristal en vue, cloche juste à côté (hors de portée)
-	var cristal := _gisement_proche("cristal", 450.0)
+	var cristal := _gisement_proche("cristal_lagon", 450.0)
 	_placer_pres_de(cristal, Vector2(-48.0, -22.0))
 	await _images(20)
 	await _capturer("02-zone1-gisement")
 
-	# 3. Minage en cours : cloche sur le gisement, touche interact maintenue
 	_placer_pres_de(cristal, Vector2(18.0, 8.0))
 	Input.action_press("interact")
 	await _images(33)
 	await _capturer("03-minage-jauge")
 	Input.action_release("interact")
 
-	# 4. Zone 2 : un gisement de corail, annonce du nom de la zone
 	var corail := _gisement_proche("corail", 2200.0)
 	_placer_pres_de(corail, Vector2(-48.0, -22.0))
 	await _images(20)
 	await _capturer("04-zone2")
 
-	# 5. Remontée automatique avec un sac plein : message de perte en surface
+	# Remontée automatique en cours (le message de perte s'affiche désormais sur l'île : capture 13)
 	for i in 5:
-		_plongee._sac.ajouter("cristal")
-	for i in 3:
-		_plongee._sac.ajouter("corail")
+		_plongee._sac.ajouter("cristal_lagon")
 	_plongee._rafraichir_sac()
 	_plongee.oxygene = 0.0
-	var images := 0
-	while images < 60 * 60:
+	await _images(90)
+	await _capturer("05-remontee-automatique")
+
+	root.remove_child(_plongee)
+	_plongee.queue_free()
+	await _images(2)
+
+
+# --- 06-13 : jeu complet -------------------------------------------------------------
+
+func _scenario_jeu() -> void:
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	root.add_child(jeu)
+	var ile: Node = jeu.get_node("Ile")
+	var transition: Node = jeu.get_node("Transition")
+	await _images(30)
+	await _capturer("06-ile")
+
+	# Récolte : éolienne et un nuage d'un clic, puis un filon en maintenant le clic
+	var eolienne: Node2D = ile._eolienne
+	await _cliquer(eolienne.position)
+	var nuage: Node2D = ile.get_node("Nuages").get_child(0)
+	await _cliquer(nuage.position)
+	var filon: Node2D = ile._filons[1]
+	_souris(filon.position)
+	await _images(2)
+	_bouton(filon.position, true)
+	await _images(33)
+	await _capturer("07-recolte-filon")
+	await _images(40)
+	_bouton(filon.position, false)
+	await _images(5)
+
+	_touche(KEY_I)
+	await _images(5)
+	await _capturer("08-inventaire")
+	_touche(KEY_I)
+	await _images(5)
+
+	# Descente : clic sur la cloche, images figées à 25 % et 75 %
+	_souris(Vector2(320, 318))
+	await _images(2)
+	await _cliquer(Vector2(320, 318))
+	transition.afficher_image(0.25)
+	await _images(2)
+	await _capturer("09-descente-25")
+	transition.afficher_image(0.75)
+	await _images(2)
+	await _capturer("10-descente-75")
+	transition.reprendre()
+	while jeu.etat != 2:  # PLONGEE
 		await _images(1)
-		images += 1
-		if images > 5 and not _bell.remontee_auto:
-			break
-	await _images(15)
-	await _capturer("05-perte-de-butin")
+	await _images(2)
+	await _capturer("11-plongee-arrivee")
 
-	quit(0)
+	# Remontée d'urgence avec un sac plein : image figée à 50 %, puis retour sur l'île
+	var plongee: Node = jeu.plongee()
+	plongee.get_node("Bell").position.y = 400.0
+	for i in 5:
+		plongee._sac.ajouter("cristal_lagon")
+	for i in 3:
+		plongee._sac.ajouter("corail")
+	plongee._rafraichir_sac()
+	await _images(5)
+	plongee.oxygene = 0.0
+	while jeu.etat != 3:  # REMONTEE
+		await _images(1)
+	transition.afficher_image(0.5)
+	await _images(2)
+	await _capturer("12-remontee-50")
+	transition.reprendre()
+	while jeu.etat != 0:  # ILE
+		await _images(1)
+	await _images(10)
+	await _capturer("13-retour-ile-perte")
 
+
+# --- Outils --------------------------------------------------------------------------
 
 func _images(nombre: int) -> void:
 	for i in nombre:
@@ -80,6 +149,44 @@ func _gisement_proche(minerai: String, profondeur_px: float) -> Node2D:
 func _placer_pres_de(gisement: Node2D, decalage: Vector2) -> void:
 	_bell.position = gisement.position + decalage
 	_bell.velocity = Vector2.ZERO
+
+
+## Les évènements souris sont envoyés en coordonnées fenêtre (le jeu les ramène en 640x360).
+func _vers_fenetre(point: Vector2) -> Vector2:
+	return root.get_final_transform() * point
+
+
+func _souris(point: Vector2) -> void:
+	var mouvement := InputEventMouseMotion.new()
+	mouvement.position = _vers_fenetre(point)
+	mouvement.global_position = mouvement.position
+	Input.parse_input_event(mouvement)
+
+
+func _bouton(point: Vector2, appuye: bool) -> void:
+	var bouton := InputEventMouseButton.new()
+	bouton.button_index = MOUSE_BUTTON_LEFT
+	bouton.pressed = appuye
+	bouton.position = _vers_fenetre(point)
+	bouton.global_position = bouton.position
+	Input.parse_input_event(bouton)
+
+
+func _cliquer(point: Vector2) -> void:
+	_souris(point)
+	await _images(2)
+	_bouton(point, true)
+	await _images(2)
+	_bouton(point, false)
+	await _images(2)
+
+
+func _touche(code: Key) -> void:
+	for appuye in [true, false]:
+		var touche := InputEventKey.new()
+		touche.physical_keycode = code
+		touche.pressed = appuye
+		Input.parse_input_event(touche)
 
 
 func _capturer(nom: String) -> void:

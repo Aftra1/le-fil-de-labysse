@@ -1,0 +1,28 @@
+{
+	"eolienne": {
+		"ressource": "vent",
+		"position": [206, 150],
+		"plafond": 5,
+		"recharge_s": 12.0,
+		"stock_initial": 2
+	},
+	"filons": {
+		"ressource": "cristal_solaire",
+		"positions": [[292, 192], [356, 191], [424, 192]],
+		"plafond": 3,
+		"recharge_s": 20.0,
+		"duree_maintien": 1.0,
+		"stock_initial": 3
+	},
+	"nuages": {
+		"ressource": "nuage",
+		"prises": 3,
+		"maximum": 4,
+		"minimum": 2,
+		"apparition_s": 3.0,
+		"vitesse_min": 5.0,
+		"vitesse_max": 11.0,
+		"y_min": 34.0,
+		"y_max": 112.0
+	}
+}

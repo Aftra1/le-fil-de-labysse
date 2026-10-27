@@ -38,10 +38,10 @@ var grise := false:
 			queue_redraw()
 
 
-func configurer(id_minerai: String, donnees: Dictionary, stock_initial: int) -> void:
+func configurer(id_minerai: String, teinte: Color, duree: float, stock_initial: int) -> void:
 	minerai = id_minerai
-	couleur = Color.html(str(donnees["couleur"]))
-	duree_minage = float(donnees["duree_minage"])
+	couleur = teinte
+	duree_minage = duree
 	stock = stock_initial
 
 

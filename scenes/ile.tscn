@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ile.gd" id="1_ile"]
+[ext_resource type="Script" path="res://scripts/hud_ile.gd" id="2_hud"]
+[ext_resource type="Script" path="res://scripts/inventaire_ui.gd" id="3_inventaire"]
+
+[node name="Ile" type="Node2D"]
+script = ExtResource("1_ile")
+
+[node name="Sources" type="Node2D" parent="."]
+
+[node name="Nuages" type="Node2D" parent="."]
+
+[node name="Effets" type="Node2D" parent="."]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("2_hud")
+
+[node name="Inventaire" type="CanvasLayer" parent="."]
+script = ExtResource("3_inventaire")
