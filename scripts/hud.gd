@@ -2,6 +2,7 @@ class_name Interface
 extends CanvasLayer
 ## Interface de plongée (640x360) : oxygène, profondeur, zone, sac, annonces et messages.
 ## Cadres en métal sombre avec une lueur cyan (ArtAbysse.cadre), texte cyan clair.
+## glisser() fait entrer ou sortir les panneaux par les bords de l'écran (transitions), au pixel près.
 
 const MARGE := 6.0
 const TAILLE_BARRE := Vector2(140.0, 10.0)
@@ -11,6 +12,7 @@ const COULEUR_TEXTE := "cyan.3"
 
 var _remplissage := ColorRect.new()
 var _reflet := ColorRect.new()
+var _etat: PanelContainer
 var _profondeur: Label
 var _zone: Label
 var _sac: Label
@@ -19,10 +21,13 @@ var _annonce: Label
 var _message_panneau: PanelContainer
 var _message: Label
 var _annonce_restante := 0.0
+var _glissement := 1.0
+var _bases: Dictionary = {}       # panneau -> Vector4 (offsets gauche, haut, droite, bas en place)
 
 
 func _ready() -> void:
-	var etat := _panneau()
+	_etat = _panneau()
+	var etat := _etat
 	var colonne := VBoxContainer.new()
 	colonne.add_theme_constant_override("separation", 2)
 	var ligne_air := HBoxContainer.new()
@@ -52,6 +57,9 @@ func _ready() -> void:
 	ArtIle.ancrer(_message_panneau, 0.0, 1.0, MARGE)
 	_message_panneau.visible = false
 
+	for panneau: PanelContainer in [_etat, _annonce_panneau, _message_panneau]:
+		_bases[panneau] = Vector4(panneau.offset_left, panneau.offset_top, panneau.offset_right, panneau.offset_bottom)
+
 
 func _process(delta: float) -> void:
 	if _annonce_restante > 0.0:
@@ -70,6 +78,34 @@ func mettre_a_jour(ratio_oxygene: float, profondeur_m: float, nom_zone: String, 
 	_zone.text = nom_zone
 	_message.text = message_bas
 	_message_panneau.visible = message_bas != ""
+
+
+## progression : 0 = panneaux hors de l'écran, 1 = en place. Chacun sort par son bord le plus proche :
+## l'état par la gauche, l'annonce par le haut, le message par le bas. Pas de transparence.
+func glisser(progression: float) -> void:
+	_glissement = clampf(progression, 0.0, 1.0)
+	var reste := 1.0 - smoothstep(0.0, 1.0, _glissement)
+	_decaler(_etat, Vector2(-roundf(reste * (_etat.size.x + MARGE)), 0.0))
+	_decaler(_annonce_panneau, Vector2(0.0, -roundf(reste * (_annonce_panneau.size.y + MARGE))))
+	_decaler(_message_panneau, Vector2(0.0, roundf(reste * (_message_panneau.size.y + MARGE))))
+
+
+func progression_glissement() -> float:
+	return _glissement
+
+
+## Décalage du panneau par rapport à sa place (pixels d'écran).
+func decalage_panneau_etat() -> Vector2:
+	var base: Vector4 = _bases[_etat]
+	return Vector2(_etat.offset_left - base.x, _etat.offset_top - base.y)
+
+
+func _decaler(panneau: PanelContainer, decalage: Vector2) -> void:
+	var base: Vector4 = _bases[panneau]
+	panneau.offset_left = base.x + decalage.x
+	panneau.offset_right = base.z + decalage.x
+	panneau.offset_top = base.y + decalage.y
+	panneau.offset_bottom = base.w + decalage.y
 
 
 func definir_sac(texte: String) -> void:

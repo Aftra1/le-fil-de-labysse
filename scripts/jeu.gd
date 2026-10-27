@@ -8,6 +8,9 @@ extends Node2D
 enum Etat { ILE, DESCENTE, PLONGEE, REMONTEE }
 
 const SCENE_PLONGEE := preload("res://scenes/dive.tscn")
+## Le HUD de plongée entre pendant les dernières secondes de la descente et sort pendant les
+## premières secondes de la remontée, en glissant depuis les bords de l'écran.
+const DUREE_GLISSEMENT_HUD := 0.3
 var etat := Etat.ILE
 var temps_plongee := 0.0
 
@@ -29,6 +32,18 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if etat == Etat.PLONGEE:
 		temps_plongee += delta
+	elif etat == Etat.DESCENTE:
+		_glisser_hud(1.0 - _transition.temps_restant() / DUREE_GLISSEMENT_HUD)
+	elif etat == Etat.REMONTEE:
+		_glisser_hud(1.0 - _transition.temps_ecoule() / DUREE_GLISSEMENT_HUD)
+
+
+func _glisser_hud(progression: float) -> void:
+	if not is_instance_valid(_plongee):
+		return
+	var interface: Interface = _plongee.get_node("HUD")
+	interface.visible = progression > 0.0
+	interface.glisser(progression)
 
 
 func plongee() -> Node2D:
@@ -44,6 +59,7 @@ func _lancer_descente() -> void:
 	_plongee.retour_ile.connect(_sur_retour_ile)
 	_figer_plongee(true)
 	_conteneur.add_child(_plongee)
+	_plongee.rafraichir_interface()
 	_transition.lancer(true, _ile, _plongee)
 
 
@@ -51,6 +67,7 @@ func _fin_transition() -> void:
 	if etat == Etat.DESCENTE:
 		_ile.visible = false
 		_figer_plongee(false)
+		(_plongee.get_node("HUD") as Interface).glisser(1.0)
 		temps_plongee = 0.0
 		etat = Etat.PLONGEE
 	elif etat == Etat.REMONTEE:

@@ -77,6 +77,9 @@ func _lancer() -> void:
 	await _test_scene_principale()
 	await _test_transitions()
 
+	_titre("HUD de plongée : entrée et sortie en glissant")
+	await _test_glissement_hud()
+
 	_titre("Étape 3 : recharge de l'île pendant la plongée")
 	await _test_recharge_pendant_plongee()
 
@@ -902,4 +905,44 @@ func _test_camera_plongee() -> void:
 	_verifier(_plongee._camera == _plongee._cible_camera(), "caméra : s'arrête exactement sur sa cible (pas de tremblement)",
 		"%s / %s, cloche %s" % [_plongee._camera, _plongee._cible_camera(), _bell.position])
 	await _terminer()
+
+
+func _test_glissement_hud() -> void:
+	var jeu := await _ouvrir_jeu()
+	var transition: Node = jeu.get_node("Transition")
+	_touche(KEY_E)
+	await _images(2)
+	var interface: CanvasLayer = jeu.plongee().get_node("HUD")
+	while transition.temps_restant() > 0.5:
+		await _images(1)
+	_verifier(not interface.visible, "descente : le HUD est absent avant les 0,3 dernières secondes")
+	while transition.temps_restant() > 0.15:
+		await _images(1)
+	var progression: float = interface.progression_glissement()
+	var decalage: Vector2 = interface.decalage_panneau_etat()
+	_verifier(interface.visible and progression > 0.0 and progression < 1.0 and decalage.x < 0.0,
+		"descente : le HUD glisse depuis le bord gauche pendant les 0,3 dernières secondes",
+		"progression %.2f, décalage %s" % [progression, decalage])
+	_verifier(decalage == decalage.round(), "glissement : décalage au pixel entier")
+	await _attendre_etat(jeu, ETAT_PLONGEE)
+	_verifier(interface.visible and interface.progression_glissement() == 1.0 and interface.decalage_panneau_etat() == Vector2.ZERO,
+		"arrivée : le HUD est en place")
+	var opaque := true
+	for enfant in interface.get_children():
+		if enfant is CanvasItem:
+			opaque = opaque and (enfant as CanvasItem).modulate.a == 1.0 and (enfant as CanvasItem).self_modulate.a == 1.0
+	_verifier(opaque, "glissement : aucune transparence")
+
+	var label_profondeur: String = jeu.plongee()._interface._profondeur.text
+	_verifier(label_profondeur != "", "le HUD est rempli dès son entrée", label_profondeur)
+
+	await _remonter(jeu)
+	await _secondes(0.1)
+	progression = interface.progression_glissement()
+	_verifier(interface.visible and progression > 0.0 and progression < 1.0 and interface.decalage_panneau_etat().x < 0.0,
+		"remontée : le HUD ressort en glissant pendant les 0,3 premières secondes", "progression %.2f" % progression)
+	await _secondes(0.4)
+	_verifier(not interface.visible, "remontée : le HUD a disparu après 0,3 s")
+	await _attendre_etat(jeu, ETAT_ILE)
+	await _fermer_jeu(jeu)
 

@@ -116,6 +116,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	rafraichir_interface()
+	if Input.is_action_just_pressed("pause"):
+		get_tree().quit()
+
+
+## Met à jour l'interface (aussi appelé pendant la descente, quand la plongée est encore figée).
+func rafraichir_interface() -> void:
 	var zone := _zone_a(_profondeur_m())
 	var sous_leau := _cloche.position.y > SURFACE_Y + SEUIL_SURFACE
 	_interface.mettre_a_jour(
@@ -124,8 +131,6 @@ func _process(_delta: float) -> void:
 		str(zone["nom"]) if sous_leau else "Surface",
 		_message_bas(sous_leau),
 	)
-	if Input.is_action_just_pressed("pause"):
-		get_tree().quit()
 
 
 func _profondeur_m() -> float:

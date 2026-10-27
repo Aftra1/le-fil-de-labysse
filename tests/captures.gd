@@ -154,6 +154,9 @@ func _scenario_jeu() -> void:
 	await _images(2)
 	await _capturer("10-descente-75")
 	await _verifier_grille(transition.decalage_ecran, "transition à 75 %")
+	transition.afficher_image(0.95)
+	await _images(2)
+	await _capturer("10b-descente-hud-entre")
 	await _verifier_raccord_descente(jeu, transition)
 	await _images(2)
 	await _capturer("11-plongee-arrivee")
@@ -339,18 +342,15 @@ func _verifier_raccord_descente(jeu: Node, transition: Node) -> void:
 	transition.reprendre()
 	while jeu.etat != 2:  # PLONGEE
 		await _images(1)
-	jeu.plongee().get_node("HUD").visible = false
 	await _images(2)
 	var debut_plongee := await _image_ecran()
-	jeu.plongee().get_node("HUD").visible = true
 	ArtAbysse.figer_temps = false
-	_comparer(fin_transition, debut_plongee, "fin de la descente / début de la plongée")
+	_comparer(fin_transition, debut_plongee, "fin de la descente / début de la plongée, HUD compris")
 
 
 ## Dernière image de la plongée (cloche revenue en surface) contre première image de la remontée.
 func _verifier_raccord_remontee(jeu: Node, transition: Node, plongee: Node) -> void:
 	ArtAbysse.figer_temps = true
-	plongee.get_node("HUD").visible = false
 	var cloche: Node2D = plongee.get_node("Bell")
 	cloche.position = Vector2(60.0, 2.0)
 	await _images(90)
@@ -363,7 +363,10 @@ func _verifier_raccord_remontee(jeu: Node, transition: Node, plongee: Node) -> v
 	await _images(2)
 	var debut_remontee := await _image_ecran()
 	ArtAbysse.figer_temps = false
-	_comparer(fin_plongee, debut_remontee, "fin de la plongée / début de la remontée")
+	_comparer(fin_plongee, debut_remontee, "fin de la plongée / début de la remontée, HUD compris")
+	transition.afficher_image(0.05)
+	await _images(2)
+	await _capturer("11b-remontee-hud-sort")
 
 
 func _image_ecran() -> Image:

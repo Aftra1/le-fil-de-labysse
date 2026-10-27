@@ -98,6 +98,18 @@ func reprendre() -> void:
 	_fige = false
 
 
+## Temps restant avant la fin (en secondes), y compris quand la transition est passée.
+func temps_restant() -> float:
+	if _saut:
+		return (1.0 - _avance_saut) * DUREE_SAUT
+	return (1.0 - _t) * DUREE
+
+
+## Temps écoulé depuis le début, à la vitesse normale (un saut l'accélère).
+func temps_ecoule() -> float:
+	return _t * DUREE
+
+
 ## Décalage d'écran (0 ou 1 px) de la grille du monde dans l'image actuelle.
 func decalage_ecran() -> Vector2i:
 	return _fond.decalage_ecran()
