@@ -1,3 +1,4 @@
+class_name Cloche
 extends CharacterBody2D
 ## La cloche de plongée : déplacement avec inertie et flottabilité douce.
 ## Les ordres viennent de dive.gd (contrôle actif ou remontée automatique).
@@ -21,6 +22,8 @@ const COULEUR_HUBLOT := Color("3fe0e8")
 
 var controle_actif := true
 var remontee_auto := false
+## Vrai pendant le minage : la flottabilité est suspendue pour rester devant le gisement.
+var stabilisee := false
 
 
 func _physics_process(delta: float) -> void:
@@ -33,7 +36,7 @@ func _physics_process(delta: float) -> void:
 		var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		cible = direction * VITESSE_MAX
 		if is_zero_approx(direction.y):
-			cible.y = -VITESSE_FLOTTAISON
+			cible.y = 0.0 if stabilisee else -VITESSE_FLOTTAISON
 		if direction != Vector2.ZERO:
 			acceleration = ACCELERATION
 	velocity = velocity.move_toward(cible, acceleration * delta)

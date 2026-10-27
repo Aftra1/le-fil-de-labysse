@@ -7,6 +7,7 @@
 - Ne jamais passer à l'étape suivante sans l'accord de l'utilisateur.
 - Prototype avec des formes simples ; le pixel art viendra plus tard.
 - Git : pour chaque étape, créer une branche depuis `main`, travailler dessus, ouvrir une Pull Request vers `main`, et ne jamais la fusionner sans l'accord de l'utilisateur.
+- À chaque fin d'étape : lancer tous les tests (anciens et nouveaux), mettre à jour les captures, mettre les résultats et les images dans la PR. Les tests sont dans `tests/`, jamais hors du dépôt.
 
 ## Technique
 - Godot 4.7, GDScript typé, cible Windows.
