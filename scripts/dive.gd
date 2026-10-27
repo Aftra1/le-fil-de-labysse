@@ -300,7 +300,9 @@ func _generer_gisements() -> void:
 
 	var positions: Array[Vector2] = []
 	for zone: Dictionary in _zones:
-		var y_min := maxf(float(zone["debut_m"]) * PIXELS_PAR_METRE, DISTANCE_MIN_SURFACE)
+		# « gisements_des_m » : profondeur des premiers gisements de la zone (au-delà de son début).
+		var des_m := maxf(float(zone["debut_m"]), float(zone.get("gisements_des_m", 0.0)))
+		var y_min := maxf(des_m * PIXELS_PAR_METRE, DISTANCE_MIN_SURFACE)
 		var y_max := minf(float(zone["fin_m"]) * PIXELS_PAR_METRE, PROFONDEUR_MAX - MARGE_FOND)
 		var id_minerai := str(zone["minerai"])
 		var donnees: Dictionary = _minerais[id_minerai]
