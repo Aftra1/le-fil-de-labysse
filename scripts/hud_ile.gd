@@ -27,7 +27,7 @@ func _ready() -> void:
 	var barre := _panneau()
 	var ligne := HBoxContainer.new()
 	ligne.add_theme_constant_override("separation", 6)
-	for id: String in Game.ressources.keys():
+	for id: String in Game.ids("ressource"):
 		var icone := TextureRect.new()
 		icone.texture = ArtIle.icone(id, 1.0)
 		icone.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED

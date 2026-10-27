@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ile.gd" id="1_ile"]
 [ext_resource type="Script" path="res://scripts/hud_ile.gd" id="2_hud"]
 [ext_resource type="Script" path="res://scripts/inventaire_ui.gd" id="3_inventaire"]
+[ext_resource type="Script" path="res://scripts/atelier_ui.gd" id="4_atelier"]
 
 [node name="Ile" type="Node2D"]
 script = ExtResource("1_ile")
@@ -18,3 +19,6 @@ script = ExtResource("2_hud")
 
 [node name="Inventaire" type="CanvasLayer" parent="."]
 script = ExtResource("3_inventaire")
+
+[node name="Atelier" type="CanvasLayer" parent="."]
+script = ExtResource("4_atelier")

@@ -45,6 +45,8 @@ const COULEURS_MOTIF := {
 	"o": "or_fonce", "O": "or", "j": "or_clair", "a": "ardoise", "c": "cyan", "C": "cyan_clair",
 }
 
+## Profondeur maximale permise par le câble (pixels, 640x360) : la cloche s'y arrête en douceur.
+var profondeur_limite := PROFONDEUR_MAX_PX
 var controle_actif := true
 var remontee_auto := false
 ## Vrai pendant le minage : la flottabilité est suspendue pour rester devant le gisement.
@@ -68,8 +70,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	position.x = clampf(position.x, -DEMI_LARGEUR_ZONE, DEMI_LARGEUR_ZONE)
-	if position.y < 0.0 or position.y > PROFONDEUR_MAX_PX:
-		position.y = clampf(position.y, 0.0, PROFONDEUR_MAX_PX)
+	if position.y < 0.0 or position.y > profondeur_limite:
+		position.y = clampf(position.y, 0.0, profondeur_limite)
 		velocity.y = 0.0
 
 

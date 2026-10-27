@@ -112,6 +112,87 @@ const VENT_PETIT: PackedStringArray = [
 	".....",
 	"..33.",
 ]
+const CABANE: PackedStringArray = [
+	"...........cc...",
+	".......oo..cc...",
+	"......oOOo.cc...",
+	".....oOOOOocc...",
+	"....oOOOOOOcc...",
+	"...oOOOOOOOOo...",
+	"..oooooooooooo..",
+	"...wWWWWWWWWw...",
+	"...wWffWWWWWw...",
+	"...wWffWWddWw...",
+	"...wWWWWWddWw...",
+	"...wWWWWWddWw...",
+	"...wwwwwwddww...",
+]
+const FIL_NUAGE: PackedStringArray = [
+	"tttttttt",
+	".nnnnnn.",
+	".NnNnNn.",
+	".nnnnnn.",
+	".NnNnNn.",
+	"TTTTTTTT",
+]
+const LENTILLE: PackedStringArray = [
+	"..OOOo..",
+	".OCCcco.",
+	"OCCccccd",
+	"OCcccccd",
+	"occcccd.",
+	".occccd.",
+	"..dddd..",
+]
+const POCHE_AIR: PackedStringArray = [
+	"...tt...",
+	"..tttt..",
+	".bBBbbb.",
+	"bBBbbbbs",
+	"bBbbbbbs",
+	"bbbbbbss",
+	".bbbbss.",
+	"..ssss..",
+]
+const ICONE_CABLE: PackedStringArray = [
+	"..MMMMM..",
+	".M.....M.",
+	"M..mmm..M",
+	"M.m...m.M",
+	"M..mmm..M",
+	".M.....M.",
+	"..MMMMM..",
+]
+const ICONE_LANTERNE: PackedStringArray = [
+	"..mmm..",
+	"...m...",
+	".MMMMM.",
+	".MCCcM.",
+	".MCccM.",
+	".MccbM.",
+	".MMMMM.",
+	"..mmm..",
+]
+const ICONE_RESERVOIR: PackedStringArray = [
+	"..mmmm..",
+	".MMMMMm.",
+	"MMCcMMMm",
+	"MMccMMMm",
+	"MMMMMMMm",
+	"MMMMMMMm",
+	".MMMMMm.",
+	"..mmmm..",
+]
+const COULEURS_CABANE := {
+	"c": "roche.2", "o": "or.2", "O": "or.3", "w": "terre.1", "W": "terre.2", "d": "interface.1", "f": "or.5",
+}
+const COULEURS_OBJETS := {
+	"t": "terre.2", "T": "terre.1", "n": "nuage.3", "N": "nuage.4",
+	"o": "or.3", "O": "or.4", "d": "or.1", "c": "cyan.2", "C": "cyan.3",
+	"b": "ciel.3", "B": "nuage.4", "s": "ciel.2",
+	"m": "metal.2", "M": "metal.3",
+}
+
 const COULEURS_CLOCHE := {
 	"1": "or.1", "2": "or.2", "3": "or.3", "4": "or.4", "5": "or.5",
 	"m": "metal.1", "M": "metal.2", "r": "or.4", "b": "cyan.1", "c": "cyan.2", "C": "cyan.3",
@@ -453,6 +534,26 @@ static func filon(k: float, plein: bool) -> ImageTexture:
 		couleurs_rampe("or") if plein else couleurs_rampe("roche"), CONTOUR)
 
 
+## Cabane de l'atelier (monde 320x180) ; fenêtre allumée quand une fabrication est possible.
+static func cabane(allumee: bool) -> ImageTexture:
+	var couleurs := COULEURS_CABANE.duplicate()
+	if not allumee:
+		couleurs["f"] = "or.1"
+	return Pixel.motif(CABANE, couleurs, CONTOUR)
+
+
+## Icône d'une amélioration de la cloche (atelier).
+static func icone_amelioration(id: String) -> Texture2D:
+	match id:
+		"cable":
+			return Pixel.motif(ICONE_CABLE, COULEURS_OBJETS, CONTOUR)
+		"lanterne":
+			return Pixel.motif(ICONE_LANTERNE, COULEURS_OBJETS, CONTOUR)
+		"reservoir":
+			return Pixel.motif(ICONE_RESERVOIR, COULEURS_OBJETS, CONTOUR)
+	return Pixel.disque(3, c("roche.3"))
+
+
 ## Icône d'une ressource (inventaire, barre de ressources).
 static func icone(id: String, k: float) -> Texture2D:
 	var grand := k >= 0.75
@@ -467,6 +568,12 @@ static func icone(id: String, k: float) -> Texture2D:
 			return Pixel.motif(FILON if grand else FILON_PETIT, couleurs_rampe("cyan", -2), CONTOUR)
 		"corail":
 			return Pixel.motif(CORAIL if grand else CORAIL_PETIT, couleurs_rampe("corail"), CONTOUR)
+		"fil_nuage":
+			return Pixel.motif(FIL_NUAGE, COULEURS_OBJETS, CONTOUR)
+		"lentille":
+			return Pixel.motif(LENTILLE, COULEURS_OBJETS, CONTOUR)
+		"poche_air":
+			return Pixel.motif(POCHE_AIR, COULEURS_OBJETS, CONTOUR)
 	return Pixel.disque(3, c("roche.3"))
 
 

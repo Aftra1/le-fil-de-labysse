@@ -1,0 +1,5 @@
+{
+	"cable": { "longueur_m": [150, 300] },
+	"lanterne": { "rayon_halo": [40, 60], "obscurite_max": [3, 2] },
+	"reservoir": { "oxygene_max": [100, 150] }
+}

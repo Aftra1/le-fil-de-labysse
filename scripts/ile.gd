@@ -1,7 +1,7 @@
 class_name Ile
 extends Node2D
 ## L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire,
-## et départ en plongée en cliquant sur la cloche (ou E / Espace).
+## atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace).
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 ## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
@@ -10,6 +10,8 @@ signal plongee_demandee
 const POSITION_CLOCHE := Vector2(320.0, 318.0)
 const ATTACHE_CABLE := Vector2(320.0, 288.0)
 const ZONE_CLOCHE := Vector2(16.0, 18.0)      # demi-taille de la zone cliquable
+const POSITION_CABANE := Vector2(470.0, 183.0)
+const ZONE_CABANE := Vector2(18.0, 16.0)
 const DUREE_EFFET := 0.8
 const MONTEE_EFFET := 18.0
 
@@ -22,6 +24,7 @@ var _eolienne: SourceRessource
 var _filons: Array[SourceRessource] = []
 var _souris := Vector2(-100.0, -100.0)
 var _survol_cloche := false
+var _survol_cabane := false
 var _survol: SourceRessource = null      # source sous la souris
 var _maintien: SourceRessource = null
 var _progres_maintien := 0.0
@@ -35,6 +38,7 @@ var _monde := VueMonde.new()
 @onready var _effets: Node2D = $Effets
 @onready var _interface: InterfaceIle = $HUD
 @onready var _panneau: PanneauInventaire = $Inventaire
+@onready var _atelier: PanneauAtelier = $Atelier
 
 
 func _ready() -> void:
@@ -49,7 +53,32 @@ func _ready() -> void:
 	_creer_sources()
 	for i in int(_reglages["nuages"]["minimum"]) + 1:
 		_creer_nuage(_hasard.randf_range(60.0, 580.0))
-	_interface.bouton_inventaire.pressed.connect(_panneau.basculer)
+	_interface.bouton_inventaire.pressed.connect(_basculer_inventaire)
+	_atelier.fabrique.connect(_sur_fabrication)
+	_interface.rafraichir_inventaire()
+
+
+## Un seul panneau ouvert à la fois (inventaire ou atelier).
+func panneau_ouvert() -> bool:
+	return _panneau.est_ouvert() or _atelier.est_ouvert()
+
+
+func _basculer_inventaire() -> void:
+	_atelier.fermer()
+	_panneau.basculer()
+
+
+func _basculer_atelier() -> void:
+	_panneau.fermer()
+	_atelier.basculer()
+
+
+func _sur_fabrication(id: String, amelioration: bool) -> void:
+	if amelioration:
+		var atelier := Game.atelier
+		_interface.annoncer("Installé : %s (niveau %d)" % [atelier.nom_amelioration(id), atelier.niveau(id)])
+	else:
+		_interface.annoncer("Fabriqué : %s" % Game.nom_ressource(id))
 	_interface.rafraichir_inventaire()
 
 
@@ -57,15 +86,19 @@ func _unhandled_input(evenement: InputEvent) -> void:
 	if evenement is InputEventMouse:
 		_souris = (evenement as InputEventMouse).position
 	if evenement.is_action_pressed("inventaire"):
-		_panneau.basculer()
+		_basculer_inventaire()
+		get_viewport().set_input_as_handled()
+	elif evenement.is_action_pressed("atelier"):
+		_basculer_atelier()
 		get_viewport().set_input_as_handled()
 	elif evenement.is_action_pressed("pause"):
-		if _panneau.est_ouvert():
+		if panneau_ouvert():
 			_panneau.fermer()
+			_atelier.fermer()
 		else:
 			get_tree().quit()
 		get_viewport().set_input_as_handled()
-	elif _panneau.est_ouvert():
+	elif panneau_ouvert():
 		return
 	elif evenement.is_action_pressed("clic"):
 		_mettre_a_jour_survol()
@@ -88,6 +121,8 @@ func _process(delta: float) -> void:
 func _clic() -> void:
 	if _survol_cloche:
 		plongee_demandee.emit()
+	elif _survol_cabane:
+		_basculer_atelier()
 	elif _survol != null:
 		match _survol.mode:
 			SourceRessource.Mode.CLIC:
@@ -102,7 +137,7 @@ func _gerer_maintien(delta: float) -> void:
 		cible != null
 		and cible.mode == SourceRessource.Mode.MAINTIEN
 		and cible.est_disponible()
-		and not _panneau.est_ouvert()
+		and not panneau_ouvert()
 		and Input.is_action_pressed("clic")
 	)
 	if not actif:
@@ -170,24 +205,29 @@ func _source_sous_souris() -> SourceRessource:
 
 
 func _mettre_a_jour_survol() -> void:
-	var sur_cloche := not _panneau.est_ouvert() and _souris_sur_cloche()
+	var sur_cloche := not panneau_ouvert() and _souris_sur_cloche()
+	var sur_cabane := not panneau_ouvert() and not sur_cloche \
+		and absf(_souris.x - POSITION_CABANE.x) <= ZONE_CABANE.x and absf(_souris.y - POSITION_CABANE.y) <= ZONE_CABANE.y
 	var survol: SourceRessource = null
-	if not _panneau.est_ouvert() and not sur_cloche:
+	if not panneau_ouvert() and not sur_cloche and not sur_cabane:
 		survol = _source_sous_souris()
 	_survol_cloche = sur_cloche
+	_survol_cabane = sur_cabane
 	if survol != _survol:
 		if is_instance_valid(_survol):
 			_survol.en_survol = false
 		_survol = survol
 		if _survol != null:
 			_survol.en_survol = true
-	var cliquable := _survol_cloche or (_survol != null and _survol.est_disponible())
+	var cliquable := _survol_cloche or _survol_cabane or (_survol != null and _survol.est_disponible())
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if cliquable else Input.CURSOR_ARROW)
 
 
 func _texte_aide() -> String:
 	if _survol_cloche:
 		return "Plonger : clic sur la cloche (ou E / Espace)"
+	if _survol_cabane:
+		return "Atelier : clic sur la cabane (ou C)"
 	if _survol != null:
 		var source := _survol
 		var nom := Game.nom_ressource(source.id_ressource)
@@ -292,6 +332,7 @@ func preparer_depart() -> void:
 	for effet in _effets.get_children():
 		effet.queue_free()
 	_panneau.fermer()
+	_atelier.fermer()
 	_interface.visible = false
 	cloche_visible = false
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
@@ -355,6 +396,7 @@ func _dessiner_monde(toile: Node2D) -> void:
 	for enfant in _nuages.get_children():
 		if not enfant.is_queued_for_deletion():
 			(enfant as SourceRessource).dessiner_monde(toile)
+	_dessiner_cabane(toile)
 	for enfant in _sources.get_children():
 		(enfant as SourceRessource).dessiner_monde(toile)
 	if cloche_visible:
@@ -367,3 +409,32 @@ func _dessiner_monde(toile: Node2D) -> void:
 		if _survol_cloche:
 			var zone := (ZONE_CLOCHE * K).round()
 			Pixel.cadre(toile, Rect2(cloche - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
+
+
+## Cabane de l'atelier : fenêtre allumée et fumée qui monte quand une fabrication est possible.
+func _dessiner_cabane(toile: Node2D) -> void:
+	var centre := VueMonde.vers_monde(POSITION_CABANE)
+	var possible := _fabrication_possible()
+	var texture := ArtIle.cabane(possible)
+	Pixel.sprite_ombre(toile, texture, centre, Palette.couleur("herbe.3"))
+	if possible:
+		var cheminee := (centre - texture.get_size() / 2.0).floor() + Vector2(12, -1)
+		var pas := int(ArtAbysse.temps() * 3.0)
+		for bouffee in 2:
+			var montee := posmod(pas + bouffee * 3, 6)
+			toile.draw_rect(Rect2(cheminee + Vector2(posmod(montee, 2), -montee), Vector2.ONE), Palette.couleur("nuage.3"))
+	if _survol_cabane:
+		var zone := (ZONE_CABANE * K).round()
+		Pixel.cadre(toile, Rect2(centre - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
+
+
+func _fabrication_possible() -> bool:
+	var atelier := Game.atelier
+	for id: String in atelier.composants():
+		if atelier.peut_fabriquer(id):
+			return true
+	for id: String in Atelier.AMELIORATIONS:
+		if atelier.peut_ameliorer(id):
+			return true
+	return false
+

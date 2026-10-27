@@ -3,16 +3,31 @@ extends Node
 ## Déclare toutes les actions d'entrée en code, avec des touches PHYSIQUES
 ## (physical_keycode) : la touche A du clavier QWERTY correspond au Q de l'AZERTY,
 ## donc ZQSD fonctionne tel quel en AZERTY.
-## Garde aussi l'inventaire et la liste des ressources (data/ressources.json).
+## Garde aussi l'inventaire, la liste des ressources (data/ressources.json) et l'atelier
+## (composants fabriqués, niveaux des améliorations de la cloche).
 
-## { id: { "nom": ..., "couleur": nom dans la palette } }, dans l'ordre d'affichage.
+## { id: { "nom": ..., "couleur": nom dans la palette, "categorie": "ressource" ou "composant" } },
+## dans l'ordre d'affichage.
 var ressources: Dictionary = {}
-var inventaire := Inventaire.new()
+var inventaire := Inventaire.new():
+	set(valeur):
+		inventaire = valeur
+		atelier = Atelier.new(valeur)
+var atelier := Atelier.new(inventaire)
 
 
 func _ready() -> void:
 	_declarer_actions()
 	ressources = Donnees.charger_json("res://data/ressources.json")
+
+
+## Identifiants d'une catégorie (« ressource » ou « composant »), dans l'ordre d'affichage.
+func ids(categorie: String) -> Array:
+	var resultat: Array = []
+	for id: String in ressources:
+		if str(ressources[id].get("categorie", "ressource")) == categorie:
+			resultat.append(id)
+	return resultat
 
 
 ## Vide les caches de textures générées avant la fermeture (évite les avertissements de fuite).
@@ -38,6 +53,7 @@ func _declarer_actions() -> void:
 	_ajouter_action("interact", [KEY_E, KEY_SPACE])
 	_ajouter_action("pause", [KEY_ESCAPE])
 	_ajouter_action("inventaire", [KEY_I, KEY_TAB])
+	_ajouter_action("atelier", [KEY_C])
 	_ajouter_action("clic", [])
 	var clic_gauche := InputEventMouseButton.new()
 	clic_gauche.button_index = MOUSE_BUTTON_LEFT
