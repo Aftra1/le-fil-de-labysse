@@ -4,12 +4,16 @@ extends RefCounted
 ## et installe les améliorations de la cloche, niveau par niveau.
 ## Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json.
 ## Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux).
+## Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié).
 
 const AMELIORATIONS := ["cable", "lanterne", "reservoir"]
+const CONSTRUCTIONS := ["passerelle"]
 
 var inventaire: Inventaire
 ## Niveau installé de chaque amélioration : { "cable": 0, "lanterne": 0, "reservoir": 0 }
 var niveaux: Dictionary = {}
+## Îlots reliés à l'île par une construction : [ "ilot_est", ... ]
+var ilots_relies: Array = []
 
 var _recettes: Dictionary = {}
 var _effets: Dictionary = {}
@@ -88,6 +92,54 @@ func charger_niveaux(donnees: Dictionary) -> void:
 	for id: String in AMELIORATIONS:
 		var valeur = donnees.get(id, 0)
 		niveaux[id] = clampi(int(valeur), 0, niveau_max(id)) if (valeur is float or valeur is int) else 0
+
+
+# --- Constructions (passerelles vers les îlots) -------------------------------------------
+
+func nom_construction(id: String) -> String:
+	return str(_recettes["constructions"][id]["nom"])
+
+
+func ingredients_construction(id: String) -> Dictionary:
+	return _recettes["constructions"][id]["ingredients"]
+
+
+func effet_construction(id: String) -> String:
+	return str(_recettes["constructions"][id]["effet"])
+
+
+## Îlot relié par cette construction.
+func ilot_de(id: String) -> String:
+	return str(_recettes["constructions"][id]["ilot"])
+
+
+func est_construite(id: String) -> bool:
+	return est_relie(ilot_de(id))
+
+
+func est_relie(ilot: String) -> bool:
+	return ilots_relies.has(ilot)
+
+
+func peut_construire(id: String) -> bool:
+	return not est_construite(id) and manquants(ingredients_construction(id)).is_empty()
+
+
+func construire(id: String) -> bool:
+	if not peut_construire(id):
+		return false
+	_payer(ingredients_construction(id))
+	ilots_relies.append(ilot_de(id))
+	return true
+
+
+## Îlots lus depuis une sauvegarde : seuls les îlots connus sont gardés, sans doublon.
+func charger_ilots(donnees: Array) -> void:
+	ilots_relies.clear()
+	for id: String in CONSTRUCTIONS:
+		var ilot := ilot_de(id)
+		if donnees.has(ilot) and not ilots_relies.has(ilot):
+			ilots_relies.append(ilot)
 
 
 # --- Effets des niveaux installés -------------------------------------------------------------

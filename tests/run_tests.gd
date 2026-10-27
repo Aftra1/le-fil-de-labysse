@@ -119,6 +119,11 @@ func _lancer() -> void:
 	await _test_pause_plongee()
 	await _test_echap_transition()
 
+	_titre("Étape 5 : îlot, passerelle de nuage et bassin de lumière")
+	_test_ilot_logique()
+	await _test_ilot_ile()
+	await _test_ilot_sauvegarde()
+
 	_titre("Rendu pixel art")
 	_test_rendu_pixel()
 	await _test_monde_320()
@@ -1538,5 +1543,137 @@ func _test_echap_transition() -> void:
 	_verifier(reste_remontee > 1.0, "Échap pendant la remontée : la transition n'est pas passée",
 		"%.2f s restantes" % reste_remontee)
 	_verifier(not jeu._pause.est_ouvert(), "après la remontée : pas de menu pause en attente")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+# --- Étape 5 : îlot ---------------------------------------------------------------------
+
+func _ingredients_passerelle(inventaire: Inventaire) -> void:
+	inventaire.ajouter("fil_nuage", 4)
+	inventaire.ajouter("cristal_solaire", 3)
+	inventaire.ajouter("corail", 2)
+
+
+func _test_ilot_logique() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	_verifier(not atelier.est_relie("ilot_est") and atelier.ilot_de("passerelle") == "ilot_est",
+		"départ : l'îlot n'est pas relié")
+	_verifier(not atelier.construire("passerelle") and atelier.ilots_relies.is_empty(), "passerelle refusée sans ingrédients")
+	_ingredients_passerelle(inventaire)
+	_verifier(atelier.construire("passerelle") and atelier.est_relie("ilot_est") and inventaire.total() == 0,
+		"passerelle de nuage : 4 fils de nuage, 3 cristaux solaires, 2 coraux ; l'îlot est relié")
+	_ingredients_passerelle(inventaire)
+	_verifier(not atelier.peut_construire("passerelle") and not atelier.construire("passerelle")
+		and atelier.ilots_relies.size() == 1, "passerelle : ne se construit qu'une fois")
+	atelier.charger_ilots(["ilot_est", "inconnu", "ilot_est"])
+	_verifier(atelier.ilots_relies == ["ilot_est"], "îlots lus d'une sauvegarde : inconnus et doublons ignorés")
+	atelier.charger_ilots([])
+	_verifier(not atelier.est_relie("ilot_est"), "îlots lus d'une sauvegarde : liste vide, rien de relié")
+
+
+func _test_ilot_ile() -> void:
+	var ile := await _ouvrir_ile()
+	var bassin: SourceRessource = ile.bassin()
+	var atelier: Node = ile.get_node("Atelier")
+	_verifier(bassin.get_parent() == null, "îlot non relié : le bassin n'est pas sur l'île")
+	bassin.stock = 0
+	ile.rattraper(1000.0)
+	_verifier(bassin.stock == 0, "îlot non relié : le bassin ne se remplit pas")
+	bassin.stock = 1
+
+	_souris(ile.centre_ilot())
+	await _images(2)
+	var aide: String = ile._texte_aide()
+	_verifier(aide.contains("Îlot isolé") and aide.contains("passerelle"), "survol de l'îlot non relié : l'aide le dit", aide)
+	_bouton(bassin.position, true)
+	await _secondes(1.2)
+	_bouton(bassin.position, false)
+	await _images(2)
+	_verifier(_jeu.inventaire.quantite("cristal_lagon") == 0, "îlot non relié : aucune récolte possible")
+	_verifier(atelier.est_ouvert() and atelier.onglet == "construction",
+		"clic sur l'îlot non relié : l'atelier s'ouvre sur l'onglet Construction")
+
+	atelier.selectionner("passerelle")
+	_verifier(atelier._bouton.disabled, "Construire inactif s'il manque des ingrédients")
+	_ingredients_passerelle(_jeu.inventaire)
+	atelier.rafraichir()
+	_verifier(ile._fabrication_possible(), "passerelle possible : la cabane s'allume")
+	atelier._bouton.pressed.emit()
+	await _images(2)
+	var annonce: String = ile.get_node("HUD").texte_annonce()
+	_verifier(ile.ilot_relie() and bassin.get_parent() == ile.get_node("Sources") and annonce.contains("Îlot relié"),
+		"Construire : l'îlot est relié, le bassin apparaît, l'île l'annonce", annonce)
+	_verifier(atelier._effet.text.contains("Construite") and atelier._bouton.disabled,
+		"atelier : la passerelle est indiquée comme construite")
+	atelier.fermer()
+	await _images(2)
+
+	_souris(bassin.position)
+	await _images(2)
+	var aide_bassin: String = ile._texte_aide()
+	_verifier(aide_bassin.contains("Cristal de lagon") and not aide_bassin.contains("Îlot isolé"),
+		"îlot relié : survol du bassin", aide_bassin)
+	_bouton(bassin.position, true)
+	await _secondes(1.2)
+	_bouton(bassin.position, false)
+	await _images(2)
+	_verifier(_jeu.inventaire.quantite("cristal_lagon") == 1 and bassin.stock == 0,
+		"bassin de lumière : maintenir le clic donne 1 cristal de lagon", "stock %d" % bassin.stock)
+	ile.rattraper(45.0)
+	var apres_45 := bassin.stock
+	ile.rattraper(10000.0)
+	_verifier(apres_45 == 1 and bassin.stock == bassin.plafond and bassin.plafond == 3,
+		"bassin : 1 cristal toutes les 45 s, 3 au plus", "%d puis %d" % [apres_45, bassin.stock])
+	await _fermer_ile(ile)
+
+
+## Aller-retour sauvegarde / chargement avec l'îlot relié (liste des îlots, stock du bassin).
+func _test_ilot_sauvegarde() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var ile: Node = jeu.get_node("Ile")
+	_ingredients_passerelle(_jeu.inventaire)
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.ouvrir()
+	atelier.choisir_onglet("construction")
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	await _images(2)
+	var sauvee: Dictionary = Sauvegarde.lire()["partie"]
+	_verifier(sauvee["ilots"] == ["ilot_est"], "construction : sauvegardée tout de suite (îlot relié)", str(sauvee["ilots"]))
+	ile.bassin().stock = 2
+	jeu.sauvegarder()
+	sauvee = Sauvegarde.lire()["partie"]
+	_verifier(int(sauvee["ile"]["bassin"]["stock"]) == 2, "le stock du bassin est sauvegardé")
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_continuer))
+	ile = jeu.get_node("Ile")
+	_verifier(_jeu.atelier.est_relie("ilot_est") and ile.ilot_relie() and ile.bassin().get_parent() == ile.get_node("Sources"),
+		"Continuer : l'îlot est toujours relié, le bassin est là")
+	_verifier(ile.bassin().stock == 2, "Continuer : stock du bassin retrouvé", "stock %d" % ile.bassin().stock)
+	_verifier(jeu.donnees_partie()["ilots"] == sauvee["ilots"] and jeu.donnees_partie()["ile"]["bassin"]["stock"] == 2,
+		"aller-retour complet : îlots et bassin identiques")
+	await _fermer_jeu(jeu)
+
+	# Nouvelle partie : l'îlot redevient isolé.
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_nouvelle))
+	await _cliquer(_centre(jeu._titre.bouton_remplacer))
+	ile = jeu.get_node("Ile")
+	_verifier(not ile.ilot_relie() and ile.bassin().get_parent() == null and (Sauvegarde.lire()["partie"]["ilots"] as Array).is_empty(),
+		"Nouvelle partie : l'îlot n'est plus relié")
+	await _fermer_jeu(jeu)
+
+	# Sauvegarde sans le bassin (format de la PR précédente) : îlot relié, bassin au stock de départ.
+	Sauvegarde.ecrire({"inventaire": {}, "ameliorations": {}, "ilots": ["ilot_est"], "ile": {}})
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	_verifier(ile.ilot_relie() and ile.bassin().stock == 1, "sauvegarde sans état du bassin : stock de départ (1)")
 	await _fermer_jeu(jeu)
 	_effacer_sauvegarde()

@@ -23,5 +23,13 @@
 				{ "ingredients": { "poche_air": 2, "cristal_lagon": 4, "corail": 2 }, "effet": "Oxygène : 100 → 150" }
 			]
 		}
+	},
+	"constructions": {
+		"passerelle": {
+			"nom": "Passerelle de nuage",
+			"ilot": "ilot_est",
+			"ingredients": { "fil_nuage": 4, "cristal_solaire": 3, "corail": 2 },
+			"effet": "Relie l'îlot à l'île : son bassin de lumière donne du cristal de lagon."
+		}
 	}
 }

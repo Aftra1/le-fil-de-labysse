@@ -1,14 +1,14 @@
 class_name SourceRessource
 extends Node2D
-## Une source de ressource sur l'île : éolienne, filon de cristal ou nuage.
+## Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot).
 ## Trois façons de récolter :
 ## - CLIC : un clic = une unité (nuages) ;
-## - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons) ;
+## - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
 ## - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne).
 ## Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 
 enum Mode { CLIC, MAINTIEN, RESERVE }
-enum Forme { EOLIENNE, FILON, NUAGE }
+enum Forme { EOLIENNE, FILON, NUAGE, BASSIN }
 
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
 const IMAGES_PAR_SECONDE := 60   # cadence de la physique : les nuages avancent par pas réguliers
@@ -128,6 +128,8 @@ func dessiner_monde(toile: CanvasItem) -> void:
 			_dessiner_filon(toile, p)
 		Forme.NUAGE:
 			_dessiner_nuage(toile, p)
+		Forme.BASSIN:
+			_dessiner_bassin(toile, p)
 	var rayon := roundi(rayon_clic * K)
 	if en_survol and est_disponible():
 		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("nuage.4")), p)
@@ -142,6 +144,19 @@ func _dessiner_eolienne(toile: CanvasItem, moyeu: Vector2) -> void:
 	toile.draw_rect(Rect2(moyeu.x, moyeu.y, 1, sol - moyeu.y - 1), Palette.couleur("terre.2"))
 	Pixel.sprite(toile, ArtIle.pales(K, _angle), moyeu)
 	_dessiner_points(toile, moyeu + Vector2(0, -10), "nuage.4")
+
+
+## Bassin de lumière : une flaque du lagon creusée dans l'herbe, qui scintille quand elle est pleine.
+func _dessiner_bassin(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var y := centre.y
+	toile.draw_rect(Rect2(x - 5, y - 1, 11, 4), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 4, y, 9, 2), Palette.couleur("lagon.4" if est_disponible() else "lagon.2"))
+	toile.draw_rect(Rect2(x - 4, y + 1, 9, 1), Palette.couleur("lagon.3" if est_disponible() else "lagon.1"))
+	if est_disponible():
+		var reflet := posmod(int(ArtAbysse.temps() * 4.0), 9)
+		toile.draw_rect(Rect2(x - 4 + reflet, y, 1, 1), Palette.couleur("lagon.5"))
+	_dessiner_points(toile, centre + Vector2(0, -6), "lagon.5")
 
 
 func _dessiner_filon(toile: CanvasItem, centre: Vector2) -> void:

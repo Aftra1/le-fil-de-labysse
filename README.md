@@ -22,6 +22,8 @@ Sur l'île (à la souris) :
 | Récolter un nuage | Clic sur le nuage |
 | Vider l'éolienne (vent) | Clic sur l'éolienne |
 | Récolter un cristal solaire | Maintenir le clic sur un filon (1 s) |
+| Relier l'îlot | Construire la passerelle de nuage à l'atelier (onglet Construction ; un clic sur l'îlot l'ouvre) |
+| Récolter un cristal de lagon (îlot relié) | Maintenir le clic sur le bassin de lumière (1 s) |
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
 | Atelier | C ou un clic sur la cabane (Échap pour fermer) |

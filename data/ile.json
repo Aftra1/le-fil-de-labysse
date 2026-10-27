@@ -24,5 +24,19 @@
 		"vitesse_max": 11.0,
 		"y_min": 34.0,
 		"y_max": 112.0
+	},
+	"ilot": {
+		"id": "ilot_est",
+		"position": [586, 194],
+		"zone": [36, 24],
+		"passerelle": [[492, 196], [554, 194]],
+		"bassin": {
+			"ressource": "cristal_lagon",
+			"position": [586, 194],
+			"plafond": 3,
+			"recharge_s": 45.0,
+			"duree_maintien": 1.0,
+			"stock_initial": 1
+		}
 	}
 }

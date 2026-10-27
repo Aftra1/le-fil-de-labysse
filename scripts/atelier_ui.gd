@@ -1,12 +1,13 @@
 class_name PanneauAtelier
 extends CanvasLayer
 ## Interface de l'atelier (640x360) : panneau opaque en cadres or et crème.
-## À gauche, deux onglets (composants, améliorations) et la liste des recettes ; à droite, le détail
-## de la recette choisie : ingrédients « possédé / requis », effet, bouton Fabriquer ou Installer.
+## En haut, trois onglets (composants, améliorations, construction) ; à gauche, la liste des recettes ;
+## à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton
+## Fabriquer, Installer ou Construire.
 ## S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 
-## amelioration : vrai pour une amélioration installée, faux pour un composant fabriqué.
-signal fabrique(id: String, amelioration: bool)
+## genre : « composant » (fabriqué), « amelioration » (installée) ou « construction » (construite).
+signal fabrique(id: String, genre: String)
 
 const LARGEUR_LISTE := 196.0
 const LARGEUR_DETAIL := 300.0
@@ -15,7 +16,9 @@ const ECART := 4
 const COULEUR_TEXTE := "contour_haut"
 const COULEUR_MANQUE := "corail.2"
 
-var onglet := "composants"       # « composants » ou « ameliorations »
+const ONGLETS := {"composants": "Composants", "ameliorations": "Améliorations", "construction": "Construction"}
+
+var onglet := "composants"       # « composants », « ameliorations » ou « construction »
 var selection := ""
 
 var _liste: VBoxContainer
@@ -42,23 +45,23 @@ func _ready() -> void:
 	var colonne := VBoxContainer.new()
 	colonne.add_theme_constant_override("separation", ECART)
 	colonne.add_child(_etiquette("Atelier"))
+	var ligne_onglets := HBoxContainer.new()
+	ligne_onglets.add_theme_constant_override("separation", ECART)
+	for nom: String in ONGLETS:
+		var bouton := Button.new()
+		bouton.text = ONGLETS[nom]
+		ArtIle.styler_bouton(bouton)
+		bouton.toggle_mode = true
+		bouton.pressed.connect(choisir_onglet.bind(nom))
+		_onglets[nom] = bouton
+		ligne_onglets.add_child(bouton)
+	colonne.add_child(ligne_onglets)
 
 	var corps := HBoxContainer.new()
 	corps.add_theme_constant_override("separation", ECART * 2)
 	var gauche := VBoxContainer.new()
 	gauche.custom_minimum_size.x = LARGEUR_LISTE
 	gauche.add_theme_constant_override("separation", ECART)
-	var ligne_onglets := HBoxContainer.new()
-	ligne_onglets.add_theme_constant_override("separation", ECART)
-	for nom: String in ["composants", "ameliorations"]:
-		var bouton := Button.new()
-		bouton.text = "Composants" if nom == "composants" else "Améliorations"
-		ArtIle.styler_bouton(bouton)
-		bouton.toggle_mode = true
-		bouton.pressed.connect(choisir_onglet.bind(nom))
-		_onglets[nom] = bouton
-		ligne_onglets.add_child(bouton)
-	gauche.add_child(ligne_onglets)
 	_liste = VBoxContainer.new()
 	_liste.add_theme_constant_override("separation", ECART)
 	gauche.add_child(_liste)
@@ -120,7 +123,11 @@ func choisir_onglet(nom: String) -> void:
 	onglet = nom
 	for cle: String in _onglets:
 		(_onglets[cle] as Button).set_pressed_no_signal(cle == nom)
-	var ids: Array = Game.atelier.composants() if nom == "composants" else Atelier.AMELIORATIONS
+	var ids: Array = Game.atelier.composants()
+	if nom == "ameliorations":
+		ids = Atelier.AMELIORATIONS
+	elif nom == "construction":
+		ids = Atelier.CONSTRUCTIONS
 	selection = ids[0]
 	_remplir_liste(ids)
 	rafraichir()
@@ -131,22 +138,32 @@ func selectionner(id: String) -> void:
 	rafraichir()
 
 
-## Fabrique le composant ou installe l'amélioration sélectionné(e), si c'est possible.
+## Fabrique, installe ou construit la recette sélectionnée, si c'est possible.
 func fabriquer_selection() -> bool:
 	var reussi := false
-	var amelioration := onglet == "ameliorations"
-	if amelioration:
-		reussi = Game.atelier.ameliorer(selection)
-	else:
-		reussi = Game.atelier.fabriquer(selection)
+	var genre := "composant"
+	match onglet:
+		"ameliorations":
+			genre = "amelioration"
+			reussi = Game.atelier.ameliorer(selection)
+		"construction":
+			genre = "construction"
+			reussi = Game.atelier.construire(selection)
+		_:
+			reussi = Game.atelier.fabriquer(selection)
 	if reussi:
-		fabrique.emit(selection, amelioration)
+		fabrique.emit(selection, genre)
 	rafraichir()
 	return reussi
 
 
 func peut_fabriquer_selection() -> bool:
-	return Game.atelier.peut_ameliorer(selection) if onglet == "ameliorations" else Game.atelier.peut_fabriquer(selection)
+	match onglet:
+		"ameliorations":
+			return Game.atelier.peut_ameliorer(selection)
+		"construction":
+			return Game.atelier.peut_construire(selection)
+	return Game.atelier.peut_fabriquer(selection)
 
 
 func rafraichir() -> void:
@@ -163,6 +180,11 @@ func rafraichir() -> void:
 		_effet.text = "Installée : niveau maximal atteint." if recette.is_empty() else str(recette["effet"])
 		ingredients = {} if recette.is_empty() else recette["ingredients"]
 		_bouton.text = "Installer"
+	elif onglet == "construction":
+		var construite := Game.atelier.est_construite(selection)
+		_effet.text = "Construite : l'îlot est relié." if construite else Game.atelier.effet_construction(selection)
+		ingredients = {} if construite else Game.atelier.ingredients_construction(selection)
+		_bouton.text = "Construire"
 	else:
 		_effet.text = "Composant pour les améliorations de la cloche."
 		ingredients = Game.atelier.ingredients_composant(selection)
@@ -182,7 +204,13 @@ func _remplir_liste(ids: Array) -> void:
 		bouton.toggle_mode = true
 		bouton.button_group = _groupe
 		bouton.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		bouton.icon = ArtIle.icone_amelioration(id) if onglet == "ameliorations" else ArtIle.icone(id, 1.0)
+		match onglet:
+			"ameliorations":
+				bouton.icon = ArtIle.icone_amelioration(id)
+			"construction":
+				bouton.icon = ArtIle.icone_construction(id)
+			_:
+				bouton.icon = ArtIle.icone(id, 1.0)
 		bouton.set_meta("id", id)
 		bouton.pressed.connect(selectionner.bind(id))
 		_liste.add_child(bouton)
@@ -192,6 +220,8 @@ func _libelle(id: String) -> String:
 	if onglet == "ameliorations":
 		var atelier := Game.atelier
 		return "%s  %d/%d" % [atelier.nom_amelioration(id), atelier.niveau(id), atelier.niveau_max(id)]
+	if onglet == "construction":
+		return Game.atelier.nom_construction(id)
 	return Game.nom_ressource(id)
 
 

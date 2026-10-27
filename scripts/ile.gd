@@ -2,6 +2,8 @@ class_name Ile
 extends Node2D
 ## L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire,
 ## atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace).
+## À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île,
+## et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons).
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 ## Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 ## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
@@ -25,6 +27,8 @@ var cloche_visible := true
 var _reglages: Dictionary = {}
 var _eolienne: SourceRessource
 var _filons: Array[SourceRessource] = []
+var _bassin: SourceRessource            # dans _sources seulement une fois l'îlot relié
+var _survol_ilot := false
 var _souris := Vector2(-100.0, -100.0)
 var _survol_cloche := false
 var _survol_cabane := false
@@ -61,6 +65,12 @@ func _ready() -> void:
 	_interface.rafraichir_inventaire()
 
 
+## Le bassin hors de l'arbre (îlot non relié) est libéré avec l'île.
+func _notification(quoi: int) -> void:
+	if quoi == NOTIFICATION_PREDELETE and is_instance_valid(_bassin) and _bassin.get_parent() == null:
+		_bassin.free()
+
+
 ## Un seul panneau ouvert à la fois (inventaire ou atelier).
 func panneau_ouvert() -> bool:
 	return _panneau.est_ouvert() or _atelier.est_ouvert()
@@ -76,12 +86,17 @@ func _basculer_atelier() -> void:
 	_atelier.basculer()
 
 
-func _sur_fabrication(id: String, amelioration: bool) -> void:
-	if amelioration:
-		var atelier := Game.atelier
-		_interface.annoncer("Installé : %s (niveau %d)" % [atelier.nom_amelioration(id), atelier.niveau(id)])
-	else:
-		_interface.annoncer("Fabriqué : %s" % Game.nom_ressource(id))
+## genre : « composant », « amelioration » ou « construction » (voir PanneauAtelier.fabrique).
+func _sur_fabrication(id: String, genre: String) -> void:
+	var atelier := Game.atelier
+	match genre:
+		"amelioration":
+			_interface.annoncer("Installé : %s (niveau %d)" % [atelier.nom_amelioration(id), atelier.niveau(id)])
+		"construction":
+			actualiser_ilot()
+			_interface.annoncer("Îlot relié : le bassin de lumière donne du cristal de lagon.")
+		_:
+			_interface.annoncer("Fabriqué : %s" % Game.nom_ressource(id))
 	_interface.rafraichir_inventaire()
 	partie_modifiee.emit()
 
@@ -124,6 +139,10 @@ func _clic() -> void:
 		plongee_demandee.emit()
 	elif _survol_cabane:
 		_basculer_atelier()
+	elif _survol_ilot:
+		_panneau.fermer()
+		_atelier.ouvrir()
+		_atelier.choisir_onglet("construction")
 	elif _survol != null:
 		match _survol.mode:
 			SourceRessource.Mode.CLIC:
@@ -214,13 +233,15 @@ func _mettre_a_jour_survol() -> void:
 		survol = _source_sous_souris()
 	_survol_cloche = sur_cloche
 	_survol_cabane = sur_cabane
+	_survol_ilot = not panneau_ouvert() and not sur_cloche and not sur_cabane and survol == null \
+		and not ilot_relie() and _souris_sur_ilot()
 	if survol != _survol:
 		if is_instance_valid(_survol):
 			_survol.en_survol = false
 		_survol = survol
 		if _survol != null:
 			_survol.en_survol = true
-	var cliquable := _survol_cloche or _survol_cabane or (_survol != null and _survol.est_disponible())
+	var cliquable := _survol_cloche or _survol_cabane or _survol_ilot or (_survol != null and _survol.est_disponible())
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if cliquable else Input.CURSOR_ARROW)
 
 
@@ -229,6 +250,8 @@ func _texte_aide() -> String:
 		return "Plonger : clic sur la cloche (ou E / Espace)"
 	if _survol_cabane:
 		return "Atelier : clic sur la cabane (ou C)"
+	if _survol_ilot:
+		return "Îlot isolé : fabrique une passerelle de nuage à l'atelier"
 	if _survol != null:
 		var source := _survol
 		var nom := Game.nom_ressource(source.id_ressource)
@@ -261,6 +284,43 @@ func _creer_sources() -> void:
 		filon.rayon_clic = 13.0
 		_sources.add_child(filon)
 		_filons.append(filon)
+
+	reglage = _reglages["ilot"]["bassin"]
+	_bassin = _nouvelle_source(reglage, SourceRessource.Mode.MAINTIEN, SourceRessource.Forme.BASSIN)
+	_bassin.position = _vecteur(reglage["position"])
+	_bassin.duree_maintien = float(reglage["duree_maintien"])
+	_bassin.rayon_clic = 13.0
+	actualiser_ilot()
+
+
+# --- Îlot ---------------------------------------------------------------------------
+
+func ilot_relie() -> bool:
+	return Game.atelier.est_relie(str(_reglages["ilot"]["id"]))
+
+
+## Le bassin n'existe sur l'île (récolte, recharge, dessin) que si l'îlot est relié.
+func actualiser_ilot() -> void:
+	var relie := ilot_relie()
+	if relie and _bassin.get_parent() == null:
+		_sources.add_child(_bassin)
+	elif not relie and _bassin.get_parent() != null:
+		_sources.remove_child(_bassin)
+
+
+func bassin() -> SourceRessource:
+	return _bassin
+
+
+## Centre de la zone de survol de l'îlot (640x360).
+func centre_ilot() -> Vector2:
+	return _vecteur(_reglages["ilot"]["position"]) + Vector2(0.0, 18.0)
+
+
+func _souris_sur_ilot() -> bool:
+	var zone := _vecteur(_reglages["ilot"]["zone"])
+	var centre := centre_ilot()
+	return absf(_souris.x - centre.x) <= zone.x and absf(_souris.y - centre.y) <= zone.y
 
 
 func _nouvelle_source(reglage: Dictionary, mode: SourceRessource.Mode, forme: SourceRessource.Forme) -> SourceRessource:
@@ -397,7 +457,7 @@ func etat_sources() -> Dictionary:
 	var filons: Array = []
 	for filon in _filons:
 		filons.append(filon.etat())
-	return {"eolienne": _eolienne.etat(), "filons": filons}
+	return {"eolienne": _eolienne.etat(), "filons": filons, "bassin": _bassin.etat()}
 
 
 ## Reprend l'état sauvegardé des sources ; ce qui manque ou est faux garde la valeur de départ.
@@ -410,6 +470,9 @@ func restaurer_sources(donnees: Dictionary) -> void:
 		for i in mini((filons as Array).size(), _filons.size()):
 			if filons[i] is Dictionary:
 				_filons[i].restaurer(filons[i])
+	if donnees.get("bassin") is Dictionary:
+		_bassin.restaurer(donnees["bassin"])
+	actualiser_ilot()
 	queue_redraw()
 
 
@@ -418,6 +481,8 @@ func reinitialiser_sources() -> void:
 	_eolienne.restaurer({"stock": int(_reglages["eolienne"]["stock_initial"]), "recharge": 0.0})
 	for filon in _filons:
 		filon.restaurer({"stock": int(_reglages["filons"]["stock_initial"]), "recharge": 0.0})
+	_bassin.restaurer({"stock": int(_reglages["ilot"]["bassin"]["stock_initial"]), "recharge": 0.0})
+	actualiser_ilot()
 	_interface.rafraichir_inventaire()
 
 
@@ -444,6 +509,7 @@ func _dessiner_monde(toile: Node2D) -> void:
 		if not enfant.is_queued_for_deletion():
 			(enfant as SourceRessource).dessiner_monde(toile)
 	_dessiner_cabane(toile)
+	_dessiner_ilot(toile)
 	for enfant in _sources.get_children():
 		(enfant as SourceRessource).dessiner_monde(toile)
 	if cloche_visible:
@@ -475,8 +541,43 @@ func _dessiner_cabane(toile: Node2D) -> void:
 		Pixel.cadre(toile, Rect2(centre - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
 
 
+## Îlot (assombri tant qu'il n'est pas relié), puis la passerelle, ou des pointillés or à sa place.
+func _dessiner_ilot(toile: Node2D) -> void:
+	var relie := ilot_relie()
+	var texture := ArtIle.ilot(relie)
+	var haut := VueMonde.vers_monde(_vecteur(_reglages["ilot"]["position"]))
+	var coin := haut - Vector2(floorf(texture.get_width() / 2.0), 1.0)
+	var ombre := Palette.plus_sombre(ArtIle.couleur_ciel_monde(coin.y + texture.get_height() / 2.0))
+	toile.draw_texture(Pixel.silhouette(texture, ombre), coin + Vector2.ONE)
+	toile.draw_texture(texture, coin)
+	var bouts: Array = _reglages["ilot"]["passerelle"]
+	var a := VueMonde.vers_monde(_vecteur(bouts[0]))
+	var b := VueMonde.vers_monde(_vecteur(bouts[1]))
+	var longueur := int(b.x - a.x)
+	for i in longueur + 1:
+		var t := float(i) / longueur
+		var y := roundf(lerpf(a.y, b.y, t) + 3.0 * sin(PI * t))
+		var x := a.x + i
+		if not relie:
+			if i % 2 == 0:
+				toile.draw_rect(Rect2(x, y, 1, 1), Palette.couleur("or.3"))
+			continue
+		# Planches (deux tons alternés), rambarde en fil de nuage, poteaux tous les 7 pixels.
+		toile.draw_rect(Rect2(x, y, 1, 1), Palette.couleur("terre.3" if i % 3 != 0 else "terre.2"))
+		toile.draw_rect(Rect2(x, y + 1, 1, 1), Palette.couleur(ArtIle.CONTOUR))
+		toile.draw_rect(Rect2(x, y - 3, 1, 1), Palette.couleur("nuage.4"))
+		if i % 7 == 0:
+			toile.draw_rect(Rect2(x, y - 3, 1, 3), Palette.couleur("terre.1"))
+	if _survol_ilot:
+		var zone := (_vecteur(_reglages["ilot"]["zone"]) * K).round()
+		Pixel.cadre(toile, Rect2(VueMonde.vers_monde(centre_ilot()) - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
+
+
 func _fabrication_possible() -> bool:
 	var atelier := Game.atelier
+	for id: String in Atelier.CONSTRUCTIONS:
+		if atelier.peut_construire(id):
+			return true
 	for id: String in atelier.composants():
 		if atelier.peut_fabriquer(id):
 			return true
