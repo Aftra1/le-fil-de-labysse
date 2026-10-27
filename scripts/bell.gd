@@ -1,0 +1,51 @@
+extends CharacterBody2D
+## La cloche de plongée : déplacement avec inertie et flottabilité douce.
+## Les ordres viennent de dive.gd (contrôle actif ou remontée automatique).
+
+# Réglages de déplacement (pixels et secondes)
+const VITESSE_MAX := 110.0            # vitesse de plongée / de déplacement voulue par le joueur
+const VITESSE_REMONTEE_AUTO := 90.0   # vitesse quand l'oxygène est vide
+const VITESSE_FLOTTAISON := 14.0      # montée lente quand on ne touche à rien
+const ACCELERATION := 260.0           # plus c'est petit, plus la cloche « glisse »
+const FREINAGE := 120.0               # décélération quand on lâche les touches
+
+# Limites de la zone
+const DEMI_LARGEUR_ZONE := 280.0
+const PROFONDEUR_MAX_PX := 3000.0
+
+# Dessin (formes simples)
+const LARGEUR := 22.0
+const HAUTEUR := 26.0
+const COULEUR_CORPS := Color("e8b923")
+const COULEUR_HUBLOT := Color("3fe0e8")
+
+var controle_actif := true
+var remontee_auto := false
+
+
+func _physics_process(delta: float) -> void:
+	var cible := Vector2.ZERO
+	var acceleration := FREINAGE
+	if remontee_auto:
+		cible = Vector2(0.0, -VITESSE_REMONTEE_AUTO)
+		acceleration = ACCELERATION
+	elif controle_actif:
+		var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		cible = direction * VITESSE_MAX
+		if is_zero_approx(direction.y):
+			cible.y = -VITESSE_FLOTTAISON
+		if direction != Vector2.ZERO:
+			acceleration = ACCELERATION
+	velocity = velocity.move_toward(cible, acceleration * delta)
+	move_and_slide()
+
+	position.x = clampf(position.x, -DEMI_LARGEUR_ZONE, DEMI_LARGEUR_ZONE)
+	if position.y < 0.0 or position.y > PROFONDEUR_MAX_PX:
+		position.y = clampf(position.y, 0.0, PROFONDEUR_MAX_PX)
+		velocity.y = 0.0
+
+
+func _draw() -> void:
+	var demi := Vector2(LARGEUR, HAUTEUR) / 2.0
+	draw_rect(Rect2(-demi, Vector2(LARGEUR, HAUTEUR)), COULEUR_CORPS)
+	draw_rect(Rect2(Vector2(-4.0, -4.0), Vector2(8.0, 8.0)), COULEUR_HUBLOT)
