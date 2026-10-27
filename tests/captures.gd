@@ -1,7 +1,8 @@
 extends SceneTree
 ## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
 ## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ;
-## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir).
+## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ;
+## 20-27 : écran titre, menu pause, sauvegarde abîmée (22-24 : réservés à l'îlot).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -13,6 +14,8 @@ extends SceneTree
 
 const DOSSIER := "res://docs/captures/"
 const ECHELLE := 2  # 640x360 agrandi ×2 en « plus proche voisin » pour rester lisible
+## Les captures n'utilisent jamais la vraie sauvegarde.
+const SAUVEGARDE_CAPTURES := "user://captures_sauvegarde.json"
 
 var _plongee: Node
 var _bell: CharacterBody2D
@@ -26,12 +29,16 @@ func _initialize() -> void:
 
 func _scenarios() -> void:
 	await process_frame
+	Sauvegarde.chemin = SAUVEGARDE_CAPTURES
+	_effacer_sauvegarde()
 	for nom: String in Palette.noms():
 		_palette[Palette.couleur(nom).to_rgba32()] = nom
 	await _planche_palette()
 	await _scenario_plongee()
 	await _scenario_jeu()
 	await _scenario_ameliorations()
+	await _scenario_menus()
+	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
 		else "%d capture(s) avec des couleurs hors palette" % _captures_hors_palette))
 	quit(0 if _captures_hors_palette == 0 else 1)
@@ -118,6 +125,7 @@ func _scenario_plongee() -> void:
 
 func _scenario_jeu() -> void:
 	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	jeu.avec_titre = false
 	root.add_child(jeu)
 	var ile: Node = jeu.get_node("Ile")
 	var transition: Node = jeu.get_node("Transition")
@@ -256,6 +264,75 @@ func _scenario_ameliorations() -> void:
 	await _images(60)
 	await _capturer("19-hud-reservoir")
 	await _fermer_plongee(plongee)
+
+
+# --- 20-27 : écran titre, menu pause, sauvegarde abîmée ------------------------------
+
+func _scenario_menus() -> void:
+	_atelier().niveaux = { "cable": 0, "lanterne": 0, "reservoir": 0 }
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu_titre()
+	await _capturer("21-titre-sans-sauvegarde")
+	jeu.nouvelle_partie()
+	var inventaire: Inventaire = root.get_node("Game").inventaire
+	inventaire.ajouter("vent", 3)
+	inventaire.ajouter("nuage", 2)
+	jeu.sauvegarder()
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu_titre()
+	await _capturer("20-titre")
+	var titre: Node = jeu.get_node("EcranTitre")
+	titre.demander_nouvelle_partie()
+	await _images(3)
+	await _capturer("20b-titre-confirmation")
+	titre.annuler_confirmation()
+	jeu.continuer()
+	await _images(10)
+	_touche(KEY_ESCAPE)
+	await _images(5)
+	await _capturer("25-pause-ile")
+	jeu.fermer_pause()
+
+	_touche(KEY_E)
+	while jeu.etat != 2:   # Etat.PLONGEE
+		await _images(1)
+	jeu.plongee().get_node("Bell").position.y = 300.0
+	await _images(60)
+	_touche(KEY_ESCAPE)
+	await _images(5)
+	await _capturer("26-pause-plongee")
+	jeu.retour_au_titre()
+	await _images(3)
+	await _fermer_jeu(jeu)
+
+	_effacer_sauvegarde()
+	var fichier := FileAccess.open(SAUVEGARDE_CAPTURES, FileAccess.WRITE)
+	fichier.store_string("{ abîmée")
+	fichier.close()
+	jeu = await _ouvrir_jeu_titre()
+	await _capturer("27-sauvegarde-abimee")
+	await _fermer_jeu(jeu)
+
+
+func _ouvrir_jeu_titre() -> Node:
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	root.add_child(jeu)
+	await _images(20)
+	return jeu
+
+
+func _fermer_jeu(jeu: Node) -> void:
+	root.remove_child(jeu)
+	jeu.queue_free()
+	await _images(2)
+
+
+func _effacer_sauvegarde() -> void:
+	var base := SAUVEGARDE_CAPTURES.get_basename()
+	for chemin: String in [SAUVEGARDE_CAPTURES, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
+		if FileAccess.file_exists(chemin):
+			DirAccess.remove_absolute(chemin)
 
 
 func _atelier() -> Atelier:

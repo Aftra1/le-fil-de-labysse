@@ -125,8 +125,6 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	rafraichir_interface()
 	_regler_obscurite()
-	if Input.is_action_just_pressed("pause"):
-		get_tree().quit()
 
 
 ## Lit les niveaux installés à l'atelier : longueur du câble, réserve d'oxygène, lanterne.

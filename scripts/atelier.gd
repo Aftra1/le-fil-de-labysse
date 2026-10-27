@@ -3,7 +3,7 @@ extends RefCounted
 ## Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json)
 ## et installe les améliorations de la cloche, niveau par niveau.
 ## Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json.
-## Les niveaux installés sont gardés ici (la sauvegarde viendra à l'étape 5).
+## Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux).
 
 const AMELIORATIONS := ["cable", "lanterne", "reservoir"]
 
@@ -81,6 +81,13 @@ func ameliorer(id: String) -> bool:
 	_payer(prochain_niveau(id)["ingredients"])
 	niveaux[id] = niveau(id) + 1
 	return true
+
+
+## Niveaux lus depuis une sauvegarde : améliorations inconnues ignorées, niveaux bornés à 0..max.
+func charger_niveaux(donnees: Dictionary) -> void:
+	for id: String in AMELIORATIONS:
+		var valeur = donnees.get(id, 0)
+		niveaux[id] = clampi(int(valeur), 0, niveau_max(id)) if (valeur is float or valeur is int) else 0
 
 
 # --- Effets des niveaux installés -------------------------------------------------------------

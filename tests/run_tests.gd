@@ -1,5 +1,5 @@
 extends SceneTree
-## Tests de logique (étapes 1 à 3). Lancement : voir tests/lancer.sh ou le README.
+## Tests de logique (étapes 1 à 5). Lancement : voir tests/lancer.sh ou le README.
 ## Chaque vérification affiche PASS ou FAIL, puis un total ; code de sortie 1 s'il y a un échec.
 
 const SCENE_PLONGEE := "res://scenes/dive.tscn"
@@ -10,6 +10,8 @@ const ETAT_DESCENTE := 1
 const ETAT_PLONGEE := 2
 const ETAT_REMONTEE := 3
 const IMAGES_PAR_S := 60.0
+## La vraie sauvegarde n'est jamais touchée : les tests écrivent dans un autre fichier de user://.
+const SAUVEGARDE_TESTS := "user://tests_sauvegarde.json"
 
 var _reussis := 0
 var _total := 0
@@ -21,6 +23,7 @@ var _plongee: Node
 var _bell: CharacterBody2D
 var _jeu: Node
 var _retours: Array = []           # signaux retour_ile reçus : [gardees, perdues, urgence]
+var _quitter_demande := 0          # appels au bouton Quitter (remplacé : les tests continuent)
 
 
 func _initialize() -> void:
@@ -30,6 +33,8 @@ func _initialize() -> void:
 func _lancer() -> void:
 	await process_frame
 	_jeu = root.get_node("Game")
+	Sauvegarde.chemin = SAUVEGARDE_TESTS
+	_effacer_sauvegarde()
 	_dive_script = load("res://scripts/dive.gd")
 	_ile_script = load("res://scripts/ile.gd")
 
@@ -98,11 +103,28 @@ func _lancer() -> void:
 	_titre("Étape 4 : équilibre (sans grind)")
 	_test_equilibre()
 
+	_titre("Étape 5 : sauvegarde (fichier, version, fichiers abîmés)")
+	_test_sauvegarde_fichier()
+	_test_sauvegarde_contenu()
+
+	_titre("Étape 5 : sauvegarde dans le jeu")
+	await _test_sauvegarde_jeu()
+	await _test_sauvegarde_automatique()
+
+	_titre("Étape 5 : écran titre")
+	await _test_ecran_titre()
+
+	_titre("Étape 5 : menu pause et Échap")
+	await _test_pause_ile()
+	await _test_pause_plongee()
+	await _test_echap_transition()
+
 	_titre("Rendu pixel art")
 	_test_rendu_pixel()
 	await _test_monde_320()
 	await _test_camera_plongee()
 
+	_effacer_sauvegarde()
 	print("")
 	print("TOTAL : %d/%d PASS" % [_reussis, _total])
 	quit(0 if _reussis == _total else 1)
@@ -686,9 +708,11 @@ func _test_lancer_plongee_depuis_ile() -> void:
 	await _fermer_ile(ile)
 
 
-func _ouvrir_jeu() -> Node:
+func _ouvrir_jeu(avec_titre: bool = false) -> Node:
 	_jeu.inventaire = Inventaire.new()
 	var jeu: Node = load(SCENE_JEU).instantiate()
+	jeu.avec_titre = avec_titre
+	jeu.action_quitter = func() -> void: _quitter_demande += 1
 	root.add_child(jeu)
 	await _images(3)
 	return jeu
@@ -1118,3 +1142,401 @@ func _test_equilibre() -> void:
 					encore = true
 	_verifier(installe.call() and plongees <= 6, "les 3 améliorations de niveau 1 en 6 plongées au plus", "%d plongées" % plongees)
 
+
+
+# --- Étape 5 : sauvegarde, écran titre, menu pause -------------------------------------
+
+func _effacer_sauvegarde() -> void:
+	var base := SAUVEGARDE_TESTS.get_basename()
+	for chemin: String in [SAUVEGARDE_TESTS, base + ".bak", base + ".tmp", base + ".corrompue.json", base + ".version-99.json"]:
+		if FileAccess.file_exists(chemin):
+			DirAccess.remove_absolute(chemin)
+
+
+func _ecrire_texte(chemin: String, texte: String) -> void:
+	var fichier := FileAccess.open(chemin, FileAccess.WRITE)
+	fichier.store_string(texte)
+	fichier.close()
+
+
+func _lire_texte(chemin: String) -> String:
+	return FileAccess.get_file_as_string(chemin) if FileAccess.file_exists(chemin) else ""
+
+
+func _partie_exemple() -> Dictionary:
+	return {
+		"inventaire": {"vent": 4, "fil_nuage": 2},
+		"ameliorations": {"cable": 1, "lanterne": 0, "reservoir": 1},
+		"ilots": [],
+		"ile": {"eolienne": {"stock": 1, "recharge": 3.0}, "filons": [{"stock": 0, "recharge": 0.0}]},
+	}
+
+
+## Lecture et écriture du fichier : absent, aller-retour, copie de secours, fichiers abîmés, versions.
+func _test_sauvegarde_fichier() -> void:
+	var base := SAUVEGARDE_TESTS.get_basename()
+	_verifier(ProjectSettings.get_setting("application/config/use_custom_user_dir") == true
+		and ProjectSettings.get_setting("application/config/custom_user_dir_name") == "Le Fil de l'Abysse",
+		"dossier utilisateur personnalisé : « Le Fil de l'Abysse » (%APPDATA% sous Windows)")
+	_effacer_sauvegarde()
+	var absente := Sauvegarde.lire()
+	_verifier(absente["statut"] == Sauvegarde.Statut.ABSENTE and not Sauvegarde.existe(),
+		"fichier absent : statut « absente », aucun plantage")
+
+	var ecrit := Sauvegarde.ecrire(_partie_exemple(), 1000.0)
+	var lu := Sauvegarde.lire()
+	var partie: Dictionary = lu["partie"]
+	_verifier(ecrit and lu["statut"] == Sauvegarde.Statut.OK, "écriture puis lecture : statut OK")
+	_verifier(int(partie["version"]) == Sauvegarde.VERSION and float(partie["horodatage"]) == 1000.0,
+		"le fichier porte le numéro de version et la date", "version %d" % int(partie["version"]))
+	_verifier(int(partie["inventaire"]["vent"]) == 4 and int(partie["ameliorations"]["reservoir"]) == 1
+		and int(partie["ile"]["eolienne"]["stock"]) == 1, "aller-retour : inventaire, améliorations et île identiques")
+	_verifier(not FileAccess.file_exists(base + ".bak"), "première écriture : pas encore de copie de secours")
+
+	Sauvegarde.ecrire({"inventaire": {"vent": 9}, "ameliorations": {}, "ilots": [], "ile": {}}, 2000.0)
+	_verifier(FileAccess.file_exists(base + ".bak") and not FileAccess.file_exists(base + ".tmp"),
+		"écriture sûre : l'ancienne partie devient la copie de secours, pas de fichier temporaire restant")
+	_verifier(int(Sauvegarde.lire()["partie"]["inventaire"]["vent"]) == 9, "la nouvelle partie remplace l'ancienne")
+
+	# JSON illisible : mis de côté, la copie de secours est reprise.
+	_ecrire_texte(SAUVEGARDE_TESTS, "{ pas du json")
+	var abimee := Sauvegarde.lire()
+	_verifier(abimee["statut"] == Sauvegarde.Statut.RECUPEREE and int(abimee["partie"]["inventaire"]["vent"]) == 4,
+		"fichier illisible : la copie de secours est reprise")
+	_verifier(FileAccess.file_exists(base + ".corrompue.json") and _lire_texte(base + ".corrompue.json") == "{ pas du json",
+		"fichier illisible : mis de côté tel quel (jamais supprimé)")
+	_verifier(str(abimee["message"]) != "", "fichier illisible : un message l'explique", str(abimee["message"]))
+
+	# Illisible et sans copie de secours : nouvelle partie, sans planter.
+	_effacer_sauvegarde()
+	_ecrire_texte(SAUVEGARDE_TESTS, "[1, 2, 3]")
+	var corrompue := Sauvegarde.lire()
+	_verifier(corrompue["statut"] == Sauvegarde.Statut.CORROMPUE and (corrompue["partie"] as Dictionary).is_empty(),
+		"contenu qui n'est pas une sauvegarde, sans secours : statut « corrompue », partie vide")
+	_effacer_sauvegarde()
+	_ecrire_texte(SAUVEGARDE_TESTS, "")
+	_verifier(Sauvegarde.lire()["statut"] == Sauvegarde.Statut.CORROMPUE, "fichier vide : statut « corrompue »")
+
+	# Écriture interrompue : fichier principal absent, copie de secours présente.
+	_effacer_sauvegarde()
+	Sauvegarde.ecrire(_partie_exemple())
+	DirAccess.rename_absolute(SAUVEGARDE_TESTS, base + ".bak")
+	_verifier(Sauvegarde.lire()["statut"] == Sauvegarde.Statut.RECUPEREE, "fichier principal manquant : la copie de secours est reprise")
+
+	# Version plus récente : jamais modifiée, mise de côté avant une nouvelle partie.
+	_effacer_sauvegarde()
+	var future := '{"version": 99, "inventaire": {"vent": 1}}'
+	_ecrire_texte(SAUVEGARDE_TESTS, future)
+	var recente := Sauvegarde.lire()
+	_verifier(recente["statut"] == Sauvegarde.Statut.TROP_RECENTE and _lire_texte(SAUVEGARDE_TESTS) == future,
+		"version plus récente : statut dédié, fichier intact")
+	Sauvegarde.mettre_de_cote_version_recente()
+	_verifier(not FileAccess.file_exists(SAUVEGARDE_TESTS) and _lire_texte(base + ".version-99.json") == future,
+		"version plus récente : mise de côté avant une nouvelle partie, jamais écrasée")
+
+	# Migration depuis la version 0 (premier format fictif, sans numéro de version).
+	_effacer_sauvegarde()
+	_ecrire_texte(SAUVEGARDE_TESTS, '{"inventaire": {"vent": 3}, "ameliorations": {"cable": 1}}')
+	var ancienne := Sauvegarde.lire()
+	var migree: Dictionary = ancienne["partie"]
+	_verifier(ancienne["statut"] == Sauvegarde.Statut.OK and int(migree["version"]) == Sauvegarde.VERSION
+		and migree["ilots"] is Array and migree["ile"] is Dictionary and int(migree["inventaire"]["vent"]) == 3,
+		"version 0 : migrée vers la version actuelle (îlots et île ajoutés, inventaire gardé)")
+	_effacer_sauvegarde()
+
+
+## Valeurs fausses ou incomplètes : ignorées ou ramenées dans les limites.
+func _test_sauvegarde_contenu() -> void:
+	var migree := Sauvegarde.migrer({"version": 1, "inventaire": "faux", "ilots": 3, "horodatage": "hier"})
+	_verifier(migree["inventaire"] is Dictionary and (migree["inventaire"] as Dictionary).is_empty()
+		and migree["ameliorations"] is Dictionary and migree["ilots"] is Array and float(migree["horodatage"]) == 0.0,
+		"champs de mauvais type ou manquants : remplacés par des valeurs vides")
+
+	var inventaire := Inventaire.depuis_dictionnaire({"vent": 150, "nuage": -4, "inconnu": 3, "corail": "x"},
+		_jeu.ressources.keys())
+	_verifier(inventaire.quantite("vent") == Inventaire.PLAFOND and inventaire.quantite("nuage") == 0
+		and inventaire.quantite("inconnu") == 0 and inventaire.total() == Inventaire.PLAFOND,
+		"inventaire : quantités bornées, ressources inconnues ignorées")
+	_verifier(Inventaire.depuis_dictionnaire(Inventaire.depuis_dictionnaire({"vent": 7}, ["vent"]).vers_dictionnaire(),
+		["vent"]).quantite("vent") == 7, "inventaire : aller-retour vers le dictionnaire")
+
+	var atelier := Atelier.new(Inventaire.new())
+	atelier.charger_niveaux({"cable": 7, "lanterne": -2, "reservoir": "x", "inconnue": 1})
+	_verifier(atelier.niveau("cable") == atelier.niveau_max("cable") and atelier.niveau("lanterne") == 0
+		and atelier.niveau("reservoir") == 0 and not atelier.niveaux.has("inconnue"),
+		"améliorations : niveaux bornés, inconnues ignorées")
+
+	var source := _source(5, 12.0)
+	source.restaurer({"stock": 40, "recharge": 99.0})
+	var trop_plein := source.stock == 5
+	source.restaurer({"stock": 1, "recharge": 99.0})
+	_verifier(trop_plein and source.stock == 1 and source.etat()["recharge"] == 12.0,
+		"source : stock et recharge bornés", str(source.etat()))
+	source.free()
+
+	_verifier(Sauvegarde.secondes_depuis({"horodatage": 5000.0}, 1000.0) == 0.0
+		and Sauvegarde.secondes_depuis({"horodatage": 1000.0}, 1300.0) == 300.0,
+		"temps écoulé depuis la sauvegarde : jamais négatif (horloge reculée)")
+
+
+## Sauvegarder une partie, puis la reprendre par l'écran titre ; rattrapage du temps jeu fermé.
+func _test_sauvegarde_jeu() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var ile: Node = jeu.get_node("Ile")
+	_jeu.inventaire.ajouter("vent", 6)
+	_jeu.inventaire.ajouter("lentille", 1)
+	_jeu.atelier.niveaux["cable"] = 1
+	ile._eolienne.stock = 1
+	for filon: SourceRessource in ile._filons:
+		filon.stock = 0
+	_verifier(jeu.sauvegarder(), "sur l'île : la partie est sauvegardée")
+	var partie: Dictionary = jeu.donnees_partie()
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	_verifier(not jeu._titre.bouton_continuer.disabled, "sauvegarde présente : Continuer est actif")
+	jeu._titre.bouton_continuer.pressed.emit()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	_verifier(_jeu.inventaire.vers_dictionnaire() == partie["inventaire"], "Continuer : inventaire retrouvé",
+		str(_jeu.inventaire.vers_dictionnaire()))
+	_verifier(_jeu.atelier.niveau("cable") == 1 and _jeu.atelier.niveau("lanterne") == 0, "Continuer : améliorations retrouvées")
+	_verifier(ile._eolienne.stock == 1 and ile._filons[0].stock == 0, "Continuer : état des sources retrouvé")
+	_verifier(jeu.partie_en_cours and not paused, "Continuer : la partie reprend (jeu non figé)")
+	await _fermer_jeu(jeu)
+
+	# Jeu fermé 30 s : l'éolienne (1 vent / 12 s) gagne 2 vents ; filons (1 / 20 s) : 1 cristal.
+	Sauvegarde.ecrire(partie, Time.get_unix_time_from_system() - 30.0)
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	_verifier(ile._eolienne.stock == 3 and ile._filons[0].stock == 1, "hors jeu (30 s) : les sources ont rattrapé le temps",
+		"éolienne %d, filon %d" % [ile._eolienne.stock, ile._filons[0].stock])
+	await _fermer_jeu(jeu)
+
+	# Jeu fermé une semaine : plafonné.
+	Sauvegarde.ecrire(partie, Time.get_unix_time_from_system() - 7.0 * 24.0 * 3600.0)
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	_verifier(ile._eolienne.stock == ile._eolienne.plafond and ile._filons[0].stock == ile._filons[0].plafond
+		and _jeu.inventaire.quantite("vent") == 6, "hors jeu (une semaine) : sources pleines mais plafonnées, inventaire inchangé")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+func _inventaire_sauve() -> Dictionary:
+	return Sauvegarde.lire()["partie"].get("inventaire", {})
+
+
+## Moments de sauvegarde : fabrication, départ, fermeture en plongée (état du départ), retour.
+func _test_sauvegarde_automatique() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var ile: Node = jeu.get_node("Ile")
+	_jeu.inventaire.ajouter("nuage", 3)
+	_jeu.inventaire.ajouter("vent", 1)
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.ouvrir()
+	atelier.choisir_onglet("composants")
+	atelier.selectionner("fil_nuage")
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	await _images(2)
+	_verifier(int(_inventaire_sauve().get("fil_nuage", 0)) == 1, "fabrication : la partie est sauvegardée")
+
+	_jeu.inventaire.ajouter("vent", 2)
+	await _cliquer(_ile_script.POSITION_CLOCHE)
+	_verifier(jeu.etat == ETAT_DESCENTE and int(_inventaire_sauve().get("vent", 0)) == 2,
+		"départ en plongée : la partie est sauvegardée")
+	await _attendre_etat(jeu, ETAT_PLONGEE)
+	# Butin en cours : ajouté à l'inventaire seulement au retour ; fermer maintenant garde l'état du départ.
+	var avant := _lire_texte(SAUVEGARDE_TESTS)
+	jeu.propagate_notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
+	_verifier(_lire_texte(SAUVEGARDE_TESTS) == avant, "fermeture en pleine plongée : la sauvegarde du départ est gardée")
+
+	jeu.plongee()._sac.ajouter("corail")
+	await _remonter(jeu)
+	await _attendre_etat(jeu, ETAT_ILE)
+	_verifier(int(_inventaire_sauve().get("corail", 0)) == 1, "retour sur l'île : la partie est sauvegardée avec le butin")
+
+	_jeu.inventaire.ajouter("vent", 1)
+	jeu.propagate_notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
+	_verifier(int(_inventaire_sauve().get("vent", 0)) == 3, "fermeture de la fenêtre sur l'île : la partie est sauvegardée")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+func _centre(controle: Control) -> Vector2:
+	return controle.get_global_rect().get_center()
+
+
+func _test_ecran_titre() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu(true)
+	var titre: Node = jeu._titre
+	var ile: Node = jeu.get_node("Ile")
+	_verifier(titre.est_ouvert() and paused and not jeu.partie_en_cours, "démarrage : écran titre, jeu figé")
+	_verifier(not ile.get_node("HUD").visible, "écran titre : l'interface de l'île est cachée")
+	_verifier(titre.bouton_continuer.disabled, "sans sauvegarde : Continuer est grisé")
+	await _cliquer(_centre(titre.bouton_continuer))
+	_verifier(titre.est_ouvert(), "Continuer grisé : un clic ne fait rien")
+	await _cliquer(_centre(titre.bouton_nouvelle))
+	_verifier(not titre.est_ouvert() and jeu.partie_en_cours and not paused and ile.get_node("HUD").visible,
+		"Nouvelle partie (clic) : le jeu commence sur l'île")
+	_verifier(FileAccess.file_exists(SAUVEGARDE_TESTS), "Nouvelle partie : la partie est sauvegardée tout de suite")
+	_jeu.inventaire.ajouter("vent", 5)
+	jeu.sauvegarder()
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	titre = jeu._titre
+	await _cliquer(_centre(titre.bouton_nouvelle))
+	_verifier(titre.confirmation_ouverte() and titre.est_ouvert(), "partie existante : Nouvelle partie demande confirmation")
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(not titre.confirmation_ouverte() and titre.est_ouvert(), "confirmation : Échap annule")
+	await _cliquer(_centre(titre.bouton_nouvelle))
+	await _cliquer(_centre(titre.bouton_annuler))
+	_verifier(not titre.confirmation_ouverte() and int(_inventaire_sauve().get("vent", 0)) == 5,
+		"confirmation : Annuler garde la partie")
+	await _cliquer(_centre(titre.bouton_nouvelle))
+	await _cliquer(_centre(titre.bouton_remplacer))
+	_verifier(not titre.est_ouvert() and _jeu.inventaire.total() == 0 and _inventaire_sauve().is_empty(),
+		"confirmation : Remplacer lance une nouvelle partie (inventaire vide, sauvegardé)")
+	await _fermer_jeu(jeu)
+
+	_effacer_sauvegarde()   # sans copie de secours
+	_ecrire_texte(SAUVEGARDE_TESTS, "{ abîmée")
+	jeu = await _ouvrir_jeu(true)
+	titre = jeu._titre
+	_verifier(titre.bouton_continuer.disabled and titre.message() != "",
+		"sauvegarde illisible : Continuer grisé et message à l'écran titre", titre.message())
+	await _cliquer(_centre(titre.bouton_nouvelle))
+	_verifier(not titre.est_ouvert() and jeu.partie_en_cours, "sauvegarde illisible : Nouvelle partie sans confirmation")
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	_quitter_demande = 0
+	await _cliquer(_centre(jeu._titre.bouton_quitter))
+	_verifier(_quitter_demande == 1, "écran titre : Quitter ferme le jeu")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+func _test_pause_ile() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var pause: Node = jeu._pause
+	var ile: Node = jeu.get_node("Ile")
+	ile.get_node("Inventaire").ouvrir()
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(not ile.get_node("Inventaire").est_ouvert() and not pause.est_ouvert(),
+		"Échap avec un panneau ouvert : ferme le panneau, pas de pause")
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(pause.est_ouvert() and paused, "Échap sur l'île : menu pause, jeu figé")
+	var stock_avant: int = ile._filons[0].stock
+	ile._filons[0].stock = 0
+	await _secondes(1.0)
+	_verifier(ile._filons[0].stock == 0, "pause : les sources ne se rechargent pas")
+	ile._filons[0].stock = stock_avant
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(not pause.est_ouvert() and not paused, "Échap dans le menu pause : reprend")
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	await _cliquer(_centre(pause.bouton_reprendre))
+	_verifier(not pause.est_ouvert() and not paused, "bouton Reprendre : reprend")
+
+	_jeu.inventaire.ajouter("cristal_solaire", 2)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	await _cliquer(_centre(pause.bouton_titre))
+	_verifier(jeu._titre.est_ouvert() and not pause.est_ouvert() and int(_inventaire_sauve().get("cristal_solaire", 0)) == 2,
+		"Retour au titre depuis l'île : écran titre, partie sauvegardée")
+	await _cliquer(_centre(jeu._titre.bouton_continuer))
+	_verifier(not jeu._titre.est_ouvert() and _jeu.inventaire.quantite("cristal_solaire") == 2,
+		"puis Continuer : la partie reprend")
+
+	_jeu.inventaire.ajouter("cristal_solaire", 1)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_quitter_demande = 0
+	await _cliquer(_centre(pause.bouton_quitter))
+	_verifier(_quitter_demande == 1 and int(_inventaire_sauve().get("cristal_solaire", 0)) == 3,
+		"Quitter depuis la pause : partie sauvegardée puis jeu fermé")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+func _test_pause_plongee() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var pause: Node = jeu._pause
+	_jeu.inventaire.ajouter("vent", 4)
+	_touche(KEY_E)
+	await _attendre_etat(jeu, ETAT_PLONGEE)
+	var plongee: Node = jeu.plongee()
+	# Sous l'eau (en surface, l'oxygène se recharge).
+	var cloche: CharacterBody2D = plongee.get_node("Bell")
+	cloche.position.y = 150.0
+	cloche.velocity = Vector2.ZERO
+	await _secondes(0.5)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(pause.est_ouvert() and paused, "Échap en plongée : menu pause")
+	_verifier(pause.note().contains("butin"), "pause en plongée : rappelle que le butin sera perdu", pause.note())
+	var oxygene: float = plongee.oxygene
+	var temps: float = jeu.temps_plongee
+	await _secondes(1.0)
+	_verifier(plongee.oxygene == oxygene and jeu.temps_plongee == temps, "pause en plongée : l'oxygène ne baisse pas")
+	await _cliquer(_centre(pause.bouton_reprendre))
+	await _secondes(0.5)
+	_verifier(plongee.oxygene < oxygene, "Reprendre : l'oxygène baisse de nouveau")
+
+	plongee._sac.ajouter("corail")
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	await _cliquer(_centre(pause.bouton_titre))
+	await _images(2)
+	_verifier(jeu._titre.est_ouvert() and jeu.etat == ETAT_ILE and jeu.plongee() == null,
+		"Retour au titre en plongée : la plongée est abandonnée")
+	_verifier(_inventaire_sauve().get("corail", 0) == 0 and int(_inventaire_sauve().get("vent", 0)) == 4,
+		"Retour au titre en plongée : la sauvegarde du départ est gardée (butin perdu)")
+	await _cliquer(_centre(jeu._titre.bouton_continuer))
+	var ile: Node = jeu.get_node("Ile")
+	_verifier(ile.visible and ile.cloche_visible and ile.process_mode == Node.PROCESS_MODE_INHERIT
+		and _jeu.inventaire.quantite("vent") == 4, "puis Continuer : retour sur l'île, comme au départ")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+## Échap pendant la descente et la remontée : ignoré (ni pause, ni transition passée).
+func _test_echap_transition() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	_touche(KEY_E)
+	await _secondes(0.5)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(jeu.etat == ETAT_DESCENTE and not jeu._pause.est_ouvert(), "Échap pendant la descente : pas de pause")
+	var reste := await _attendre_etat(jeu, ETAT_PLONGEE)
+	_verifier(reste > 1.5, "Échap pendant la descente : la transition n'est pas passée",
+		"%.2f s restantes" % reste)
+
+	await _remonter(jeu)
+	await _secondes(0.3)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(jeu.etat == ETAT_REMONTEE and not jeu._pause.est_ouvert(), "Échap pendant la remontée : pas de pause")
+	var reste_remontee := await _attendre_etat(jeu, ETAT_ILE)
+	_verifier(reste_remontee > 1.0, "Échap pendant la remontée : la transition n'est pas passée",
+		"%.2f s restantes" % reste_remontee)
+	_verifier(not jeu._pause.est_ouvert(), "après la remontée : pas de menu pause en attente")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()

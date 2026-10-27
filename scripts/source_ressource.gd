@@ -84,6 +84,23 @@ func recharger(secondes: float) -> void:
 		_accumulateur = 0.0
 
 
+## État enregistré dans la sauvegarde : stock et recharge en cours.
+func etat() -> Dictionary:
+	return {"stock": stock, "recharge": _accumulateur}
+
+
+## Reprend un état sauvegardé, borné : stock 0..plafond, recharge 0..recharge_s.
+func restaurer(donnees: Dictionary) -> void:
+	var valeur = donnees.get("stock", stock)
+	if valeur is float or valeur is int:
+		stock = clampi(int(valeur), 0, plafond)
+	valeur = donnees.get("recharge", 0.0)
+	_accumulateur = clampf(float(valeur), 0.0, recharge_s) if (valeur is float or valeur is int) else 0.0
+	if stock >= plafond:
+		_accumulateur = 0.0
+	queue_redraw()
+
+
 func est_disponible() -> bool:
 	return stock > 0
 

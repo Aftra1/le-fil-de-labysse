@@ -1,8 +1,10 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/jeu.gd" id="1_jeu"]
 [ext_resource type="PackedScene" path="res://scenes/transition.tscn" id="2_transition"]
 [ext_resource type="PackedScene" path="res://scenes/ile.tscn" id="3_ile"]
+[ext_resource type="Script" path="res://scripts/ecran_titre.gd" id="4_titre"]
+[ext_resource type="Script" path="res://scripts/menu_pause.gd" id="5_pause"]
 
 [node name="Jeu" type="Node2D"]
 script = ExtResource("1_jeu")
@@ -12,3 +14,9 @@ script = ExtResource("1_jeu")
 [node name="Ile" parent="." instance=ExtResource("3_ile")]
 
 [node name="Plongee" type="Node2D" parent="."]
+
+[node name="EcranTitre" type="CanvasLayer" parent="."]
+script = ExtResource("4_titre")
+
+[node name="MenuPause" type="CanvasLayer" parent="."]
+script = ExtResource("5_pause")
