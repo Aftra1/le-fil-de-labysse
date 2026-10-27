@@ -7,10 +7,10 @@
 [node name="Dive" type="Node2D"]
 script = ExtResource("1_dive")
 
-[node name="Gisements" type="Node2D" parent="."]
-
 [node name="Bell" type="CharacterBody2D" parent="."]
 script = ExtResource("2_bell")
+
+[node name="Gisements" type="Node2D" parent="."]
 
 [node name="Camera" type="Camera2D" parent="."]
 

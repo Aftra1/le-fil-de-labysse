@@ -44,7 +44,7 @@ func _ready() -> void:
 	_stock.size.x = 300.0
 	_stock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
-	_placer(_annonce, Vector2(0.0, 80.0), TAILLE_POLICE_ANNONCE)
+	_placer(_annonce, Vector2(0.0, 36.0), TAILLE_POLICE_ANNONCE)
 	_annonce.size.x = LARGEUR_ECRAN
 	_annonce.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_annonce.visible = false

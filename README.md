@@ -21,9 +21,28 @@ En ligne de commande : `godot --path .` (ou `godot --headless --path . --quit-af
 
 Les touches sont physiques : ZQSD fonctionne sur un clavier AZERTY.
 
+## Tests
+
+Tests de logique (sans fenêtre), avec PASS/FAIL pour chaque point et un total :
+
+```
+godot --headless --path . --fixed-fps 60 --script res://tests/run_tests.gd
+```
+
+ou `tests/lancer.sh` (variable `GODOT=/chemin/vers/godot` si `godot` n'est pas dans le PATH).
+Code de sortie 0 si tout passe, 1 sinon. Durée : quelques secondes.
+
+Captures d'écran automatiques (Xvfb + rendu logiciel Mesa), enregistrées dans `docs/captures/` :
+
+```
+tests/captures.sh
+```
+
 ## Structure
 
 - `scenes/`, `scripts/` : scènes et code (`scripts/autoload/game.gd` = contrôles centralisés)
 - `assets/` : sprites, audio, polices
 - `data/` : données de jeu
+- `tests/` : tests de logique et captures d'écran
+- `docs/captures/` : captures générées par `tests/captures.sh`
 - `builds/` : exports (ignorés par git)

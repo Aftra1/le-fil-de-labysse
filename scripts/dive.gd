@@ -214,9 +214,9 @@ func _arriver_en_surface() -> void:
 	var nb_perdues := _total(perdues)
 	var nb_gardees := _total(gardees)
 	if urgence and nb_perdues > 0:
-		_interface.annoncer("Tu as perdu %s ! %s sauvée(s)." % [_unites(nb_perdues), _unites(nb_gardees)])
+		_interface.annoncer("Tu as perdu %s ! %s." % [_unites(nb_perdues), _sauvees(nb_gardees)])
 	elif urgence and nb_gardees > 0:
-		_interface.annoncer("Remontée d'urgence : rien de perdu, %s sauvée(s)." % _unites(nb_gardees))
+		_interface.annoncer("Remontée d'urgence : rien de perdu, %s." % _sauvees(nb_gardees))
 	elif nb_gardees > 0:
 		_interface.annoncer("Butin rangé : %s." % _unites(nb_gardees))
 
@@ -234,6 +234,10 @@ func _total(butin: Dictionary) -> int:
 
 func _unites(nombre: int) -> String:
 	return "%d unité" % nombre if nombre <= 1 else "%d unités" % nombre
+
+
+func _sauvees(nombre: int) -> String:
+	return "%d sauvée" % nombre if nombre <= 1 else "%d sauvées" % nombre
 
 
 func _texte_butin(prefixe: String, butin: Dictionary) -> String:
