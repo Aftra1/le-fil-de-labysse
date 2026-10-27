@@ -6,6 +6,7 @@
 - Après chaque tâche : résumer et dire comment tester.
 - Ne jamais passer à l'étape suivante sans l'accord de l'utilisateur.
 - Prototype avec des formes simples ; le pixel art viendra plus tard.
+- Git : pour chaque étape, créer une branche depuis `main`, travailler dessus, ouvrir une Pull Request vers `main`, et ne jamais la fusionner sans l'accord de l'utilisateur.
 
 ## Technique
 - Godot 4.7, GDScript typé, cible Windows.
