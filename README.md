@@ -22,6 +22,7 @@ Sur l'île (à la souris) :
 | Récolter un cristal solaire | Maintenir le clic sur un filon (1 s) |
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
+| Atelier | C ou un clic sur la cabane (Échap pour fermer) |
 | Passer la transition | N'importe quelle touche ou un clic |
 
 En plongée :

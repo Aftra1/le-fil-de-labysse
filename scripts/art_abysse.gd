@@ -33,6 +33,13 @@ const CORAIL: PackedStringArray = [
 	"..101..",
 ]
 
+# Obscurité : rien jusqu'à DEBUT_OBSCURITE_M, puis un ton de plus tous les PAS_OBSCURITE_M (3 au plus),
+# limité par la lanterne. Autour de la cloche, un halo en anneaux de ANNEAU_HALO pixels du monde.
+const DEBUT_OBSCURITE_M := 40.0
+const PAS_OBSCURITE_M := 40.0
+const ANNEAU_HALO := 10.0
+const LUEURS := ["cyan.3", "corail.4"]   # bioluminescence et éclats : jamais assombris
+
 ## Horloge figée (vérification du raccord entre transition et plongée).
 static var figer_temps := false
 static var _etapes: Array = []    # [profondeur en px du monde, couleur], de la surface vers le fond
@@ -161,6 +168,94 @@ static func dessiner_reperes(toile: CanvasItem, zone: Rect2, profondeur_max: flo
 		toile.draw_rect(Rect2(-150, y, 3, 1), teinte)
 		toile.draw_rect(Rect2(147, y, 3, 1), teinte)
 		y += pas
+
+
+# --- Obscurité et halo -------------------------------------------------------------------------
+# La même règle est utilisée par le shader (rendu) et par ces fonctions (tests, vérifications).
+
+## Nombre de tons d'obscurité à une profondeur, sans halo (0 à 3, limité par la lanterne).
+static func niveau_obscurite(profondeur_m: float, obscurite_max: int) -> int:
+	if profondeur_m < DEBUT_OBSCURITE_M:
+		return 0
+	return mini(mini(3, 1 + int((profondeur_m - DEBUT_OBSCURITE_M) / PAS_OBSCURITE_M)), obscurite_max)
+
+
+## Tons retirés par le halo à une distance de la cloche (pixels du monde) : 0 au centre, puis 1, 2, 3.
+static func crans_halo(distance: float, rayon: float) -> int:
+	if distance < rayon:
+		return 0
+	if distance < rayon + ANNEAU_HALO:
+		return 1
+	if distance < rayon + 2.0 * ANNEAU_HALO:
+		return 2
+	return 3
+
+
+## Couleur affichée d'un pixel du monde : son ton, assombri dans sa propre rampe.
+static func assombrir(teinte: Color, profondeur_m: float, distance: float, rayon: float, obscurite_max: int) -> Color:
+	var crans := mini(crans_halo(distance, rayon), niveau_obscurite(profondeur_m, obscurite_max))
+	for nom: String in LUEURS:
+		if teinte == c(nom):
+			return teinte
+	return Palette.plus_sombre(teinte, crans) if crans > 0 else teinte
+
+
+## Matériau d'obscurité de la vue du monde de la plongée (ombre « un ton plus sombre » par pixel).
+## Table : ligne k = chaque couleur de la palette assombrie de k tons dans sa rampe.
+static func materiau_obscurite() -> ShaderMaterial:
+	var noms := Palette.noms()
+	var table := Image.create(noms.size(), 4, false, Image.FORMAT_RGBA8)
+	for i in noms.size():
+		var teinte := c(noms[i])
+		for k in 4:
+			table.set_pixel(i, k, Palette.plus_sombre(teinte, k))
+	var shader := Shader.new()
+	shader.code = SHADER_OBSCURITE % [DEBUT_OBSCURITE_M, DEBUT_OBSCURITE_M, PAS_OBSCURITE_M]
+	var materiau := ShaderMaterial.new()
+	materiau.shader = shader
+	materiau.set_shader_parameter("table", ImageTexture.create_from_image(table))
+	materiau.set_shader_parameter("nombre", noms.size())
+	materiau.set_shader_parameter("anneau", ANNEAU_HALO)
+	materiau.set_shader_parameter("px_par_metre", PX_PAR_METRE)
+	materiau.set_shader_parameter("lueur_1", c(LUEURS[0]))
+	materiau.set_shader_parameter("lueur_2", c(LUEURS[1]))
+	return materiau
+
+
+const SHADER_OBSCURITE := """
+shader_type canvas_item;
+uniform sampler2D table : filter_nearest, repeat_disable;
+uniform int nombre;
+uniform vec2 cloche;          // pixel du monde de la cloche, relatif au coin de la vue
+uniform float rayon;
+uniform float anneau;
+uniform float origine_y;      // profondeur (pixels du monde) de la première ligne de la vue
+uniform float px_par_metre;
+uniform int obscurite_max;
+uniform vec4 lueur_1;
+uniform vec4 lueur_2;
+
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	vec2 texel = floor(UV / TEXTURE_PIXEL_SIZE);
+	float m = (origine_y + texel.y) / px_par_metre;
+	int niveau = m < %.1f ? 0 : min(3, 1 + int((m - %.1f) / %.1f));
+	niveau = min(niveau, obscurite_max);
+	float d = length(texel - cloche);
+	int crans = d < rayon ? 0 : (d < rayon + anneau ? 1 : (d < rayon + 2.0 * anneau ? 2 : 3));
+	int k = min(crans, niveau);
+	COLOR = c;
+	if (k > 0 && distance(c.rgb, lueur_1.rgb) > 0.002 && distance(c.rgb, lueur_2.rgb) > 0.002) {
+		for (int i = 0; i < nombre; i++) {
+			vec4 p = texelFetch(table, ivec2(i, 0), 0);
+			if (distance(p.rgb, c.rgb) < 0.002) {
+				COLOR = texelFetch(table, ivec2(i, k), 0);
+				break;
+			}
+		}
+	}
+}
+"""
 
 
 # --- Sprites ---------------------------------------------------------------------------------

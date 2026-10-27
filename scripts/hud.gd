@@ -10,6 +10,10 @@ const SEUIL_OXYGENE_BAS := 0.25
 const DUREE_ANNONCE := 4.0
 const COULEUR_TEXTE := "cyan.3"
 
+var _taille_barre := TAILLE_BARRE
+var _barre_conteneur: Control
+var _barre_bord: ColorRect
+var _barre_fond: ColorRect
 var _remplissage := ColorRect.new()
 var _reflet := ColorRect.new()
 var _etat: PanelContainer
@@ -68,7 +72,7 @@ func _process(delta: float) -> void:
 
 
 func mettre_a_jour(ratio_oxygene: float, profondeur_m: float, nom_zone: String, message_bas: String) -> void:
-	var largeur := roundf((TAILLE_BARRE.x - 2.0) * clampf(ratio_oxygene, 0.0, 1.0))
+	var largeur := roundf((_taille_barre.x - 2.0) * clampf(ratio_oxygene, 0.0, 1.0))
 	_remplissage.size.x = largeur
 	_reflet.size.x = largeur
 	var bas := ratio_oxygene < SEUIL_OXYGENE_BAS
@@ -108,6 +112,19 @@ func _decaler(panneau: PanelContainer, decalage: Vector2) -> void:
 	panneau.offset_bottom = base.w + decalage.y
 
 
+## Longueur de la jauge d'oxygène proportionnelle à la réserve (1 = réserve de base).
+func regler_reserve(facteur: float) -> void:
+	_taille_barre = Vector2(roundf(TAILLE_BARRE.x * facteur), TAILLE_BARRE.y)
+	_barre_conteneur.custom_minimum_size = _taille_barre
+	_barre_bord.size = _taille_barre
+	_barre_fond.size = _taille_barre - Vector2(2, 2)
+	_reflet.size.y = 2.0
+
+
+func largeur_jauge() -> float:
+	return _taille_barre.x
+
+
 func definir_sac(texte: String) -> void:
 	_sac.text = texte
 
@@ -121,13 +138,16 @@ func annoncer(texte: String, duree: float = DUREE_ANNONCE) -> void:
 ## Jauge d'oxygène : fond noir, remplissage cyan (violet lumineux quand il reste peu d'air).
 func _barre() -> Control:
 	var barre := Control.new()
+	_barre_conteneur = barre
 	barre.custom_minimum_size = TAILLE_BARRE
 	barre.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bord := ColorRect.new()
+	_barre_bord = bord
 	bord.color = Palette.couleur("metal.2")
 	bord.size = TAILLE_BARRE
 	barre.add_child(bord)
 	var fond := ColorRect.new()
+	_barre_fond = fond
 	fond.color = Palette.couleur("abysse.0")
 	fond.position = Vector2.ONE
 	fond.size = TAILLE_BARRE - Vector2(2, 2)

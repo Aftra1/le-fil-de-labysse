@@ -86,6 +86,18 @@ func _lancer() -> void:
 	_titre("Étape 3 : remontée d'urgence, butin rangé dans l'inventaire")
 	await _test_flux_urgence()
 
+	_titre("Étape 4 : atelier (composants et améliorations)")
+	_test_atelier_logique()
+	await _test_atelier_ile()
+
+	_titre("Étape 4 : améliorations de la cloche en plongée")
+	await _test_limite_cable()
+	await _test_reservoir()
+	_test_obscurite_regles()
+
+	_titre("Étape 4 : équilibre (sans grind)")
+	_test_equilibre()
+
 	_titre("Rendu pixel art")
 	_test_rendu_pixel()
 	await _test_monde_320()
@@ -286,6 +298,9 @@ func _test_remontee_automatique() -> void:
 
 func _test_budget_oxygene() -> void:
 	await _demarrer()
+	# Le câble de départ s'arrête à 150 m : on installe le câble tressé (300 m) pour mesurer le budget.
+	_jeu.atelier.niveaux["cable"] = 1
+	_plongee.appliquer_ameliorations()
 	Input.action_press("move_down")
 	var t := 0.0
 	var mesure_150 := false
@@ -945,4 +960,161 @@ func _test_glissement_hud() -> void:
 	_verifier(not interface.visible, "remontée : le HUD a disparu après 0,3 s")
 	await _attendre_etat(jeu, ETAT_ILE)
 	await _fermer_jeu(jeu)
+
+
+# --- Étape 4 ----------------------------------------------------------------
+
+func _test_atelier_logique() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	_verifier(not atelier.fabriquer("fil_nuage") and inventaire.quantite("fil_nuage") == 0,
+		"atelier : fabrication refusée sans ingrédients", str(atelier.manquants(atelier.ingredients_composant("fil_nuage"))))
+	inventaire.ajouter("nuage", 3)
+	inventaire.ajouter("vent", 1)
+	_verifier(atelier.fabriquer("fil_nuage") and inventaire.quantite("fil_nuage") == 1
+		and inventaire.quantite("nuage") == 0 and inventaire.quantite("vent") == 0,
+		"atelier : un fil de nuage consomme 3 nuages et 1 vent")
+	_verifier(atelier.longueur_cable_m() == 150.0 and atelier.oxygene_max() == 100.0
+		and atelier.rayon_halo() == 40.0 and atelier.obscurite_max() == 3,
+		"atelier : valeurs de départ (câble 150 m, oxygène 100, halo 40, obscurité 3)")
+	_verifier(not atelier.ameliorer("cable") and atelier.niveau("cable") == 0, "amélioration refusée sans ingrédients")
+	inventaire.ajouter("fil_nuage", 2)
+	inventaire.ajouter("cristal_lagon", 4)
+	_verifier(atelier.ameliorer("cable") and atelier.niveau("cable") == 1 and atelier.longueur_cable_m() == 300.0
+		and inventaire.quantite("fil_nuage") == 0 and inventaire.quantite("cristal_lagon") == 0,
+		"câble tressé : installé, ingrédients retirés, câble à 300 m")
+	inventaire.ajouter("fil_nuage", 9)
+	inventaire.ajouter("cristal_lagon", 9)
+	_verifier(not atelier.ameliorer("cable") and atelier.est_au_maximum("cable") and atelier.prochain_niveau("cable").is_empty(),
+		"câble tressé : ne s'installe qu'une fois (niveau maximal de cette étape)")
+	inventaire.ajouter("lentille", 1)
+	inventaire.ajouter("corail", 5)
+	_verifier(atelier.ameliorer("lanterne") and atelier.rayon_halo() == 60.0 and atelier.obscurite_max() == 2,
+		"lanterne de cristal : halo 40 → 60, obscurité 3 → 2 tons")
+	inventaire.ajouter("poche_air", 2)
+	_verifier(atelier.ameliorer("reservoir") and atelier.oxygene_max() == 150.0, "réservoir d'air : oxygène 100 → 150")
+
+
+func _test_atelier_ile() -> void:
+	var ile := await _ouvrir_ile()
+	var atelier: Node = ile.get_node("Atelier")
+	_touche(KEY_C)
+	await _images(2)
+	_verifier(atelier.est_ouvert(), "atelier : la touche C l'ouvre")
+	_touche(KEY_C)
+	await _images(2)
+	_verifier(not atelier.est_ouvert(), "atelier : la touche C le referme")
+	await _cliquer(_ile_script.POSITION_CABANE)
+	_verifier(atelier.est_ouvert(), "atelier : un clic sur la cabane l'ouvre")
+	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
+	nuage.derive = 0.0
+	nuage.position = Vector2(24.0, 346.0)   # hors du panneau de l'atelier, qui est large
+	await _cliquer(nuage.position)
+	_verifier(not atelier.est_ouvert() and _jeu.inventaire.quantite("nuage") == 0,
+		"atelier ouvert : un clic à côté le ferme sans récolter")
+	atelier.ouvrir()
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(not atelier.est_ouvert(), "atelier : Échap le ferme")
+
+	atelier.ouvrir()
+	atelier.choisir_onglet("composants")
+	atelier.selectionner("fil_nuage")
+	_verifier(atelier._bouton.disabled, "atelier : bouton Fabriquer inactif s'il manque des ingrédients")
+	_jeu.inventaire.ajouter("nuage", 3)
+	_jeu.inventaire.ajouter("vent", 1)
+	atelier.rafraichir()
+	_verifier(not atelier._bouton.disabled, "atelier : bouton Fabriquer actif quand tout est là")
+	atelier._bouton.pressed.emit()
+	await _images(2)
+	var annonce: String = ile.get_node("HUD").texte_annonce()
+	_verifier(_jeu.inventaire.quantite("fil_nuage") == 1 and annonce.contains("Fil de nuage"),
+		"atelier : le bouton fabrique le composant et l'île l'annonce", annonce)
+	atelier.fermer()
+	await _fermer_ile(ile)
+
+
+func _test_limite_cable() -> void:
+	await _demarrer()
+	_bell.position.y = 1400.0
+	Input.action_press("move_down")
+	await _secondes(3.0)
+	_verifier(_bell.position.y <= 1500.0 and _bell.position.y >= 1499.0, "câble de départ : la cloche s'arrête à 150 m",
+		"%.1f m" % (_bell.position.y / 10.0))
+	var message: String = _plongee._message_bas(true)
+	_verifier(message == "Câble au maximum (150 m)", "câble de départ : message au bout du câble", message)
+	_jeu.atelier.niveaux["cable"] = 1
+	_plongee.appliquer_ameliorations()
+	await _secondes(2.0)
+	Input.action_release("move_down")
+	_verifier(_bell.position.y > 1600.0, "câble tressé : on descend plus bas que 150 m", "%.1f m" % (_bell.position.y / 10.0))
+	await _terminer()
+
+
+func _test_reservoir() -> void:
+	await _demarrer()
+	var largeur_base: float = _plongee._interface.largeur_jauge()
+	await _terminer()
+	_jeu.atelier.niveaux["reservoir"] = 1
+	_plongee = load(SCENE_PLONGEE).instantiate()
+	root.add_child(_plongee)
+	await _images(2)
+	_verifier(_plongee.oxygene == 150.0 and _plongee.oxygene_max == 150.0, "réservoir : la plongée commence avec 150 d'oxygène")
+	_verifier(_plongee._interface.largeur_jauge() == largeur_base * 1.5, "réservoir : la jauge du HUD est 1,5 fois plus longue",
+		"%.0f px" % _plongee._interface.largeur_jauge())
+	root.remove_child(_plongee)
+	_plongee.queue_free()
+	await _images(2)
+
+
+func _test_obscurite_regles() -> void:
+	_verifier(ArtAbysse.niveau_obscurite(30.0, 3) == 0 and ArtAbysse.niveau_obscurite(50.0, 3) == 1
+		and ArtAbysse.niveau_obscurite(90.0, 3) == 2 and ArtAbysse.niveau_obscurite(140.0, 3) == 3,
+		"obscurité : rien avant 40 m, puis un ton de plus tous les 40 m (3 au plus)")
+	_verifier(ArtAbysse.niveau_obscurite(140.0, 2) == 2, "obscurité : la lanterne limite le noir à 2 tons")
+	_verifier(ArtAbysse.crans_halo(0.0, 40.0) == 0 and ArtAbysse.crans_halo(45.0, 40.0) == 1
+		and ArtAbysse.crans_halo(55.0, 40.0) == 2 and ArtAbysse.crans_halo(90.0, 40.0) == 3,
+		"halo : anneaux de 10 pixels du monde autour de la cloche")
+	var eau := Palette.couleur("lagon.3")
+	_verifier(ArtAbysse.assombrir(eau, 140.0, 0.0, 40.0, 3) == eau, "halo : un pixel au centre n'est pas assombri")
+	_verifier(ArtAbysse.assombrir(eau, 140.0, 200.0, 40.0, 3) == Palette.couleur("lagon.0"),
+		"obscurité : loin de la cloche, un pixel perd exactement 3 tons dans sa rampe")
+	_verifier(ArtAbysse.assombrir(Palette.couleur("cyan.3"), 140.0, 200.0, 40.0, 3) == Palette.couleur("cyan.3"),
+		"obscurité : la bioluminescence n'est jamais assombrie")
+
+
+## Simulation prudente de la boucle : entre deux plongées, l'île donne 5 vents, 6 nuages et 3 cristaux
+## solaires ; une plongée rapporte un sac de 8 (lagon seulement tant que le câble fait 150 m).
+## On fabrique ce qui sert à la prochaine amélioration. Tout doit être débloqué en 6 plongées au plus.
+func _test_equilibre() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	var plongees := 0
+	var installe := func() -> bool:
+		return atelier.niveau("cable") >= 1 and atelier.niveau("lanterne") >= 1 and atelier.niveau("reservoir") >= 1
+	while not installe.call() and plongees < 20:
+		inventaire.ajouter("vent", 5)
+		inventaire.ajouter("nuage", 6)
+		inventaire.ajouter("cristal_solaire", 3)
+		plongees += 1
+		if atelier.niveau("cable") == 0:
+			inventaire.ajouter("cristal_lagon", 8)
+		else:
+			inventaire.ajouter("cristal_lagon", 4)
+			inventaire.ajouter("corail", 4)
+		var encore := true
+		while encore:
+			encore = false
+			for id: String in Atelier.AMELIORATIONS:
+				if atelier.ameliorer(id):
+					encore = true
+			var besoins := {
+				"fil_nuage": 3 if atelier.niveau("cable") == 0 else 0,
+				"lentille": 1 if atelier.niveau("lanterne") == 0 else 0,
+				"poche_air": 2 if atelier.niveau("reservoir") == 0 else 0,
+			}
+			for id: String in besoins:
+				if inventaire.quantite(id) < int(besoins[id]) and atelier.fabriquer(id):
+					encore = true
+	_verifier(installe.call() and plongees <= 6, "les 3 améliorations de niveau 1 en 6 plongées au plus", "%d plongées" % plongees)
 

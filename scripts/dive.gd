@@ -44,8 +44,13 @@ const LONGUEUR_CABLE_DROIT := 40.0   # pixels du monde : en dessous, le câble n
 const ECRAN := Vector2(640.0, 360.0)
 const LISSAGE_CAMERA := 10.0    # plus c'est grand, plus la caméra rattrape vite la cloche
 const COULEUR_CABLE := "metal.3"
+const COULEUR_CABLE_TENDU := "nuage.1"
+const COULEUR_LIMITE := "or.3"
 
 var oxygene := OXYGENE_MAX
+## Réglages venant des améliorations de la cloche (atelier) : voir appliquer_ameliorations().
+var oxygene_max := OXYGENE_MAX
+var limite_px := PROFONDEUR_MAX
 
 var _zones: Array = []
 var _minerais: Dictionary = {}
@@ -79,6 +84,8 @@ func _ready() -> void:
 	move_child(_monde, 0)
 	_camera = _cible_camera()
 	_monde.camera = _camera
+	_monde.material = ArtAbysse.materiau_obscurite()
+	appliquer_ameliorations()
 	_generer_gisements()
 	_rafraichir_sac()
 
@@ -95,7 +102,7 @@ func _physics_process(delta: float) -> void:
 	if sous_leau:
 		oxygene = maxf(oxygene - CONSOMMATION_PAR_S * float(zone["conso_oxygene"]) * delta, 0.0)
 	else:
-		oxygene = minf(oxygene + RECHARGE_PAR_S * delta, OXYGENE_MAX)
+		oxygene = minf(oxygene + RECHARGE_PAR_S * delta, oxygene_max)
 
 	if oxygene <= 0.0:
 		_cloche.remontee_auto = true
@@ -117,8 +124,37 @@ func _physics_process(delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	rafraichir_interface()
+	_regler_obscurite()
 	if Input.is_action_just_pressed("pause"):
 		get_tree().quit()
+
+
+## Lit les niveaux installés à l'atelier : longueur du câble, réserve d'oxygène, lanterne.
+func appliquer_ameliorations() -> void:
+	var atelier := Game.atelier
+	oxygene_max = atelier.oxygene_max()
+	oxygene = oxygene_max
+	limite_px = minf(atelier.longueur_cable_m() * PIXELS_PAR_METRE, PROFONDEUR_MAX)
+	_cloche.profondeur_limite = limite_px
+	_interface.regler_reserve(oxygene_max / OXYGENE_MAX)
+	_regler_obscurite()
+
+
+## Vrai quand le câble est tendu au maximum (la cloche ne peut pas descendre plus bas).
+func au_bout_du_cable() -> bool:
+	return limite_px < PROFONDEUR_MAX and _cloche.position.y >= limite_px - 1.0
+
+
+## Paramètres du shader d'obscurité pour l'image en cours (mêmes coordonnées que VueMonde).
+func _regler_obscurite() -> void:
+	var materiau := _monde.material as ShaderMaterial
+	if materiau == null:
+		return
+	var origine := _monde.origine_monde()
+	materiau.set_shader_parameter("cloche", VueMonde.vers_monde(_cloche.position) - origine)
+	materiau.set_shader_parameter("origine_y", origine.y)
+	materiau.set_shader_parameter("rayon", Game.atelier.rayon_halo())
+	materiau.set_shader_parameter("obscurite_max", Game.atelier.obscurite_max())
 
 
 ## Met à jour l'interface (aussi appelé pendant la descente, quand la plongée est encore figée).
@@ -126,7 +162,7 @@ func rafraichir_interface() -> void:
 	var zone := _zone_a(_profondeur_m())
 	var sous_leau := _cloche.position.y > SURFACE_Y + SEUIL_SURFACE
 	_interface.mettre_a_jour(
-		oxygene / OXYGENE_MAX,
+		oxygene / oxygene_max,
 		_profondeur_m(),
 		str(zone["nom"]) if sous_leau else "Surface",
 		_message_bas(sous_leau),
@@ -216,6 +252,8 @@ func _message_bas(sous_leau: bool) -> String:
 		return "Plus d'air… la cloche remonte"
 	if sous_leau and _sac.est_plein():
 		return "Sac plein : remonte à la surface !"
+	if au_bout_du_cable():
+		return "Câble au maximum (%d m)" % roundi(limite_px / PIXELS_PAR_METRE)
 	if sous_leau and _gisement_a_portee != null:
 		return "Maintiens E (ou Espace) pour miner"
 	return ""
@@ -331,6 +369,7 @@ func dessiner_monde(toile: CanvasItem, vue: Rect2, avec_ciel: bool, avec_cloche:
 	var fond := PROFONDEUR_MAX / VueMonde.ECHELLE
 	ArtAbysse.dessiner_eau(toile, vue, fond, avec_ciel)
 	ArtAbysse.dessiner_reperes(toile, vue, fond)
+	_dessiner_limite(toile, vue)
 	for enfant in _gisements.get_children():
 		var gisement := enfant as Gisement
 		if gisement != null and not gisement.is_queued_for_deletion():
@@ -358,6 +397,10 @@ func _dessiner_cable(toile: CanvasItem, vue: Rect2) -> void:
 		toile.draw_rect(Rect2(0, vue.position.y, 1, -vue.position.y), Palette.couleur(COULEUR_CABLE))
 	var debut := Vector2.ZERO
 	var fin := VueMonde.vers_monde(_cloche.position) - Vector2(0.0, ceilf(ArtIle.cloche(0.5).get_height() / 2.0))
+	if au_bout_du_cable():
+		# Câble tendu au maximum : droit et plus clair.
+		Pixel.ligne(toile, debut, fin, Palette.couleur(COULEUR_CABLE_TENDU))
+		return
 	if debut.distance_to(fin) < LONGUEUR_CABLE_DROIT:
 		# Câble court (cloche en surface) : droit, comme le dessine la transition.
 		Pixel.ligne(toile, debut, fin, Palette.couleur(COULEUR_CABLE))
@@ -372,3 +415,17 @@ func _dessiner_cable(toile: CanvasItem, vue: Rect2) -> void:
 		if maxf(precedent.y, point.y) >= vue.position.y and minf(precedent.y, point.y) <= vue.end.y:
 			Pixel.ligne(toile, precedent, point, Palette.couleur(COULEUR_CABLE))
 		precedent = point
+
+
+## Limite du câble : une ligne de tirets or sur toute la largeur, sous la cloche au plus bas.
+func _dessiner_limite(toile: CanvasItem, vue: Rect2) -> void:
+	if limite_px >= PROFONDEUR_MAX:
+		return
+	var y := roundf(limite_px / VueMonde.ECHELLE) + ceilf(ArtIle.cloche(0.5).get_height() / 2.0) + 1.0
+	if y < vue.position.y or y > vue.end.y:
+		return
+	var x := floorf(vue.position.x / 4.0) * 4.0
+	while x < vue.end.x:
+		toile.draw_rect(Rect2(x, y, 2, 1), Palette.couleur(COULEUR_LIMITE))
+		x += 4.0
+

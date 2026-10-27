@@ -1,6 +1,7 @@
 extends SceneTree
 ## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
-## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
+## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ;
+## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -30,6 +31,7 @@ func _scenarios() -> void:
 	await _planche_palette()
 	await _scenario_plongee()
 	await _scenario_jeu()
+	await _scenario_ameliorations()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
 		else "%d capture(s) avec des couleurs hors palette" % _captures_hors_palette))
 	quit(0 if _captures_hors_palette == 0 else 1)
@@ -73,6 +75,8 @@ func _planche_palette() -> void:
 # --- 01-05 : plongée seule ------------------------------------------------------
 
 func _scenario_plongee() -> void:
+	# Câble tressé installé : la capture de la forêt de coraux descend à 220 m.
+	_atelier().niveaux["cable"] = 1
 	_plongee = load("res://scenes/dive.tscn").instantiate()
 	root.add_child(_plongee)
 	_bell = _plongee.get_node("Bell")
@@ -191,6 +195,120 @@ func _scenario_jeu() -> void:
 		await _images(1)
 	await _images(10)
 	await _capturer("13-retour-ile-perte")
+
+	# Atelier : un composant faisable, puis une amélioration dont il manque des ingrédients
+	_atelier().niveaux["cable"] = 0
+	var inventaire: Inventaire = root.get_node("Game").inventaire
+	inventaire.ajouter("nuage", 4)
+	inventaire.ajouter("vent", 2)
+	inventaire.ajouter("cristal_lagon", 1)
+	_touche(KEY_C)
+	await _images(3)
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.choisir_onglet("composants")
+	atelier.selectionner("fil_nuage")
+	await _images(3)
+	await _capturer("14-atelier-composant")
+	atelier.choisir_onglet("ameliorations")
+	atelier.selectionner("lanterne")
+	await _images(3)
+	await _capturer("15-atelier-amelioration")
+	_touche(KEY_C)
+	await _images(3)
+	root.remove_child(jeu)
+	jeu.queue_free()
+	await _images(2)
+
+
+# --- 16-19 : améliorations de la cloche en plongée ------------------------------------
+
+func _scenario_ameliorations() -> void:
+	# Câble de départ : la cloche s'arrête à 150 m
+	_atelier().niveaux = { "cable": 0, "lanterne": 0, "reservoir": 0 }
+	var plongee := await _nouvelle_plongee()
+	var cloche: CharacterBody2D = plongee.get_node("Bell")
+	cloche.position.y = 1440.0
+	Input.action_press("move_down")
+	await _images(150)
+	Input.action_release("move_down")
+	await _images(30)
+	await _capturer("16-cable-maximum")
+	await _fermer_plongee(plongee)
+
+	# Obscurité à 120 m, sans puis avec la lanterne ; vérification du shader au pixel près
+	for lanterne in [0, 1]:
+		_atelier().niveaux["lanterne"] = lanterne
+		plongee = await _nouvelle_plongee()
+		cloche = plongee.get_node("Bell")
+		cloche.position = Vector2(-40.0, 1200.0)
+		cloche.controle_actif = false
+		ArtAbysse.figer_temps = true
+		await _images(120)
+		await _capturer("17-obscurite-sans-lanterne" if lanterne == 0 else "18-obscurite-avec-lanterne")
+		await _verifier_obscurite(plongee)
+		ArtAbysse.figer_temps = false
+		await _fermer_plongee(plongee)
+
+	# Réservoir d'air : jauge plus longue
+	_atelier().niveaux = { "cable": 1, "lanterne": 1, "reservoir": 1 }
+	plongee = await _nouvelle_plongee()
+	plongee.get_node("Bell").position.y = 400.0
+	await _images(60)
+	await _capturer("19-hud-reservoir")
+	await _fermer_plongee(plongee)
+
+
+func _atelier() -> Atelier:
+	return root.get_node("Game").atelier
+
+
+func _nouvelle_plongee() -> Node:
+	var plongee: Node = load("res://scenes/dive.tscn").instantiate()
+	root.add_child(plongee)
+	await _images(3)
+	return plongee
+
+
+func _fermer_plongee(plongee: Node) -> void:
+	root.remove_child(plongee)
+	plongee.queue_free()
+	await _images(2)
+
+
+## Compare l'image avec obscurité à l'image sans (shader retiré) : chaque pixel doit être exactement
+## celui que prévoit la règle (ArtAbysse.assombrir), interface masquée.
+func _verifier_obscurite(plongee: Node) -> void:
+	var monde: Node = plongee.get_node("Monde")
+	plongee.get_node("HUD").visible = false
+	await _images(2)
+	var avec := await _image_ecran()
+	var reste: Vector2i = monde.decalage_ecran()
+	var origine: Vector2 = monde.origine_monde()
+	var cloche := VueMonde.vers_monde(plongee.get_node("Bell").position) - origine
+	var materiau: Material = monde.material
+	monde.material = null
+	await _images(2)
+	var sans := await _image_ecran()
+	monde.material = materiau
+	plongee.get_node("HUD").visible = true
+	var atelier := _atelier()
+	var ecarts := 0
+	var assombris := 0
+	for y in sans.get_height():
+		for x in sans.get_width():
+			var texel := Vector2(floori((x + reste.x) / 2.0), floori((y + reste.y) / 2.0))
+			var profondeur_m := (origine.y + texel.y) / ArtAbysse.PX_PAR_METRE
+			var attendu := ArtAbysse.assombrir(sans.get_pixel(x, y), profondeur_m, texel.distance_to(cloche),
+				atelier.rayon_halo(), atelier.obscurite_max())
+			if attendu != sans.get_pixel(x, y):
+				assombris += 1
+			if not attendu.is_equal_approx(avec.get_pixel(x, y)):
+				ecarts += 1
+	if ecarts == 0:
+		print("      obscurité OK : %d pixels assombris, tous comme prévu (halo %.0f, noir max %d)" % [assombris, atelier.rayon_halo(), atelier.obscurite_max()])
+	else:
+		_captures_hors_palette += 1
+		print("      OBSCURITÉ : %d pixels différents de la règle" % ecarts)
 
 
 # --- Outils --------------------------------------------------------------------------
