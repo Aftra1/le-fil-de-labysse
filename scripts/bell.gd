@@ -49,6 +49,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _draw() -> void:
+	Cloche.dessiner(self, Vector2.ZERO)
+
+
+## Dessin de la cloche, réutilisé par l'île et la transition.
+static func dessiner(toile: CanvasItem, centre: Vector2) -> void:
 	var demi := Vector2(LARGEUR, HAUTEUR) / 2.0
-	draw_rect(Rect2(-demi, Vector2(LARGEUR, HAUTEUR)), COULEUR_CORPS)
-	draw_rect(Rect2(Vector2(-4.0, -4.0), Vector2(8.0, 8.0)), COULEUR_HUBLOT)
+	toile.draw_rect(Rect2(centre - demi, Vector2(LARGEUR, HAUTEUR)), COULEUR_CORPS)
+	toile.draw_rect(Rect2(centre - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), COULEUR_HUBLOT)

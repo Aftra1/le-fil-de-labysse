@@ -1,6 +1,11 @@
 extends Node2D
 ## Plongée : décor par zones, câble, oxygène, minage, sac et règles de remontée.
 ## Pas de game over : à 0 d'oxygène, la cloche remonte toute seule et une partie du butin est perdue.
+## Quand la cloche revient en surface après être descendue sous PROFONDEUR_ARMEMENT_M,
+## la plongée est terminée : on émet retour_ile et la scène Jeu lance la remontée vers l'île.
+
+## gardees / perdues : { id: nombre } ; urgence : vrai après une remontée automatique.
+signal retour_ile(gardees: Dictionary, perdues: Dictionary, urgence: bool)
 
 # Monde (pixels)
 const SURFACE_Y := 0.0
@@ -17,6 +22,9 @@ const OXYGENE_MAX := 100.0
 const CONSOMMATION_PAR_S := 1.2
 const RECHARGE_PAR_S := 25.0
 const SEUIL_SURFACE := 6.0      # au-dessus de cette profondeur (px), on respire à l'air libre
+
+# Retour à l'île : seulement si la cloche est d'abord descendue sous cette profondeur
+const PROFONDEUR_ARMEMENT_M := 10.0
 
 # Minage et perte de butin
 const PORTEE_MINAGE := 28.0
@@ -45,6 +53,8 @@ var oxygene := OXYGENE_MAX
 var _temps := 0.0
 var _zones: Array = []
 var _minerais: Dictionary = {}
+var _armee := false
+var _terminee := false
 var _sac := Sac.new()
 var _hasard := RandomNumberGenerator.new()
 var _sous_leau_avant := false
@@ -68,10 +78,13 @@ func _ready() -> void:
 	_camera.position = Vector2(0.0, _cloche.position.y)
 	_generer_gisements()
 	_rafraichir_sac()
-	_interface.definir_stock(_texte_butin("Île : ", Game.stock_ile))
 
 
 func _physics_process(delta: float) -> void:
+	if _terminee:
+		return
+	if _profondeur_m() > PROFONDEUR_ARMEMENT_M:
+		_armee = true
 	var zone := _zone_a(_profondeur_m())
 	var sous_leau := _cloche.position.y > SURFACE_Y + SEUIL_SURFACE
 
@@ -82,8 +95,9 @@ func _physics_process(delta: float) -> void:
 
 	if oxygene <= 0.0:
 		_cloche.remontee_auto = true
-	if _sous_leau_avant and not sous_leau:
-		_arriver_en_surface()
+	if _sous_leau_avant and not sous_leau and _armee:
+		_terminer_plongee()
+		return
 	if not sous_leau:
 		_cloche.remontee_auto = false
 	_sous_leau_avant = sous_leau
@@ -203,26 +217,19 @@ func _message_bas(sous_leau: bool) -> String:
 
 # --- Retour en surface ------------------------------------------------------
 
-func _arriver_en_surface() -> void:
+func _terminer_plongee() -> void:
 	var urgence := _cloche.remontee_auto
 	var perdues := {}
 	if urgence:
 		perdues = _sac.perdre(PERTE_REMONTEE_AUTO, _hasard)
 	var gardees := _sac.vider()
-	Game.deposer_butin(gardees)
-
-	var nb_perdues := _total(perdues)
-	var nb_gardees := _total(gardees)
-	if urgence and nb_perdues > 0:
-		_interface.annoncer("Tu as perdu %s ! %s." % [_unites(nb_perdues), _sauvees(nb_gardees)])
-	elif urgence and nb_gardees > 0:
-		_interface.annoncer("Remontée d'urgence : rien de perdu, %s." % _sauvees(nb_gardees))
-	elif nb_gardees > 0:
-		_interface.annoncer("Butin rangé : %s." % _unites(nb_gardees))
-
-	_interface.definir_stock(_texte_butin("Île : ", Game.stock_ile))
-	_generer_gisements()
+	_terminee = true
+	_arreter_minage()
+	_cloche.remontee_auto = false
+	_cloche.controle_actif = false
+	_cloche.velocity = Vector2.ZERO
 	_rafraichir_sac()
+	retour_ile.emit(gardees, perdues, urgence)
 
 
 func _total(butin: Dictionary) -> int:
@@ -232,20 +239,12 @@ func _total(butin: Dictionary) -> int:
 	return total
 
 
-func _unites(nombre: int) -> String:
-	return "%d unité" % nombre if nombre <= 1 else "%d unités" % nombre
-
-
-func _sauvees(nombre: int) -> String:
-	return "%d sauvée" % nombre if nombre <= 1 else "%d sauvées" % nombre
-
-
 func _texte_butin(prefixe: String, butin: Dictionary) -> String:
 	if butin.is_empty():
 		return prefixe + "—"
 	var morceaux: PackedStringArray = []
 	for minerai: String in butin:
-		morceaux.append("%s ×%d" % [_minerais[minerai]["nom"], int(butin[minerai])])
+		morceaux.append("%s ×%d" % [Game.nom_ressource(minerai), int(butin[minerai])])
 	return prefixe + ", ".join(morceaux)
 
 
@@ -273,7 +272,8 @@ func _generer_gisements() -> void:
 			gisement.position = position_gisement
 			gisement.configurer(
 				id_minerai,
-				donnees,
+				Game.couleur_ressource(id_minerai),
+				float(donnees["duree_minage"]),
 				_hasard.randi_range(int(donnees["stock_min"]), int(donnees["stock_max"])),
 			)
 			_gisements.add_child(gisement)

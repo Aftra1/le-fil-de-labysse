@@ -3,14 +3,24 @@ extends Node
 ## Déclare toutes les actions d'entrée en code, avec des touches PHYSIQUES
 ## (physical_keycode) : la touche A du clavier QWERTY correspond au Q de l'AZERTY,
 ## donc ZQSD fonctionne tel quel en AZERTY.
+## Garde aussi l'inventaire et la liste des ressources (data/ressources.json).
 
-## Butin rangé sur l'île : { "cristal": 3, "corail": 1 }.
-## Provisoire (étape 2) : l'inventaire et la sauvegarde viendront plus tard.
-var stock_ile: Dictionary = {}
+## { id: { "nom": ..., "couleur": ... } }, dans l'ordre d'affichage.
+var ressources: Dictionary = {}
+var inventaire := Inventaire.new()
 
 
 func _ready() -> void:
 	_declarer_actions()
+	ressources = Donnees.charger_json("res://data/ressources.json")
+
+
+func nom_ressource(id: String) -> String:
+	return str(ressources[id]["nom"]) if ressources.has(id) else id
+
+
+func couleur_ressource(id: String) -> Color:
+	return Color.html(str(ressources[id]["couleur"])) if ressources.has(id) else Color.MAGENTA
 
 
 func _declarer_actions() -> void:
@@ -20,6 +30,11 @@ func _declarer_actions() -> void:
 	_ajouter_action("move_down", [KEY_S, KEY_DOWN])
 	_ajouter_action("interact", [KEY_E, KEY_SPACE])
 	_ajouter_action("pause", [KEY_ESCAPE])
+	_ajouter_action("inventaire", [KEY_I, KEY_TAB])
+	_ajouter_action("clic", [])
+	var clic_gauche := InputEventMouseButton.new()
+	clic_gauche.button_index = MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("clic", clic_gauche)
 
 
 func _ajouter_action(nom: StringName, touches: Array[Key]) -> void:
@@ -30,8 +45,3 @@ func _ajouter_action(nom: StringName, touches: Array[Key]) -> void:
 		var evenement := InputEventKey.new()
 		evenement.physical_keycode = touche
 		InputMap.action_add_event(nom, evenement)
-
-
-func deposer_butin(butin: Dictionary) -> void:
-	for minerai: String in butin:
-		stock_ile[minerai] = int(stock_ile.get(minerai, 0)) + int(butin[minerai])

@@ -6,7 +6,7 @@
 		"fin_m": 150,
 		"conso_oxygene": 1.0,
 		"gisements": 12,
-		"minerai": "cristal",
+		"minerai": "cristal_lagon",
 		"couleur_haut": "#5fb4d9",
 		"couleur_bas": "#1b4a78"
 	},

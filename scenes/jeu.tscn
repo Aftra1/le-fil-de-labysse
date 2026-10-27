@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/jeu.gd" id="1_jeu"]
+[ext_resource type="PackedScene" path="res://scenes/transition.tscn" id="2_transition"]
+[ext_resource type="PackedScene" path="res://scenes/ile.tscn" id="3_ile"]
+
+[node name="Jeu" type="Node2D"]
+script = ExtResource("1_jeu")
+
+[node name="Transition" parent="." instance=ExtResource("2_transition")]
+
+[node name="Ile" parent="." instance=ExtResource("3_ile")]
+
+[node name="Plongee" type="Node2D" parent="."]
