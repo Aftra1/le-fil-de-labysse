@@ -11,12 +11,12 @@ Tu gardes une île flottante au-dessus d'un océan sans fond, et tu plonges dans
 
 En ligne de commande : `godot --path .` (ou `godot --headless --path . --quit-after 5` pour un test sans fenêtre).
 
-## Contrôles (étape 0)
+## Contrôles
 
 | Action | Touches |
 |---|---|
 | Se déplacer | ZQSD (AZERTY) / WASD / flèches |
-| Interagir | E ou Espace |
+| Miner (maintenir près d'un gisement) | E ou Espace |
 | Quitter | Échap |
 
 Les touches sont physiques : ZQSD fonctionne sur un clavier AZERTY.

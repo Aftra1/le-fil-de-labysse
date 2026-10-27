@@ -1,0 +1,24 @@
+[
+	{
+		"id": "lagon",
+		"nom": "Lagon de lumière",
+		"debut_m": 0,
+		"fin_m": 150,
+		"conso_oxygene": 1.0,
+		"gisements": 12,
+		"minerai": "cristal",
+		"couleur_haut": "#5fb4d9",
+		"couleur_bas": "#1b4a78"
+	},
+	{
+		"id": "coraux",
+		"nom": "Forêt de coraux",
+		"debut_m": 150,
+		"fin_m": 300,
+		"conso_oxygene": 1.4,
+		"gisements": 8,
+		"minerai": "corail",
+		"couleur_haut": "#1b4a78",
+		"couleur_bas": "#1d0f3a"
+	}
+]
