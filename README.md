@@ -54,17 +54,24 @@ tests/captures.sh
 
 ## Rendu pixel art
 
-- Résolution interne 640x360, affichée en 1280x720 (zoom entier, sans filtrage).
-- Palette fixe de 23 couleurs dans `data/palette.json` (classe `Palette`) : toutes les couleurs du jeu en viennent, y compris celles des données (`ressources.json`, `zones.json`).
-- Dégradés en paliers nets avec bandes tramées (Bayer 4x4), jamais lisses ; pas de transparence partielle (les voiles et fondus sont tramés).
-- Formes au pixel près : petites textures générées en code (`scripts/pixel.gd`), positions arrondies au pixel entier.
-- `tests/captures.sh` vérifie que chaque capture n'utilise que des couleurs de la palette (un antialiasing ferait apparaître des couleurs intermédiaires).
+- Résolution interne 640x360, affichée en 1280x720 (zoom entier, sans filtrage). Un essai 320x180 est en cours d'évaluation (voir ci-dessous).
+- Palette de 63 couleurs dans `data/palette.json` : une rampe de 4 à 6 tons par matière (ciel, nuage, roche, terre, herbe, or, lagon, corail, abysse, cyan, interface, métal), ombres vers le bleu-vert, lumières vers le jaune. Couleurs nommées « rampe.indice » (classe `Palette`) ; les anciens noms restent en alias le temps de convertir la plongée et la transition.
+- Pas de transparence partielle ; contours brun foncé (monde du haut) ou bleu nuit (abysse), jamais noirs ; ombres portées pleines d'un ton plus sombre.
+- Formes au pixel près : textures générées en code (`scripts/pixel.gd`, `scripts/art_ile.gd`), positions arrondies au pixel entier.
+- `tests/captures.sh` et `tests/essai_echelle.sh` vérifient que chaque image n'utilise que des couleurs de la palette.
 
-## Police et licence
+Essai de taille de pixel (même vue de l'île en 640x360, 320x180 et hybride) :
 
-Police **DotGothic16** (Fontworks, https://github.com/fontworks-fonts/DotGothic16), sous licence
-**SIL Open Font License 1.1** : texte complet dans `assets/fonts/OFL-DotGothic16.txt`.
-Elle est utilisée à sa taille native (16 px), sans antialiasing.
+```
+tests/essai_echelle.sh
+```
+
+## Polices et licences
+
+- **DotGothic16** (Fontworks, https://github.com/fontworks-fonts/DotGothic16), SIL Open Font License 1.1 :
+  `assets/fonts/OFL-DotGothic16.txt`. Utilisée à 16 px, sans antialiasing.
+- **Silkscreen** (Jason Kottke, https://github.com/googlefonts/silkscreen), SIL Open Font License 1.1 :
+  `assets/fonts/OFL-Silkscreen.txt`. Utilisée à 8 px dans l'essai 320x180.
 
 ## Structure
 

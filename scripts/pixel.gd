@@ -106,9 +106,10 @@ static func texte(etiquette: Label, couleur: String = "blanc", ombre: String = "
 # --- Textures générées -----------------------------------------------------------
 
 ## Texture à partir d'un dessin en caractères : chaque caractère renvoie à un nom de la palette,
-## « . » est transparent.
-static func motif(lignes: PackedStringArray, couleurs: Dictionary) -> ImageTexture:
-	var cle := "motif:" + "|".join(lignes) + str(couleurs)
+## « . » est transparent. contour : nom d'une couleur pour un contour de 1 px tout autour (l'image
+## grandit alors de 2 px), vide pour aucun.
+static func motif(lignes: PackedStringArray, couleurs: Dictionary, contour: String = "") -> ImageTexture:
+	var cle := "motif:" + "|".join(lignes) + str(couleurs) + contour
 	if _textures.has(cle):
 		return _textures[cle]
 	var image := Image.create(lignes[0].length(), lignes.size(), false, Image.FORMAT_RGBA8)
@@ -117,7 +118,48 @@ static func motif(lignes: PackedStringArray, couleurs: Dictionary) -> ImageTextu
 			var caractere := lignes[y][x]
 			if caractere != "." and couleurs.has(caractere):
 				image.set_pixel(x, y, Palette.couleur(str(couleurs[caractere])))
+	if contour != "":
+		image = contourner(image, Palette.couleur(contour))
 	return _memoriser(cle, image)
+
+
+## Ajoute un contour de 1 px (voisins haut, bas, gauche, droite) autour des pixels opaques.
+static func contourner(image: Image, couleur: Color) -> Image:
+	var resultat := Image.create(image.get_width() + 2, image.get_height() + 2, false, Image.FORMAT_RGBA8)
+	resultat.blit_rect(image, Rect2i(Vector2i.ZERO, image.get_size()), Vector2i.ONE)
+	var source := resultat.duplicate() as Image
+	for y in resultat.get_height():
+		for x in resultat.get_width():
+			if source.get_pixel(x, y).a > 0.0:
+				continue
+			for voisin: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var v := Vector2i(x, y) + voisin
+				if v.x >= 0 and v.y >= 0 and v.x < source.get_width() and v.y < source.get_height() \
+						and source.get_pixelv(v).a > 0.0:
+					resultat.set_pixel(x, y, couleur)
+					break
+	return resultat
+
+
+## Silhouette pleine d'une texture (pour les ombres portées d'un ton plus sombre).
+static func silhouette(texture: Texture2D, couleur: Color) -> ImageTexture:
+	var cle := "silhouette:%d:%s" % [texture.get_rid().get_id(), couleur.to_html()]
+	if _textures.has(cle):
+		return _textures[cle]
+	var image := texture.get_image()
+	image.convert(Image.FORMAT_RGBA8)
+	for y in image.get_height():
+		for x in image.get_width():
+			if image.get_pixel(x, y).a > 0.0:
+				image.set_pixel(x, y, couleur)
+	return _memoriser(cle, image)
+
+
+## Sprite avec ombre portée : la silhouette d'abord, décalée, puis le sprite.
+static func sprite_ombre(toile: CanvasItem, texture: Texture2D, centre: Vector2, ombre: Color,
+		decalage: Vector2 = Vector2.ONE) -> void:
+	sprite(toile, silhouette(texture, ombre), centre + decalage)
+	sprite(toile, texture, centre)
 
 
 static func disque(rayon: int, couleur: Color) -> ImageTexture:

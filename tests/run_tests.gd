@@ -808,7 +808,14 @@ func _test_flux_urgence() -> void:
 
 func _test_rendu_pixel() -> void:
 	var noms := Palette.noms()
-	_verifier(noms.size() >= 16 and noms.size() <= 24, "palette : entre 16 et 24 couleurs", "%d" % noms.size())
+	_verifier(noms.size() >= 48 and noms.size() <= 64, "palette : entre 48 et 64 couleurs", "%d" % noms.size())
+	var rampes_ok := true
+	for nom_rampe in ["ciel", "nuage", "roche", "herbe", "or", "lagon", "corail", "abysse", "interface"]:
+		rampes_ok = rampes_ok and Palette.rampe(nom_rampe).size() >= 4
+	_verifier(rampes_ok, "palette : une rampe de tons par matière (ciel, nuage, roche, herbe, or, lagon, corail, abysse, interface)")
+	var ombre := Palette.plus_sombre(Palette.couleur("herbe.4"))
+	_verifier(ombre == Palette.couleur("herbe.3") and Palette.plus_sombre(Palette.couleur("herbe.0")) == Palette.couleur("herbe.0"),
+		"palette : « un ton plus sombre » descend d'un cran dans la même rampe")
 
 	var inconnues: Array = []
 	var ressources: Dictionary = Donnees.charger_json("res://data/ressources.json")

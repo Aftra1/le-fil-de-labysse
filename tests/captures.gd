@@ -35,27 +35,29 @@ func _scenarios() -> void:
 func _planche_palette() -> void:
 	var planche := Control.new()
 	var fond := ColorRect.new()
-	fond.color = Palette.couleur("nuit")
+	fond.color = Palette.couleur("interface.4")
 	fond.size = Vector2(640, 360)
 	planche.add_child(fond)
-	var noms := Palette.noms()
-	for i in noms.size():
-		var case := Vector2(16 + (i % 6) * 104, 16 + (i / 6) * 84)
-		var bord := ColorRect.new()
-		bord.color = Palette.couleur("noir")
-		bord.position = case - Vector2.ONE
-		bord.size = Vector2(42, 42)
-		planche.add_child(bord)
-		var echantillon := ColorRect.new()
-		echantillon.color = Palette.couleur(noms[i])
-		echantillon.position = case
-		echantillon.size = Vector2(40, 40)
-		planche.add_child(echantillon)
+	var rampes := ["ciel", "nuage", "roche", "terre", "herbe", "or", "lagon", "corail", "abysse", "cyan", "interface", "metal"]
+	for i in rampes.size():
+		var y := 6 + i * 29
 		var nom := Label.new()
-		nom.text = noms[i]
-		nom.position = case + Vector2(0, 44)
-		Pixel.texte(nom, "blanc", "")
+		nom.text = rampes[i]
+		nom.position = Vector2(12, y + 3)
+		Pixel.texte(nom, "interface.0", "")
 		planche.add_child(nom)
+		var tons := Palette.rampe(rampes[i])
+		for j in tons.size():
+			var bord := ColorRect.new()
+			bord.color = Palette.couleur("interface.0")
+			bord.position = Vector2(140 + j * 50, y)
+			bord.size = Vector2(46, 26)
+			planche.add_child(bord)
+			var echantillon := ColorRect.new()
+			echantillon.color = tons[j]
+			echantillon.position = Vector2(141 + j * 50, y + 1)
+			echantillon.size = Vector2(44, 24)
+			planche.add_child(echantillon)
 	root.add_child(planche)
 	await _images(3)
 	await _capturer("00-palette")
