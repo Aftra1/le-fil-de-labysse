@@ -1,0 +1,626 @@
+extends SceneTree
+## Playtest robot : joue une partie entière comme un joueur, avec de vrais évènements clavier et
+## souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'inventaire.
+##
+## Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
+## → fils de nuage → câble tressé → plongées dans la Forêt de coraux → lanterne et réservoir →
+## passerelle de nuage → récolte du bassin de lumière sur l'îlot.
+##
+## Conduite de la cloche : touches ZQSD (physiques) avec l'inertie du jeu ; le robot relâche les
+## touches à la distance de freinage, mine en maintenant E, et remonte quand l'oxygène restant
+## couvre tout juste la remontée plus une marge (comme un joueur qui surveille sa jauge).
+##
+## Mesures (temps de jeu, 60 images par seconde) écrites dans le fichier passé après « -- » :
+##   godot --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- --sortie=<fichier.json>
+## Mode vidéo (séquence courte d'environ 40 s, pour Movie Maker) : -- --video
+## Voir tests/playtest.sh et docs/playtest.md.
+
+const IPS := 60.0                         # images de physique par seconde
+const SAUVEGARDE := "user://playtest_sauvegarde.json"
+const DUREE_MAX_S := 3600.0               # garde-fou : une partie ne doit pas dépasser une heure
+const ATTENTE_SIGNALEE_S := 10.0          # attentes « sans rien à faire » rapportées
+
+# Rythme d'un joueur (secondes)
+const GESTE := 0.25                       # déplacer la souris vers une cible
+const CLIC := 0.12                        # durée d'un clic
+const REFLEXION := 0.4                    # petit temps de lecture avant de cliquer dans un menu
+
+# Conduite de la cloche (mêmes valeurs que scripts/bell.gd)
+const VITESSE_CLOCHE := 110.0
+const FREINAGE := 120.0
+const DISTANCE_MINAGE := 18.0             # le jeu permet 28 px ; un joueur se place un peu plus près
+const MARGE_OXYGENE := 8.0                # air gardé en réserve à l'arrivée en surface
+const BLOCAGE_S := 6.0                    # cible abandonnée si on ne s'en approche plus
+
+# Objectifs, dans l'ordre où un joueur les poursuit
+const OBJECTIFS := [
+	["amelioration", "cable"],
+	["amelioration", "lanterne"],
+	["amelioration", "reservoir"],
+	["construction", "passerelle"],
+]
+
+var _video := false
+var _sortie := ""
+var _game: Node
+var _jeu: Node
+var _ile: Node
+var _atelier_ui: Node
+var _ile_script: GDScript
+
+var _images := 0
+var _temps := {"titre": 0, "ile": 0, "transition": 0, "plongee": 0}
+var _touches_appuyees := {}
+var _plongees: Array = []
+var _attentes: Array = []                 # [debut_s, duree_s, raison]
+var _debut_attente := -1.0
+var _raison_attente := ""
+var _evenements: Array = []               # [temps_s, texte]
+var _manques := {}                        # ressource -> secondes passées à l'attendre sur l'île
+var _fabrications := {}                   # id -> nombre
+var _bassin_recolte := 0
+
+
+func _initialize() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if argument == "--video":
+			_video = true
+		elif argument.begins_with("--sortie="):
+			_sortie = argument.trim_prefix("--sortie=")
+	_lancer()
+
+
+func _lancer() -> void:
+	await process_frame
+	_game = root.get_node("Game")
+	_ile_script = load("res://scripts/ile.gd")
+	Sauvegarde.chemin = SAUVEGARDE
+	_effacer_sauvegarde()
+	_jeu = load("res://scenes/jeu.tscn").instantiate()
+	_jeu.action_quitter = func() -> void: pass
+	root.add_child(_jeu)
+	_ile = _jeu.get_node("Ile")
+	_atelier_ui = _ile.get_node("Atelier")
+	await _attendre(1.0)
+
+	# Écran titre : Nouvelle partie (pas de sauvegarde, donc pas de confirmation)
+	await _cliquer(_centre(_jeu.get_node("EcranTitre").bouton_nouvelle))
+	_noter("Nouvelle partie")
+	if _video:
+		await _sequence_video()
+	else:
+		await _partie_complete()
+	_relacher_tout()
+	_effacer_sauvegarde()
+	quit(0)
+
+
+# --- Partie complète ------------------------------------------------------------------
+
+func _partie_complete() -> void:
+	while _secondes() < DUREE_MAX_S:
+		await _fabriquer_tout()
+		if _objectifs_restants().is_empty():
+			break
+		var besoins := _besoins()
+		var a_fait := await _recolter_utile(besoins)
+		besoins = _besoins()
+		if _plongee_utile(besoins):
+			_fin_attente()
+			await _plonger(besoins)
+			continue
+		if a_fait:
+			_fin_attente()
+		else:
+			_debut_attente_si_besoin(besoins)
+			await _attendre(0.5)
+			_compter_manques(besoins, 0.5)
+	_fin_attente()
+	_noter("Toutes les améliorations et la passerelle sont installées")
+	await _recolter_bassin()
+	_ecrire_mesures()
+
+
+## Matières premières encore nécessaires pour tous les objectifs restants (inventaire déduit).
+func _besoins() -> Dictionary:
+	var atelier: Atelier = _game.atelier
+	var inventaire: Inventaire = _game.inventaire
+	var composants := {}
+	var brut := {}
+	for objectif: Array in _objectifs_restants():
+		var ingredients := _ingredients_objectif(objectif)
+		for id: String in ingredients:
+			if atelier.composants().has(id):
+				composants[id] = int(composants.get(id, 0)) + int(ingredients[id])
+			else:
+				brut[id] = int(brut.get(id, 0)) + int(ingredients[id])
+	for id: String in composants:
+		var manque := int(composants[id]) - inventaire.quantite(id)
+		if manque <= 0:
+			continue
+		var recette := atelier.ingredients_composant(id)
+		for ingredient: String in recette:
+			brut[ingredient] = int(brut.get(ingredient, 0)) + manque * int(recette[ingredient])
+	var resultat := {}
+	for id: String in brut:
+		var manque := int(brut[id]) - inventaire.quantite(id)
+		if manque > 0:
+			resultat[id] = manque
+	return resultat
+
+
+func _objectifs_restants() -> Array:
+	var atelier: Atelier = _game.atelier
+	var restants: Array = []
+	for objectif: Array in OBJECTIFS:
+		var fait := atelier.est_au_maximum(objectif[1]) if objectif[0] == "amelioration" \
+			else atelier.est_construite(objectif[1])
+		if not fait:
+			restants.append(objectif)
+	return restants
+
+
+func _ingredients_objectif(objectif: Array) -> Dictionary:
+	var atelier: Atelier = _game.atelier
+	if objectif[0] == "amelioration":
+		return atelier.prochain_niveau(objectif[1])["ingredients"]
+	return atelier.ingredients_construction(objectif[1])
+
+
+## Plonger si une ressource de l'abysse manque et qu'elle est atteignable avec le câble actuel.
+func _plongee_utile(besoins: Dictionary) -> bool:
+	if besoins.has("cristal_lagon"):
+		return true
+	return besoins.has("corail") and _game.atelier.longueur_cable_m() > 150.0
+
+
+# --- Île : récolte -------------------------------------------------------------------
+
+## Récolte ce qui sert aux objectifs et qui est disponible ; vrai si quelque chose a été fait.
+func _recolter_utile(besoins: Dictionary) -> bool:
+	var a_fait := false
+	var eolienne: SourceRessource = _ile._eolienne
+	if besoins.has("vent") and eolienne.stock > 0:
+		await _cliquer(eolienne.position)
+		a_fait = true
+	if _besoins().has("cristal_solaire"):
+		for filon: SourceRessource in _ile._filons:
+			if filon.stock > 0 and _besoins().has("cristal_solaire"):
+				await _maintenir_sur(filon, "cristal_solaire")
+				a_fait = true
+	var essais := 0
+	while _besoins().has("nuage") and essais < 30:
+		var nuage := _nuage_visible()
+		if nuage == null:
+			break
+		await _cliquer_nuage(nuage)
+		essais += 1
+		a_fait = true
+	return a_fait
+
+
+func _nuage_visible() -> SourceRessource:
+	var meilleur: SourceRessource = null
+	for enfant in _ile.get_node("Nuages").get_children():
+		var nuage := enfant as SourceRessource
+		if nuage == null or nuage.is_queued_for_deletion() or nuage.stock <= 0:
+			continue
+		if nuage.position.x < 40.0 or nuage.position.x > 600.0:
+			continue
+		if meilleur == null or nuage.position.x > meilleur.position.x:
+			meilleur = nuage
+	return meilleur
+
+
+## Clique un nuage jusqu'à l'épuiser (ou jusqu'à ne plus en avoir besoin), en suivant sa dérive.
+func _cliquer_nuage(nuage: SourceRessource) -> void:
+	await _deplacer_souris(nuage.position)
+	while is_instance_valid(nuage) and not nuage.is_queued_for_deletion() and nuage.stock > 0 \
+			and _besoins().has("nuage") and nuage.position.x < 600.0:
+		await _cliquer(nuage.position, false)
+
+
+func _maintenir_sur(source: SourceRessource, id: String) -> void:
+	await _deplacer_souris(source.position)
+	_bouton_souris(source.position, true)
+	var limite := 0
+	while source.stock > 0 and _besoins().has(id) and limite < int(IPS * 10.0):
+		await _image()
+		limite += 1
+	_bouton_souris(source.position, false)
+	await _attendre(CLIC)
+
+
+func _recolter_bassin() -> void:
+	var bassin: SourceRessource = _ile.bassin()
+	var avant: int = _game.inventaire.quantite("cristal_lagon")
+	await _deplacer_souris(bassin.position)
+	_bouton_souris(bassin.position, true)
+	await _attendre(1.2)
+	_bouton_souris(bassin.position, false)
+	await _attendre(CLIC)
+	_bassin_recolte = _game.inventaire.quantite("cristal_lagon") - avant
+	_noter("Bassin de lumière récolté : +%d cristal de lagon" % _bassin_recolte)
+
+
+# --- Île : atelier ---------------------------------------------------------------------
+
+## Ouvre l'atelier (touche C) et fabrique / installe / construit tout ce qui sert à l'objectif en cours.
+func _fabriquer_tout() -> void:
+	var plan := _prochaine_fabrication()
+	if plan.is_empty():
+		return
+	_fin_attente()
+	await _touche(KEY_C)
+	await _attendre(REFLEXION)
+	while not plan.is_empty():
+		var onglet: String = plan[0]
+		var id: String = plan[1]
+		if _atelier_ui.onglet != onglet:
+			await _cliquer(_centre(_atelier_ui._onglets[onglet]))
+		for bouton in _atelier_ui._liste.get_children():
+			if bouton.get_meta("id") == id and _atelier_ui.selection != id:
+				await _cliquer(_centre(bouton))
+		await _attendre(REFLEXION)
+		await _cliquer(_centre(_atelier_ui._bouton))
+		_fabrications[id] = int(_fabrications.get(id, 0)) + 1
+		_noter("Atelier : %s" % id)
+		plan = _prochaine_fabrication()
+	await _touche(KEY_C)
+	await _attendre(GESTE)
+
+
+## [onglet, id] de la prochaine fabrication utile, ou [] s'il n'y a rien à faire.
+## L'objectif en cours passe d'abord ; les suivants seulement s'ils ne prennent rien à celui-ci.
+func _prochaine_fabrication() -> Array:
+	var atelier: Atelier = _game.atelier
+	var restants := _objectifs_restants()
+	for i in restants.size():
+		var objectif: Array = restants[i]
+		if objectif[0] == "amelioration" and atelier.peut_ameliorer(objectif[1]):
+			return ["ameliorations", objectif[1]]
+		if objectif[0] == "construction" and atelier.peut_construire(objectif[1]):
+			return ["construction", objectif[1]]
+		var ingredients := _ingredients_objectif(objectif)
+		for id: String in ingredients:
+			if atelier.composants().has(id) and _game.inventaire.quantite(id) < int(ingredients[id]) \
+					and atelier.peut_fabriquer(id) and (i == 0 or not _prend_a_l_objectif(id, restants[0])):
+				return ["composants", id]
+	return []
+
+
+## Vrai si fabriquer ce composant consomme une ressource encore nécessaire à l'objectif en cours.
+func _prend_a_l_objectif(composant: String, objectif: Array) -> bool:
+	var atelier: Atelier = _game.atelier
+	var ingredients := _ingredients_objectif(objectif)
+	for id: String in atelier.ingredients_composant(composant):
+		if ingredients.has(id):
+			return true
+		for sous: String in ingredients:
+			if atelier.composants().has(sous) and atelier.ingredients_composant(sous).has(id):
+				return true
+	return false
+
+
+# --- Plongée ---------------------------------------------------------------------------
+
+func _plonger(besoins: Dictionary) -> void:
+	var cloche_ile: Vector2 = _ile_script.POSITION_CLOCHE
+	var debut := _secondes()
+	await _cliquer(cloche_ile)
+	_noter("Plongée %d : départ (besoins %s)" % [_plongees.size() + 1, str(besoins)])
+	while _jeu.etat != 2:
+		await _image()
+	var plongee: Node = _jeu.plongee()
+	var mesure := {
+		"numero": _plongees.size() + 1, "debut_s": debut, "profondeur_max_m": 0.0, "oxygene_fin": -1.0,
+		"oxygene_max": plongee.oxygene_max, "urgence": false, "gardees": {}, "perdues": {},
+		"cable_m": _game.atelier.longueur_cable_m(), "duree_sous_eau_s": 0.0,
+	}
+	plongee.retour_ile.connect(func(gardees: Dictionary, perdues: Dictionary, urgence: bool) -> void:
+		mesure["oxygene_fin"] = plongee.oxygene
+		mesure["gardees"] = gardees
+		mesure["perdues"] = perdues
+		mesure["urgence"] = urgence)
+	var debut_eau := _secondes()
+	await _conduire(plongee, besoins, mesure)
+	mesure["duree_sous_eau_s"] = _secondes() - debut_eau
+	_relacher_tout()
+	while _jeu.etat != 0:
+		await _image()
+	mesure["duree_totale_s"] = _secondes() - debut
+	_plongees.append(mesure)
+	_noter("Plongée %d : retour, %s gardé(s), oxygène %.0f/%.0f%s" % [mesure["numero"], str(mesure["gardees"]),
+		mesure["oxygene_fin"], mesure["oxygene_max"], " (REMONTÉE AUTOMATIQUE)" if mesure["urgence"] else ""])
+	await _attendre(1.0)   # le joueur lit l'annonce du butin
+
+
+## Conduite de la cloche jusqu'au retour en surface.
+func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
+	var cloche: CharacterBody2D = plongee.get_node("Bell")
+	var cible: Node2D = null
+	var meilleure_distance := INF
+	var temps_sans_progres := 0.0
+	var abandonnees: Array = []
+	var remonter := false
+	while _jeu.etat == 2:
+		mesure["profondeur_max_m"] = maxf(mesure["profondeur_max_m"], cloche.position.y / 10.0)
+		var sac: Dictionary = plongee._sac.compter()
+		var voulus := _voulus(besoins, sac)
+		if not remonter:
+			remonter = plongee._sac.est_plein() or voulus.is_empty() \
+				or plongee.oxygene < _oxygene_pour_remonter(cloche.position.y) + _temps_vers(cloche, cible) * 1.7
+		if remonter:
+			_touche_maintenue(KEY_E, false)
+			# La plongée ne compte qu'après être descendu sous 10 m : sinon, on y descend d'abord.
+			var but_y := -40.0 if plongee._armee else 140.0
+			_diriger(cloche, Vector2(cloche.position.x, but_y))
+			await _image()
+			continue
+		if cible == null or not is_instance_valid(cible) or cible.is_queued_for_deletion() \
+				or not voulus.has(cible.minerai):
+			_touche_maintenue(KEY_E, false)
+			cible = _choisir_gisement(plongee, cloche, voulus, abandonnees)
+			meilleure_distance = INF
+			temps_sans_progres = 0.0
+			if cible == null:
+				remonter = true
+				continue
+		var distance := cloche.position.distance_to(cible.position)
+		if distance < meilleure_distance - 1.0:
+			meilleure_distance = distance
+			temps_sans_progres = 0.0
+		else:
+			temps_sans_progres += 1.0 / IPS
+		if distance <= DISTANCE_MINAGE or (Input.is_physical_key_pressed(KEY_E) and distance <= 26.0):
+			_diriger(cloche, cloche.position)   # lâcher les flèches, la cloche se stabilise en minant
+			_touche_maintenue(KEY_E, true)
+			temps_sans_progres = 0.0
+		else:
+			_touche_maintenue(KEY_E, false)
+			_diriger(cloche, cible.position)
+			if temps_sans_progres > BLOCAGE_S:
+				abandonnees.append(cible)
+				cible = null
+		await _image()
+	_touche_maintenue(KEY_E, false)
+	mesure["urgence"] = mesure["urgence"] or false
+
+
+## Minerais encore voulus pendant cette plongée : { id: nombre }.
+func _voulus(besoins: Dictionary, sac: Dictionary) -> Dictionary:
+	var voulus := {}
+	for id: String in ["corail", "cristal_lagon"]:
+		var manque := int(besoins.get(id, 0)) - int(sac.get(id, 0))
+		if manque > 0:
+			voulus[id] = manque
+	return voulus
+
+
+## Gisement voulu le plus proche, atteignable avec le câble ; le corail passe avant le cristal.
+func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abandonnees: Array) -> Node2D:
+	var limite: float = plongee.limite_px + 24.0
+	for minerai: String in ["corail", "cristal_lagon"]:
+		if not voulus.has(minerai):
+			continue
+		var meilleur: Node2D = null
+		for enfant in plongee.get_node("Gisements").get_children():
+			if enfant.is_queued_for_deletion() or enfant.minerai != minerai or abandonnees.has(enfant):
+				continue
+			if enfant.position.y > limite:
+				continue
+			if meilleur == null or cloche.position.distance_to(enfant.position) < cloche.position.distance_to(meilleur.position):
+				meilleur = enfant
+		if meilleur != null:
+			return meilleur
+	return null
+
+
+## Oxygène qu'un joueur prudent garde pour remonter d'ici (consommation de chaque zone + marge).
+func _oxygene_pour_remonter(y: float) -> float:
+	var dans_coraux := maxf(y - 1500.0, 0.0)
+	var dans_lagon := minf(y, 1500.0)
+	return (dans_coraux / VITESSE_CLOCHE) * 1.2 * 1.4 + (dans_lagon / VITESSE_CLOCHE) * 1.2 + 1.0 + MARGE_OXYGENE
+
+
+func _temps_vers(cloche: Node2D, cible: Variant) -> float:
+	if cible == null or not is_instance_valid(cible) or (cible as Node2D).is_queued_for_deletion():
+		return 0.0
+	return cloche.position.distance_to((cible as Node2D).position) / VITESSE_CLOCHE + 1.0
+
+
+## Appuie sur les touches de direction pour aller vers « but », en relâchant à la distance de freinage.
+func _diriger(cloche: CharacterBody2D, but: Vector2) -> void:
+	var ecart := but - cloche.position
+	var vitesse := cloche.velocity
+	_touche_maintenue(KEY_D, _pousser(ecart.x, vitesse.x))
+	_touche_maintenue(KEY_A, _pousser(-ecart.x, -vitesse.x))
+	_touche_maintenue(KEY_S, _pousser(ecart.y, vitesse.y))
+	_touche_maintenue(KEY_W, _pousser(-ecart.y, -vitesse.y))
+
+
+## Vrai s'il faut pousser dans ce sens : encore loin, et pas déjà assez vite pour arriver en glissant.
+func _pousser(distance: float, vitesse: float) -> bool:
+	if distance <= 4.0:
+		return false
+	var freinage := maxf(vitesse, 0.0) * maxf(vitesse, 0.0) / (2.0 * FREINAGE)
+	return distance > freinage + 4.0
+
+
+# --- Séquence vidéo (environ 40 s) -----------------------------------------------------
+
+func _sequence_video() -> void:
+	await _attendre(2.0)
+	await _cliquer(_ile._eolienne.position)
+	var nuage := _nuage_visible()
+	for i in 4:
+		nuage = _nuage_visible()
+		if nuage != null:
+			await _cliquer(nuage.position)
+	await _maintenir_sur(_ile._filons[1], "cristal_solaire")
+	await _attendre(0.5)
+	await _plonger({"cristal_lagon": 6})
+	await _fabriquer_video()
+
+
+func _fabriquer_video() -> void:
+	await _touche(KEY_C)
+	await _attendre(1.0)
+	await _cliquer(_centre(_atelier_ui._onglets["composants"]))
+	for bouton in _atelier_ui._liste.get_children():
+		if bouton.get_meta("id") == "fil_nuage":
+			await _cliquer(_centre(bouton))
+	await _attendre(1.0)
+	await _cliquer(_centre(_atelier_ui._bouton))
+	await _attendre(1.5)
+	await _cliquer(_centre(_atelier_ui._onglets["ameliorations"]))
+	await _attendre(2.0)
+	await _touche(KEY_C)
+	await _attendre(2.0)
+
+
+# --- Mesures ---------------------------------------------------------------------------
+
+func _debut_attente_si_besoin(besoins: Dictionary) -> void:
+	if _debut_attente < 0.0:
+		_debut_attente = _secondes()
+		_raison_attente = "en attente de : %s" % ", ".join(PackedStringArray(besoins.keys()))
+
+
+func _fin_attente() -> void:
+	if _debut_attente < 0.0:
+		return
+	var duree := _secondes() - _debut_attente
+	if duree > ATTENTE_SIGNALEE_S:
+		_attentes.append([_debut_attente, duree, _raison_attente])
+	_debut_attente = -1.0
+
+
+func _compter_manques(besoins: Dictionary, duree: float) -> void:
+	for id: String in besoins:
+		_manques[id] = float(_manques.get(id, 0.0)) + duree
+
+
+func _noter(texte: String) -> void:
+	_evenements.append([_secondes(), texte])
+	print("[%7.1f s] %s" % [_secondes(), texte])
+
+
+func _ecrire_mesures() -> void:
+	var mesures := {
+		"duree_totale_s": _secondes(),
+		"temps_s": {
+			"titre": _temps["titre"] / IPS, "ile": _temps["ile"] / IPS,
+			"transition": _temps["transition"] / IPS, "plongee": _temps["plongee"] / IPS,
+		},
+		"plongees": _plongees,
+		"attentes": _attentes,
+		"manques_s": _manques,
+		"inventaire_final": _game.inventaire.vers_dictionnaire(),
+		"fabrications": _fabrications,
+		"ameliorations": _game.atelier.niveaux,
+		"ilots": _game.atelier.ilots_relies,
+		"bassin_recolte": _bassin_recolte,
+		"evenements": _evenements,
+		"termine": _objectifs_restants().is_empty(),
+	}
+	print("MESURES " + JSON.stringify(mesures))
+	if _sortie != "":
+		var fichier := FileAccess.open(_sortie, FileAccess.WRITE)
+		fichier.store_string(JSON.stringify(mesures, "\t"))
+		fichier.close()
+
+
+# --- Temps et entrées ------------------------------------------------------------------
+
+func _secondes() -> float:
+	return _images / IPS
+
+
+func _image() -> void:
+	await physics_frame
+	_images += 1
+	var cle := "ile"
+	if _jeu.get_node("EcranTitre").est_ouvert():
+		cle = "titre"
+	elif _jeu.etat == 1 or _jeu.etat == 3:
+		cle = "transition"
+	elif _jeu.etat == 2:
+		cle = "plongee"
+	_temps[cle] += 1
+
+
+func _attendre(duree: float) -> void:
+	for i in maxi(roundi(duree * IPS), 1):
+		await _image()
+
+
+func _vers_fenetre(point: Vector2) -> Vector2:
+	return root.get_final_transform() * point
+
+
+func _centre(controle: Control) -> Vector2:
+	return controle.get_global_rect().get_center()
+
+
+func _deplacer_souris(point: Vector2) -> void:
+	var mouvement := InputEventMouseMotion.new()
+	mouvement.position = _vers_fenetre(point)
+	mouvement.global_position = mouvement.position
+	Input.parse_input_event(mouvement)
+	await _attendre(GESTE)
+
+
+func _bouton_souris(point: Vector2, appuye: bool) -> void:
+	var bouton := InputEventMouseButton.new()
+	bouton.button_index = MOUSE_BUTTON_LEFT
+	bouton.pressed = appuye
+	bouton.position = _vers_fenetre(point)
+	bouton.global_position = bouton.position
+	Input.parse_input_event(bouton)
+
+
+func _cliquer(point: Vector2, avec_geste: bool = true) -> void:
+	if avec_geste:
+		await _deplacer_souris(point)
+	else:
+		var mouvement := InputEventMouseMotion.new()
+		mouvement.position = _vers_fenetre(point)
+		mouvement.global_position = mouvement.position
+		Input.parse_input_event(mouvement)
+		await _image()
+	_bouton_souris(point, true)
+	await _attendre(CLIC / 2.0)
+	_bouton_souris(point, false)
+	await _attendre(CLIC / 2.0)
+
+
+## Appui bref sur une touche physique.
+func _touche(code: Key) -> void:
+	_touche_maintenue(code, true)
+	await _attendre(0.08)
+	_touche_maintenue(code, false)
+	await _attendre(0.05)
+
+
+## Maintient ou relâche une touche physique (un évènement seulement quand l'état change).
+func _touche_maintenue(code: Key, appuye: bool) -> void:
+	if bool(_touches_appuyees.get(code, false)) == appuye:
+		return
+	_touches_appuyees[code] = appuye
+	var evenement := InputEventKey.new()
+	evenement.physical_keycode = code
+	evenement.pressed = appuye
+	Input.parse_input_event(evenement)
+
+
+func _relacher_tout() -> void:
+	for code: Key in _touches_appuyees.keys():
+		_touche_maintenue(code, false)
+
+
+func _effacer_sauvegarde() -> void:
+	var base := SAUVEGARDE.get_basename()
+	for chemin: String in [SAUVEGARDE, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
+		if FileAccess.file_exists(chemin):
+			DirAccess.remove_absolute(chemin)

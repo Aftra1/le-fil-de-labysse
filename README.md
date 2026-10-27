@@ -75,6 +75,12 @@ Captures d'écran automatiques (Xvfb + rendu logiciel Mesa), enregistrées dans 
 tests/captures.sh
 ```
 
+Playtest robot (une partie complète jouée au clavier et à la souris, mesures et vidéo, voir `docs/playtest.md`) :
+
+```
+tests/playtest.sh 4 --video
+```
+
 ## Rendu pixel art
 
 - Interface en 640x360, affichée en 1280x720 (zoom entier, sans filtrage).

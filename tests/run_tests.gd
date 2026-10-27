@@ -457,7 +457,8 @@ func _test_minage_hors_portee() -> void:
 	_bell.velocity = Vector2.ZERO
 	Input.action_press("interact")
 	await _secondes(0.6)
-	_bell.position = gisement.position + Vector2(60.0, 0.0)
+	# Vers le centre : près du bord, la cloche serait ramenée à portée par la limite de la zone.
+	_bell.position = gisement.position + Vector2(-60.0 if gisement.position.x > 0.0 else 60.0, 0.0)
 	await _images(3)
 	_verifier(gisement.progres == 0.0, "minage : la jauge repart à zéro hors de portée")
 	_verifier(_plongee._sac.nombre() == 0, "minage : on ne perd que l'unité en cours, rien n'est gagné")
