@@ -37,10 +37,15 @@ Gardien d'une île flottante au-dessus d'un océan sans fond.
 **Palette bas** : bleu nuit, noir, cyan, violet.
 
 ## Feuille de route du MVP
-0. Mise en place
-1. Prototype de plongée
-2. Minage, sac et 2 zones
-3. Île avec 3 ressources et inventaire
-4. Craft et 3 améliorations de cloche
-5. Îlot à relier et sauvegarde
-6. Test de la boucle, puis pixel art et audio
+- [x] 0. Mise en place
+- [x] 1. Prototype de plongée
+- [x] 2. Minage, sac et 2 zones (Lagon de lumière, Forêt de coraux)
+- [x] 3. Île avec 3 ressources et inventaire (transitions île ↔ plongée)
+- [x] 3.5. Pixel art (variante C : monde en 320x180 affiché ×2, interface en 640x360, palette en rampes, police DotGothic16)
+- [x] 4. Craft et 3 améliorations de cloche, planifiée en deux parties :
+  - [x] Partie 1 (PR #5) : atelier, recettes, composants, améliorations de niveau 1 (câble 150 → 300 m, lanterne, réservoir)
+  - [ ] Partie 2 : Faille volcanique, pierre de braise, niveaux 2 des améliorations (câble 450 m). Planifiée, pas commencée.
+- [x] 5. Îlot à relier et sauvegarde, en deux parties :
+  - [x] Partie 1 (PR #6) : sauvegarde JSON dans user:// (%APPDATA%\Le Fil de l'Abysse), écran titre, menu pause
+  - [x] Partie 2 (PR #7) : îlot, passerelle de nuage, bassin de lumière
+- [ ] 6. Test de la boucle complète sur PC (en cours), puis ajustements, pixel art et audio
