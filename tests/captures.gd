@@ -3,6 +3,8 @@ extends SceneTree
 ## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
+## Sur l'île, on vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée,
+## chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit).
 ## Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 const DOSSIER := "res://docs/captures/"
@@ -113,6 +115,7 @@ func _scenario_jeu() -> void:
 	var transition: Node = jeu.get_node("Transition")
 	await _images(30)
 	await _capturer("06-ile")
+	await _verifier_grille_monde(ile)
 
 	# Récolte : éolienne et un nuage d'un clic, puis un filon en maintenant le clic
 	var eolienne: Node2D = ile._eolienne
@@ -258,4 +261,24 @@ func _verifier_palette(nom: String, image: Image) -> void:
 		_captures_hors_palette += 1
 		var exemples := hors.keys().slice(0, 5)
 		print("      HORS PALETTE : %s (%d couleurs, ex. %s)" % [nom, hors.size(), exemples])
+
+
+func _verifier_grille_monde(ile: Node) -> void:
+	ile.get_node("HUD").visible = false
+	await _images(3)
+	await RenderingServer.frame_post_draw
+	var image := root.get_viewport().get_texture().get_image()
+	ile.get_node("HUD").visible = true
+	var ecarts := 0
+	for y in range(0, image.get_height() - 1, 2):
+		for x in range(0, image.get_width() - 1, 2):
+			var couleur := image.get_pixel(x, y)
+			if image.get_pixel(x + 1, y) != couleur or image.get_pixel(x, y + 1) != couleur \
+					or image.get_pixel(x + 1, y + 1) != couleur:
+				ecarts += 1
+	if ecarts == 0:
+		print("      grille du monde OK : tous les pixels de l'île font 2x2 pixels d'écran")
+	else:
+		_captures_hors_palette += 1
+		print("      GRILLE DU MONDE : %d blocs 2x2 non uniformes" % ecarts)
 

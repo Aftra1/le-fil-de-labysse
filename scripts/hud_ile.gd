@@ -1,75 +1,64 @@
 class_name InterfaceIle
 extends CanvasLayer
-## Interface de l'île : bouton d'inventaire, rangée des ressources, annonces et aide.
+## Interface de l'île (640x360) : bouton d'inventaire, barre des ressources, annonces et aide.
+## Cadres épais or et crème (ArtIle.cadre), texte brun foncé en DotGothic16.
 
 const DUREE_ANNONCE := 4.0
-const LARGEUR_ECRAN := 640.0
-const LARGEUR_CASE := 40.0
-const TAILLE_PASTILLE := 8.0
-
-# Couleurs : noms de la palette
-const COULEUR_TEXTE := "blanc"
-const COULEUR_CONTOUR := "nuit"
-const COULEUR_BOUTON := "nuit"
-const COULEUR_BOUTON_SURVOL := "bleu_nuit"
-const COULEUR_BOUTON_APPUI := "abysse"
-const COULEUR_BOUTON_BORD := "or"
-const COULEUR_PASTILLE_BORD := "nuit"
+const MARGE := 6.0
+const HAUT_ANNONCE := 96.0
+const HAUT_AIDE := 46.0   # sous le bouton : le bas de l'écran reste libre pour la cloche
 
 var bouton_inventaire := Button.new()
 
 var _quantites: Dictionary = {}   # id -> Label
-var _annonce := Label.new()
-var _aide := Label.new()
+var _annonce_panneau: PanelContainer
+var _annonce: Label
+var _aide_panneau: PanelContainer
+var _aide: Label
 var _annonce_restante := 0.0
 
 
 func _ready() -> void:
 	bouton_inventaire.text = "Inventaire (I)"
-	bouton_inventaire.position = Vector2(8.0, 6.0)
-	bouton_inventaire.focus_mode = Control.FOCUS_NONE
-	bouton_inventaire.add_theme_font_size_override("font_size", Pixel.TAILLE_TEXTE)
-	bouton_inventaire.add_theme_color_override("font_color", Palette.couleur(COULEUR_TEXTE))
-	bouton_inventaire.add_theme_color_override("font_hover_color", Palette.couleur(COULEUR_TEXTE))
-	bouton_inventaire.add_theme_color_override("font_pressed_color", Palette.couleur(COULEUR_TEXTE))
-	bouton_inventaire.add_theme_stylebox_override("normal", _style_bouton(COULEUR_BOUTON))
-	bouton_inventaire.add_theme_stylebox_override("hover", _style_bouton(COULEUR_BOUTON_SURVOL))
-	bouton_inventaire.add_theme_stylebox_override("pressed", _style_bouton(COULEUR_BOUTON_APPUI))
+	ArtIle.styler_bouton(bouton_inventaire)
+	bouton_inventaire.position = Vector2(MARGE, MARGE)
 	add_child(bouton_inventaire)
 
-	var ids := Game.ressources.keys()
-	var x := LARGEUR_ECRAN - 8.0 - LARGEUR_CASE * ids.size()
-	for id: String in ids:
-		var bord := ColorRect.new()
-		bord.color = Palette.couleur(COULEUR_PASTILLE_BORD)
-		bord.position = Vector2(x - 1.0, 14.0)
-		bord.size = Vector2.ONE * (TAILLE_PASTILLE + 2.0)
-		bord.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(bord)
-		var pastille := ColorRect.new()
-		pastille.color = Game.couleur_ressource(id)
-		pastille.position = Vector2(x, 15.0)
-		pastille.size = Vector2.ONE * TAILLE_PASTILLE
-		pastille.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(pastille)
-		var quantite := Label.new()
-		_placer(quantite, Vector2(x + TAILLE_PASTILLE + 3.0, 8.0))
+	var barre := _panneau()
+	var ligne := HBoxContainer.new()
+	ligne.add_theme_constant_override("separation", 6)
+	for id: String in Game.ressources.keys():
+		var icone := TextureRect.new()
+		icone.texture = ArtIle.icone(id, 1.0)
+		icone.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		ligne.add_child(icone)
+		var quantite := _etiquette()
 		_quantites[id] = quantite
-		x += LARGEUR_CASE
+		ligne.add_child(quantite)
+	barre.add_child(ligne)
+	ArtIle.ancrer(barre, 1.0, 0.0, MARGE)
 
-	_placer(_annonce, Vector2(0.0, 40.0))
-	_annonce.size.x = LARGEUR_ECRAN
-	_annonce.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_annonce.visible = false
+	_annonce_panneau = _panneau()
+	_annonce = _etiquette()
+	_annonce_panneau.add_child(_annonce)
+	ArtIle.ancrer(_annonce_panneau, 0.5, 0.0, 0.0)
+	_annonce_panneau.offset_top = HAUT_ANNONCE
+	_annonce_panneau.offset_bottom = HAUT_ANNONCE
+	_annonce_panneau.visible = false
 
-	_placer(_aide, Vector2(8.0, 334.0))
+	_aide_panneau = _panneau()
+	_aide = _etiquette()
+	_aide_panneau.add_child(_aide)
+	ArtIle.ancrer(_aide_panneau, 0.0, 0.0, MARGE)
+	_aide_panneau.offset_top = HAUT_AIDE
+	_aide_panneau.offset_bottom = HAUT_AIDE
 	rafraichir_inventaire()
 
 
 func _process(delta: float) -> void:
 	if _annonce_restante > 0.0:
 		_annonce_restante -= delta
-		_annonce.visible = _annonce_restante > 0.0
+		_annonce_panneau.visible = _annonce_restante > 0.0
 
 
 func rafraichir_inventaire() -> void:
@@ -79,33 +68,29 @@ func rafraichir_inventaire() -> void:
 
 func annoncer(texte: String, duree: float = DUREE_ANNONCE) -> void:
 	_annonce.text = texte
-	_annonce.visible = true
+	_annonce_panneau.visible = true
 	_annonce_restante = duree
 
 
 func texte_annonce() -> String:
-	return _annonce.text if _annonce.visible else ""
+	return _annonce.text if _annonce_panneau.visible else ""
 
 
 func definir_aide(texte: String) -> void:
 	_aide.text = texte
+	_aide_panneau.visible = texte != ""
 
 
-func _style_bouton(fond: String) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.couleur(fond)
-	style.border_color = Palette.couleur(COULEUR_BOUTON_BORD)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(0)
-	style.anti_aliasing = false
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
-	return style
+## Panneau d'information : il ne capte pas la souris (on peut cliquer le monde dessous).
+func _panneau() -> PanelContainer:
+	var panneau := PanelContainer.new()
+	panneau.add_theme_stylebox_override("panel", ArtIle.cadre(1.0))
+	panneau.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(panneau)
+	return panneau
 
 
-func _placer(etiquette: Label, position_etiquette: Vector2) -> void:
-	etiquette.position = position_etiquette
-	Pixel.texte(etiquette, COULEUR_TEXTE, COULEUR_CONTOUR)
-	add_child(etiquette)
+func _etiquette() -> Label:
+	var etiquette := Label.new()
+	Pixel.texte(etiquette, ArtIle.CONTOUR, "")
+	return etiquette

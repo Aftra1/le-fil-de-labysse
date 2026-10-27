@@ -10,27 +10,14 @@ extends Node2D
 enum Mode { CLIC, MAINTIEN, RESERVE }
 enum Forme { EOLIENNE, FILON, NUAGE }
 
-const ECART_POINTS := 4.0
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
-const LONGUEUR_PALE := 13.0
-const HAUTEUR_MAT := 50
-const TAILLE_NUAGE := Vector2i(32, 16)
+const IMAGES_PAR_SECONDE := 60   # cadence de la physique : les nuages avancent par pas réguliers
 
-const FILON: PackedStringArray = [
-	"....d....",
-	"...djd...",
-	"...djd...",
-	"..djOd...",
-	"..djOd.d.",
-	"d.djOddjd",
-	"djdjOdjOd",
-	"djdOOdOOd",
-	"dOdOOdOdd",
-	".ddOOddd.",
-	".ddddddd.",
-]
-const COULEURS_FILON := { "d": "or_fonce", "O": "or", "j": "or_clair" }
-const COULEURS_FILON_VIDE := { "d": "lavande_fonce", "O": "lavande", "j": "lavande" }
+# Dessin dans le monde 320x180 (voir VueMonde)
+const K := 0.5
+const FILON := ArtIle.FILON
+const TAILLE_NUAGE := Vector2i(16, 8)
+const HAUTEUR_MAT := 25          # pixels du monde, du moyeu au sol
 
 var id_ressource := ""
 var mode := Mode.CLIC
@@ -40,7 +27,13 @@ var plafond := 1
 var recharge_s := 0.0          # 0 : pas de recharge
 var duree_maintien := 1.0
 var rayon_clic := 20.0
-var derive := 0.0              # vitesse horizontale (nuages), en px/s
+## Vitesse horizontale (nuages), en px/s (640x360). Elle est arrondie pour que le nuage avance
+## d'un pixel du monde toutes les N images de physique exactement : un pas régulier, jamais saccadé.
+var derive := 0.0:
+	set(valeur):
+		derive = valeur
+		_images_par_pas = maxi(roundi(IMAGES_PAR_SECONDE * VueMonde.ECHELLE / valeur), 1) if valeur > 0.0 else 0
+		_compteur_pas = 0
 
 var progres := 0.0:
 	set(valeur):
@@ -56,14 +49,23 @@ var en_survol := false:
 
 var _accumulateur := 0.0
 var _angle := 0.0
+var _images_par_pas := 0
+var _compteur_pas := 0
 
 
 func _process(delta: float) -> void:
 	recharger(delta)
-	position.x += derive * delta
 	if forme == Forme.EOLIENNE:
 		_angle = fmod(_angle + VITESSE_PALES * delta, TAU)
-		queue_redraw()
+
+
+func _physics_process(_delta: float) -> void:
+	if _images_par_pas <= 0:
+		return
+	_compteur_pas += 1
+	if _compteur_pas >= _images_par_pas:
+		_compteur_pas = 0
+		position.x += VueMonde.ECHELLE   # un pixel du monde
 
 
 ## Fait avancer la recharge de « secondes » (aussi utilisé pour rattraper le temps de plongée).
@@ -98,42 +100,46 @@ func prendre(nombre: int) -> int:
 	return pris
 
 
-func _draw() -> void:
+# --- Dessin dans le monde 320x180 ----------------------------------------------------
+
+func dessiner_monde(toile: CanvasItem) -> void:
+	var p := VueMonde.vers_monde(position)
 	match forme:
 		Forme.EOLIENNE:
-			_dessiner_eolienne()
+			_dessiner_eolienne(toile, p)
 		Forme.FILON:
-			_dessiner_filon()
+			_dessiner_filon(toile, p)
 		Forme.NUAGE:
-			_dessiner_nuage()
+			_dessiner_nuage(toile, p)
+	var rayon := roundi(rayon_clic * K)
 	if en_survol and est_disponible():
-		Pixel.sprite(self, Pixel.anneau(int(rayon_clic), Palette.couleur("blanc")), Vector2.ZERO)
+		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("nuage.4")), p)
 	if progres > 0.0:
-		Pixel.sprite(self, Pixel.jauge(int(rayon_clic), progres, Palette.couleur("blanc")), Vector2.ZERO)
+		Pixel.sprite(toile, Pixel.jauge(rayon, progres, Palette.couleur("nuage.4")), p)
 
 
-func _dessiner_eolienne() -> void:
-	Pixel.rect(self, Rect2(0, 0, 1, HAUTEUR_MAT), Palette.couleur("ardoise"))
-	Pixel.rect(self, Rect2(1, 2, 1, HAUTEUR_MAT - 2), Palette.couleur("lavande_fonce"))
-	for i in 3:
-		var direction := Vector2.from_angle(_angle + i * TAU / 3.0)
-		Pixel.ligne(self, Vector2.ZERO, direction * LONGUEUR_PALE, Palette.couleur("blanc"))
-	Pixel.rect(self, Rect2(-1, -1, 3, 3), Palette.couleur("or"))
-	_dessiner_points(Vector2(0.0, -LONGUEUR_PALE - 6.0), Palette.couleur("blanc"))
+func _dessiner_eolienne(toile: CanvasItem, moyeu: Vector2) -> void:
+	var sol := moyeu.y + HAUTEUR_MAT
+	toile.draw_rect(Rect2(moyeu.x + 1, sol - 1, 3, 1), Palette.couleur("herbe.3"))
+	toile.draw_rect(Rect2(moyeu.x - 1, moyeu.y, 3, sol - moyeu.y), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(moyeu.x, moyeu.y, 1, sol - moyeu.y - 1), Palette.couleur("terre.2"))
+	Pixel.sprite(toile, ArtIle.pales(K, _angle), moyeu)
+	_dessiner_points(toile, moyeu + Vector2(0, -10), "nuage.4")
 
 
-func _dessiner_filon() -> void:
-	Pixel.sprite(self, Pixel.motif(FILON, COULEURS_FILON if est_disponible() else COULEURS_FILON_VIDE), Vector2.ZERO)
-	_dessiner_points(Vector2(0.0, -10.0), Palette.couleur("or"))
+func _dessiner_filon(toile: CanvasItem, centre: Vector2) -> void:
+	Pixel.sprite_ombre(toile, ArtIle.filon(K, est_disponible()), centre, Palette.couleur("herbe.3"))
+	_dessiner_points(toile, centre + Vector2(0, -6), "or.4")
 
 
-func _dessiner_nuage() -> void:
-	Pixel.sprite(self, Pixel.nuage(TAILLE_NUAGE.x, TAILLE_NUAGE.y, Palette.couleur("blanc"), Palette.couleur("nacre")), Vector2.ZERO)
-	_dessiner_points(Vector2(0.0, TAILLE_NUAGE.y / 2.0 + 3.0), Palette.couleur("blanc"))
+func _dessiner_nuage(toile: CanvasItem, centre: Vector2) -> void:
+	var ombre := Palette.plus_sombre(ArtIle.couleur_ciel(centre.y, VueMonde.TAILLE.y))
+	Pixel.sprite_ombre(toile, ArtIle.nuage(TAILLE_NUAGE.x, TAILLE_NUAGE.y), centre, ombre)
+	_dessiner_points(toile, centre + Vector2(0, 7), "nuage.4")
 
 
-## Un point de 2x2 px par unité de plafond : plein si disponible, lavande sinon.
-func _dessiner_points(centre: Vector2, teinte: Color) -> void:
+## Un pixel du monde par unité de plafond, espacés d'un pixel : plein si disponible, sombre sinon.
+func _dessiner_points(toile: CanvasItem, centre: Vector2, couleur: String) -> void:
 	for i in plafond:
-		var point := centre + Vector2((i - (plafond - 1) / 2.0) * ECART_POINTS, 0.0)
-		Pixel.rect(self, Rect2(point.floor() - Vector2.ONE, Vector2(2, 2)), teinte if i < stock else Palette.couleur("lavande"))
+		var point := (centre + Vector2((i - (plafond - 1) / 2.0) * 2.0, 0.0)).floor()
+		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur(couleur if i < stock else "roche.2"))

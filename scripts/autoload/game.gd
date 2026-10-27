@@ -15,6 +15,12 @@ func _ready() -> void:
 	ressources = Donnees.charger_json("res://data/ressources.json")
 
 
+## Vide les caches de textures générées avant la fermeture (évite les avertissements de fuite).
+func _exit_tree() -> void:
+	ArtIle.vider_cache()
+	Pixel.vider_cache()
+
+
 func nom_ressource(id: String) -> String:
 	return str(ressources[id]["nom"]) if ressources.has(id) else id
 

@@ -12,6 +12,10 @@ const BAYER := [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
 static var _textures: Dictionary = {}
 
 
+static func vider_cache() -> void:
+	_textures.clear()
+
+
 ## À appeler dans _ready des nœuds qui dessinent des trames ou des motifs répétés.
 static func activer_motifs(noeud: CanvasItem) -> void:
 	noeud.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED

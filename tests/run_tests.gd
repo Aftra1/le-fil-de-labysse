@@ -85,6 +85,7 @@ func _lancer() -> void:
 
 	_titre("Rendu pixel art")
 	_test_rendu_pixel()
+	await _test_monde_320()
 
 	print("")
 	print("TOTAL : %d/%d PASS" % [_reussis, _total])
@@ -846,4 +847,39 @@ func _test_rendu_pixel() -> void:
 		for ligne in motif:
 			lignes_regulieres = lignes_regulieres and ligne.length() == motif[0].length()
 	_verifier(lignes_regulieres, "sprites : dessins rectangulaires (toutes les lignes ont la même largeur)")
+
+
+func _test_monde_320() -> void:
+	var ile := await _ouvrir_ile()
+	var monde: Node = ile.get_node("Monde")
+	_verifier(monde.taille_monde() == Vector2i(320, 180) and VueMonde.ECHELLE == 2,
+		"île : le monde est rendu en 320x180, affiché ×2")
+	var eolienne: Node2D = ile._eolienne
+	_verifier(eolienne.position == Vector2(206, 150), "île : la logique garde ses positions en 640x360")
+	await _fermer_ile(ile)
+
+	# Un nuage lent avance d'un pixel du monde (2 px en 640x360) à intervalle fixe.
+	var nuage := SourceRessource.new()
+	nuage.derive = 8.0
+	root.add_child(nuage)
+	var pas_ok := true
+	var intervalles: Array[int] = []
+	var depuis := 0
+	var x := nuage.position.x
+	for i in 240:
+		await physics_frame
+		depuis += 1
+		var avance := nuage.position.x - x
+		if avance != 0.0:
+			pas_ok = pas_ok and is_equal_approx(avance, 2.0)
+			intervalles.append(depuis)
+			depuis = 0
+			x = nuage.position.x
+	root.remove_child(nuage)
+	nuage.free()
+	var reguliers := intervalles.size() > 2
+	for i in range(1, intervalles.size()):
+		reguliers = reguliers and intervalles[i] == intervalles[1]
+	_verifier(pas_ok, "nuages : chaque pas fait exactement un pixel du monde")
+	_verifier(reguliers, "nuages : les pas sont réguliers (pas de saccades)", "un pas toutes les %s images" % [intervalles.slice(1, 4)])
 

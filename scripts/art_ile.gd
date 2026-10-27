@@ -116,6 +116,10 @@ const COULEURS_CLOCHE := {
 static var _cache: Dictionary = {}
 
 
+static func vider_cache() -> void:
+	_cache.clear()
+
+
 # --- Couleurs ------------------------------------------------------------------------
 
 static func c(nom: String) -> Color:
@@ -475,3 +479,29 @@ static func cadre(k: float, fond: String = "interface.4", bord: String = "or") -
 	style.content_margin_bottom = marge + (1 if epais else 0)
 	_cache[cle] = style
 	return style
+
+
+## Ancre un panneau dans un coin ou au centre (0, 0.5 ou 1 sur chaque axe) ; il grandit vers l'intérieur.
+static func ancrer(controle: Control, ax: float, ay: float, marge: float) -> void:
+	controle.anchor_left = ax
+	controle.anchor_right = ax
+	controle.anchor_top = ay
+	controle.anchor_bottom = ay
+	controle.offset_left = marge if ax == 0.0 else (-marge if ax == 1.0 else 0.0)
+	controle.offset_right = controle.offset_left
+	controle.offset_top = marge if ay == 0.0 else (-marge if ay == 1.0 else 0.0)
+	controle.offset_bottom = controle.offset_top
+	controle.grow_horizontal = Control.GROW_DIRECTION_END if ax == 0.0 \
+		else (Control.GROW_DIRECTION_BEGIN if ax == 1.0 else Control.GROW_DIRECTION_BOTH)
+	controle.grow_vertical = Control.GROW_DIRECTION_END if ay == 0.0 \
+		else (Control.GROW_DIRECTION_BEGIN if ay == 1.0 else Control.GROW_DIRECTION_BOTH)
+
+
+## Style des boutons de l'interface du haut (cadre or et crème, relief inversé à l'appui).
+static func styler_bouton(bouton: Button) -> void:
+	bouton.focus_mode = Control.FOCUS_NONE
+	bouton.add_theme_stylebox_override("normal", cadre(1.0))
+	bouton.add_theme_stylebox_override("hover", cadre(1.0, "interface.5"))
+	bouton.add_theme_stylebox_override("pressed", cadre(1.0, "interface.3"))
+	for etat in ["font_color", "font_hover_color", "font_pressed_color"]:
+		bouton.add_theme_color_override(etat, c(CONTOUR))
