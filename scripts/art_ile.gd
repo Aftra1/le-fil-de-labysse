@@ -9,9 +9,13 @@ extends RefCounted
 const CONTOUR := "contour_haut"
 const GRAINE := 1407
 
-# Ciel : 5 paliers du haut vers l'horizon, bords crénelés plutôt que tramés
-const PALIERS_CIEL := [[0.0, "ciel.1"], [0.14, "ciel.2"], [0.30, "ciel.3"], [0.48, "ciel.4"], [0.70, "ciel.5"]]
+# Ciel : une seule colonne de paliers, de l'écran de l'île (y = 0) jusqu'à la mer (y = HAUTEUR_CIEL),
+# en pixels du monde (320x180). L'île, la transition et la plongée la dessinent toutes les trois :
+# leurs ciels se raccordent donc sans saut. Bords de paliers crénelés plutôt que tramés.
+const PALIERS_CIEL := [[0, "ciel.1"], [25, "ciel.2"], [54, "ciel.3"], [86, "ciel.4"], [126, "ciel.5"], [750, "nuage.3"]]
+const HAUTEUR_CIEL := 900        # surface de la mer, en pixels du monde (1800 en 640x360)
 const CRENEAUX := [0, 1, 2, 1]
+const DENT := 3
 
 # Formes en caractères. Chiffres : indice dans la rampe choisie ; lettres : couleurs fixes.
 const CLOCHE: PackedStringArray = [
@@ -135,13 +139,51 @@ static func couleurs_rampe(nom_rampe: String, decalage: int = 0) -> Dictionary:
 	return couleurs
 
 
-## Couleur du ciel à une hauteur (sans les créneaux) : sert aux ombres des objets qui volent.
-static func couleur_ciel(y: float, hauteur: float) -> Color:
-	var nom: String = PALIERS_CIEL[0][1]
-	for palier: Array in PALIERS_CIEL:
-		if y >= float(palier[0]) * hauteur:
-			nom = palier[1]
-	return c(nom)
+## Couleur du ciel à une hauteur de la colonne (sans les créneaux) : sert aux ombres des objets qui volent.
+static func couleur_ciel_monde(y: float) -> Color:
+	return c(PALIERS_CIEL[_palier_ciel(y)][1])
+
+
+## Couleur exacte d'un pixel du ciel (x, y en pixels du monde de la colonne), créneaux compris.
+static func couleur_ciel_pixel(x: int, y: int) -> Color:
+	var i := _palier_ciel(y)
+	if i + 1 < PALIERS_CIEL.size() and y >= int(PALIERS_CIEL[i + 1][0]) - _creneau(x):
+		i += 1
+	return c(PALIERS_CIEL[i][1])
+
+
+## Dessine le ciel sur une toile ; un point de la toile (x, y) est le pixel (x + dx, y + dy) de la colonne.
+static func dessiner_ciel(toile: CanvasItem, zone: Rect2, dx: int, dy: int) -> void:
+	var haut := int(zone.position.y) + dy
+	var bas := int(zone.end.y) + dy
+	for i in PALIERS_CIEL.size():
+		var debut: int = maxi(int(PALIERS_CIEL[i][0]), haut)
+		var fin: int = bas if i + 1 == PALIERS_CIEL.size() else mini(int(PALIERS_CIEL[i + 1][0]), bas)
+		if fin > debut:
+			toile.draw_rect(Rect2(zone.position.x, debut - dy, zone.size.x, fin - debut), c(PALIERS_CIEL[i][1]))
+		if i == 0:
+			continue
+		var bord := int(PALIERS_CIEL[i][0])
+		if bord - 2 > bas or bord < haut:
+			continue
+		var x := floori((zone.position.x + dx) / float(DENT)) * DENT
+		while x < zone.end.x + dx:
+			var marche := _creneau(x)
+			if marche > 0:
+				toile.draw_rect(Rect2(x - dx, bord - marche - dy, DENT, marche), c(PALIERS_CIEL[i][1]))
+			x += DENT
+
+
+static func _palier_ciel(y: float) -> int:
+	var indice := 0
+	for i in PALIERS_CIEL.size():
+		if y >= float(PALIERS_CIEL[i][0]):
+			indice = i
+	return indice
+
+
+static func _creneau(x: int) -> int:
+	return CRENEAUX[posmod(floori(x / float(DENT)), CRENEAUX.size())]
 
 
 # --- Fond de l'île : ciel, soleil, île (mis en cache) ------------------------------
@@ -161,21 +203,9 @@ static func fond_ile(k: float) -> ImageTexture:
 
 
 static func peindre_ciel(image: Image) -> void:
-	var largeur := image.get_width()
-	var hauteur := image.get_height()
-	var dent := maxi(roundi(largeur / 213.0), 1)
-	for i in PALIERS_CIEL.size():
-		var debut := roundi(float(PALIERS_CIEL[i][0]) * hauteur)
-		var fin := hauteur if i == PALIERS_CIEL.size() - 1 else roundi(float(PALIERS_CIEL[i + 1][0]) * hauteur)
-		image.fill_rect(Rect2i(0, debut, largeur, fin - debut), c(PALIERS_CIEL[i][1]))
-		if i == 0:
-			continue
-		# Bord crénelé : le palier clair mord sur le précédent par petites marches
-		var echelle := 1 if hauteur < 300 else 2
-		for x in largeur:
-			var marche: int = CRENEAUX[(x / dent) % CRENEAUX.size()] * echelle / 2 + (1 if echelle == 1 and (x / dent) % 4 == 2 else 0)
-			for y in range(debut - marche, debut):
-				image.set_pixel(x, y, c(PALIERS_CIEL[i][1]))
+	for y in image.get_height():
+		for x in image.get_width():
+			image.set_pixel(x, y, couleur_ciel_pixel(x, y))
 
 
 static func peindre_soleil(image: Image, centre: Vector2i, rayon: int) -> void:
@@ -447,25 +477,29 @@ static func cadre(k: float, fond: String = "interface.4", bord: String = "or") -
 	var cle := "cadre:%s:%s:%s" % [k, fond, bord]
 	if _cache.has(cle):
 		return _cache[cle]
-	var epais := k >= 0.75
-	var cote := 16 if epais else 8
+	var style := style_anneaux([
+		[c(CONTOUR), c(CONTOUR)], [c(bord + ".4"), c(bord + ".2")], [c(bord + ".3"), c(bord + ".3")],
+		[c("interface.1"), c("interface.1")], [c("interface.5"), c(fond)],
+	], c(fond))
+	_cache[cle] = style
+	return style
+
+
+## Cadre épais en 9 parties à partir d'anneaux [couleur haut/gauche, couleur bas/droite], de l'extérieur
+## vers l'intérieur : le relief vient de l'opposition clair en haut à gauche / sombre en bas à droite.
+static func style_anneaux(anneaux: Array, fond: Color) -> StyleBoxTexture:
+	var cote := 16
 	var image := Image.create(cote, cote, false, Image.FORMAT_RGBA8)
-	image.fill(c(fond))
-	var anneaux: Array = (
-		[[c(CONTOUR), c(CONTOUR)], [c(bord + ".4"), c(bord + ".2")], [c(bord + ".3"), c(bord + ".3")],
-			[c("interface.1"), c("interface.1")], [c("interface.5"), c(fond)]]
-		if epais else
-		[[c(CONTOUR), c(CONTOUR)], [c(bord + ".4"), c(bord + ".2")], [c("interface.1"), c("interface.1")]]
-	)
+	image.fill(fond)
 	for i in anneaux.size():
 		var clair: Color = anneaux[i][0]
 		var sombre: Color = anneaux[i][1]
 		var n := cote - 1 - i
 		for t in range(i, n + 1):
-			image.set_pixel(t, i, clair)        # haut
-			image.set_pixel(i, t, clair)        # gauche
-			image.set_pixel(t, n, sombre)       # bas
-			image.set_pixel(n, t, sombre)       # droite
+			image.set_pixel(t, i, clair)
+			image.set_pixel(i, t, clair)
+			image.set_pixel(t, n, sombre)
+			image.set_pixel(n, t, sombre)
 	var style := StyleBoxTexture.new()
 	style.texture = ImageTexture.create_from_image(image)
 	var marge := anneaux.size()
@@ -473,11 +507,10 @@ static func cadre(k: float, fond: String = "interface.4", bord: String = "or") -
 	style.texture_margin_top = marge
 	style.texture_margin_right = marge
 	style.texture_margin_bottom = marge
-	style.content_margin_left = marge + (4 if epais else 2)
-	style.content_margin_right = marge + (4 if epais else 2)
-	style.content_margin_top = marge + (1 if epais else 1)
-	style.content_margin_bottom = marge + (1 if epais else 0)
-	_cache[cle] = style
+	style.content_margin_left = marge + 4
+	style.content_margin_right = marge + 4
+	style.content_margin_top = marge + 1
+	style.content_margin_bottom = marge + 1
 	return style
 
 

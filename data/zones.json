@@ -8,9 +8,10 @@
 		"gisements": 12,
 		"minerai": "cristal_lagon",
 		"paliers": [
-			"lagon",
-			"lagon_profond",
-			"bleu_nuit"
+			"lagon.4",
+			"lagon.3",
+			"lagon.2",
+			"lagon.1"
 		]
 	},
 	{
@@ -22,10 +23,11 @@
 		"gisements": 8,
 		"minerai": "corail",
 		"paliers": [
-			"bleu_nuit",
-			"nuit",
-			"violet_fonce",
-			"abysse"
+			"abysse.4",
+			"abysse.3",
+			"corail.0",
+			"abysse.2",
+			"abysse.1"
 		]
 	}
 ]

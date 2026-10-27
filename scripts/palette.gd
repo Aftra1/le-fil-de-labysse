@@ -49,6 +49,17 @@ static func plus_sombre(teinte: Color, crans: int = 1) -> Color:
 	return tons[maxi(int(ou[1]) - crans, 0)]
 
 
+## Le ton juste au-dessus dans la même rampe (reflets, repères).
+static func plus_clair(teinte: Color, crans: int = 1) -> Color:
+	_charger()
+	var cle := teinte.to_rgba32()
+	if not _position.has(cle):
+		return teinte
+	var ou: Array = _position[cle]
+	var tons: Array = _rampes[ou[0]]
+	return tons[mini(int(ou[1]) + crans, tons.size() - 1)]
+
+
 static func _charger() -> void:
 	if not _couleurs.is_empty():
 		return

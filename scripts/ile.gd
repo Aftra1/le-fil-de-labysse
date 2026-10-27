@@ -362,8 +362,8 @@ func _dessiner_monde(toile: Node2D) -> void:
 		var texture := ArtIle.cloche(K)
 		var haut := floorf(cloche.y - texture.get_height() / 2.0)
 		var attache := VueMonde.vers_monde(ATTACHE_CABLE)
-		toile.draw_rect(Rect2(attache.x, attache.y, 1, haut - attache.y + 1), Palette.couleur("terre.1"))
-		Pixel.sprite_ombre(toile, texture, cloche, Palette.plus_sombre(ArtIle.couleur_ciel(cloche.y, VueMonde.TAILLE.y)))
+		toile.draw_rect(Rect2(attache.x, attache.y, 1, haut - attache.y + 1), Palette.couleur("metal.3"))
+		Pixel.sprite_ombre(toile, texture, cloche, Palette.plus_sombre(ArtIle.couleur_ciel_monde(cloche.y)))
 		if _survol_cloche:
 			var zone := (ZONE_CLOCHE * K).round()
 			Pixel.cadre(toile, Rect2(cloche - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))

@@ -86,6 +86,7 @@ func _lancer() -> void:
 	_titre("Rendu pixel art")
 	_test_rendu_pixel()
 	await _test_monde_320()
+	await _test_camera_plongee()
 
 	print("")
 	print("TOTAL : %d/%d PASS" % [_reussis, _total])
@@ -882,4 +883,23 @@ func _test_monde_320() -> void:
 		reguliers = reguliers and intervalles[i] == intervalles[1]
 	_verifier(pas_ok, "nuages : chaque pas fait exactement un pixel du monde")
 	_verifier(reguliers, "nuages : les pas sont réguliers (pas de saccades)", "un pas toutes les %s images" % [intervalles.slice(1, 4)])
+
+
+func _test_camera_plongee() -> void:
+	await _demarrer()
+	_verifier(_plongee.get_node("Monde").taille_monde() == Vector2i(320, 180), "plongée : le monde est rendu en 320x180, affiché ×2")
+	_bell.position.y = 1201.0
+	_bell.velocity = Vector2.ZERO
+	_bell.controle_actif = false   # cloche immobile (ni pilotage ni flottabilité)
+	await _images(1)
+	var cible: Vector2 = _plongee._cible_camera()
+	_verifier(int(cible.y) % 2 == 0 and cible.y == roundf(cible.y),
+		"caméra : vise la position dessinée de la cloche (pixel entier du monde)", "haut %.0f" % cible.y)
+	var apres_une_image: float = _plongee._camera.y
+	_verifier(apres_une_image > -90.0 and apres_une_image < cible.y,
+		"caméra : rattrape la cloche en douceur (pas de saut)", "%.1f après une image, cible %.0f" % [apres_une_image, cible.y])
+	await _secondes(2.0)
+	_verifier(_plongee._camera == _plongee._cible_camera(), "caméra : s'arrête exactement sur sa cible (pas de tremblement)",
+		"%s / %s, cloche %s" % [_plongee._camera, _plongee._cible_camera(), _bell.position])
+	await _terminer()
 

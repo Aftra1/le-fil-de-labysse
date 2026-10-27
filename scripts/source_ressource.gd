@@ -133,7 +133,7 @@ func _dessiner_filon(toile: CanvasItem, centre: Vector2) -> void:
 
 
 func _dessiner_nuage(toile: CanvasItem, centre: Vector2) -> void:
-	var ombre := Palette.plus_sombre(ArtIle.couleur_ciel(centre.y, VueMonde.TAILLE.y))
+	var ombre := Palette.plus_sombre(ArtIle.couleur_ciel_monde(centre.y))
 	Pixel.sprite_ombre(toile, ArtIle.nuage(TAILLE_NUAGE.x, TAILLE_NUAGE.y), centre, ombre)
 	_dessiner_points(toile, centre + Vector2(0, 7), "nuage.4")
 

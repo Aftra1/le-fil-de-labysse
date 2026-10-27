@@ -18,6 +18,7 @@ func _ready() -> void:
 ## Vide les caches de textures générées avant la fermeture (évite les avertissements de fuite).
 func _exit_tree() -> void:
 	ArtIle.vider_cache()
+	ArtAbysse.vider_cache()
 	Pixel.vider_cache()
 
 

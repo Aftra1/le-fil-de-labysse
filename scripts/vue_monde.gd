@@ -16,8 +16,10 @@ const TAILLE := Vector2i(320, 180)
 
 ## Fonction de dessin du monde : Callable(toile: Node2D), en coordonnées du monde (320x180).
 var dessiner: Callable
-## Coin haut-gauche de la vue, en coordonnées 640x360 (0 pour une vue fixe).
+## Coin haut-gauche de la vue, en coordonnées 640x360 (0 pour une vue fixe). Arrondi au pixel d'écran.
 var camera := Vector2.ZERO
+## Fond transparent (vue posée par-dessus une autre, ex. l'avant-plan de la transition).
+var transparent := false
 
 var _vue := SubViewport.new()
 var _toile := Node2D.new()
@@ -30,6 +32,7 @@ func _ready() -> void:
 	_vue.snap_2d_vertices_to_pixel = true
 	_vue.disable_3d = true
 	_vue.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_vue.transparent_bg = transparent
 	Pixel.activer_motifs(_toile)
 	_toile.draw.connect(func() -> void:
 		if dessiner.is_valid():
@@ -40,7 +43,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	_toile.position = -(camera / ECHELLE).floor()
+	_toile.position = -origine_monde()
 	_toile.queue_redraw()
 	queue_redraw()
 
@@ -48,9 +51,25 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	# Reste du défilement plus fin qu'un pixel du monde : 0 ou 1 pixel d'écran. La marge d'un pixel
 	# du monde n'est affichée que si ce reste l'exige.
-	var reste := (camera - (camera / ECHELLE).floor() * ECHELLE).round()
-	var source := Rect2(Vector2.ZERO, Vector2(TAILLE) + Vector2(signf(reste.x), signf(reste.y)))
+	var reste := Vector2(decalage_ecran())
+	var source := Rect2(Vector2.ZERO, Vector2(TAILLE) + reste)
 	draw_texture_rect_region(_vue.get_texture(), Rect2(-reste, source.size * ECHELLE), source)
+
+
+## Pixel du monde affiché en haut à gauche.
+func origine_monde() -> Vector2:
+	return (camera.round() / ECHELLE).floor()
+
+
+## Décalage de l'image en pixels d'écran (0 ou 1 sur chaque axe) : les pixels du monde commencent
+## à ce décalage modulo 2 (sert à la vérification des blocs 2x2).
+func decalage_ecran() -> Vector2i:
+	return Vector2i(camera.round() - origine_monde() * ECHELLE)
+
+
+## Rectangle visible, en pixels du monde (avec la marge).
+func vue_monde() -> Rect2:
+	return Rect2(origine_monde(), Vector2(TAILLE + Vector2i.ONE))
 
 
 func taille_monde() -> Vector2i:

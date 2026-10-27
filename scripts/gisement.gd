@@ -1,40 +1,13 @@
 class_name Gisement
 extends Node2D
 ## Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage.
+## Il ne se dessine pas lui-même : la plongée appelle dessiner_monde() dans le monde 320x180.
 
 const RAYON := 7.0
 const RAYON_ANNEAU := 12
-const ECART_POINTS := 3.0
 
-const CRISTAL: PackedStringArray = [
-	".....k.....",
-	"....kCk....",
-	"....kCk....",
-	".k..kCck...",
-	"kCk.kCck.k.",
-	"kCckkCckkCk",
-	"kCckCcckCck",
-	".kckCcckcck",
-	".kcckcckck.",
-	"..kkkkkkk..",
-]
-const COULEURS_CRISTAL := { "k": "lagon_profond", "c": "cyan", "C": "cyan_clair" }
-const CORAIL: PackedStringArray = [
-	".v...v...v.",
-	".L...L..vL.",
-	"vL..vL..L..",
-	".Lv.L..vL..",
-	"..LvL.vL...",
-	"...LLvL....",
-	"....LLv....",
-	"....vL.....",
-	"...fvvf....",
-	"..ffffff...",
-]
-const COULEURS_CORAIL := { "v": "violet", "L": "violet_lumineux", "f": "violet_fonce" }
-const COULEURS_GRISEES := {
-	"k": "ardoise", "c": "lavande_fonce", "C": "lavande", "v": "lavande_fonce", "L": "lavande", "f": "ardoise",
-}
+const CRISTAL := ArtAbysse.CRISTAL
+const CORAIL := ArtAbysse.CORAIL
 
 var minerai := ""
 var couleur := Color.WHITE
@@ -79,15 +52,17 @@ func retirer_unite() -> void:
 		queue_redraw()
 
 
-func _draw() -> void:
-	var dessin: PackedStringArray = CORAIL if minerai == "corail" else CRISTAL
-	var couleurs: Dictionary = COULEURS_CORAIL if minerai == "corail" else COULEURS_CRISTAL
-	Pixel.sprite(self, Pixel.motif(dessin, COULEURS_GRISEES if grise else couleurs), Vector2.ZERO)
-	# Un point par unité restante
-	var teinte := Palette.couleur("lavande") if grise else couleur
+## Dessin dans le monde 320x180 (appelé par la plongée) : sprite avec contour bleu nuit et ombre
+## d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan.
+func dessiner_monde(toile: CanvasItem) -> void:
+	var p := VueMonde.vers_monde(position)
+	Pixel.sprite_ombre(toile, ArtAbysse.gisement(minerai, grise), p, Palette.plus_sombre(ArtAbysse.couleur_eau(p.y)))
+	var plein := Palette.couleur("corail.4" if minerai == "corail" else "cyan.3")
 	for i in stock:
-		Pixel.rect(self, Rect2(Vector2((i - (stock - 1) / 2.0) * ECART_POINTS, RAYON + 2.0).floor(), Vector2.ONE), teinte)
+		var point := (p + Vector2((i - (stock - 1) / 2.0) * 2.0, 6.0)).floor()
+		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur("metal.3") if grise else plein)
+	var rayon: int = RAYON_ANNEAU / VueMonde.ECHELLE
 	if en_evidence and not grise:
-		Pixel.sprite(self, Pixel.anneau(RAYON_ANNEAU, Palette.couleur("blanc")), Vector2.ZERO)
+		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("cyan.3")), p)
 	if progres > 0.0:
-		Pixel.sprite(self, Pixel.jauge(RAYON_ANNEAU, progres, Palette.couleur("blanc")), Vector2.ZERO)
+		Pixel.sprite(toile, Pixel.jauge(rayon, progres, Palette.couleur("cyan.3")), p)
