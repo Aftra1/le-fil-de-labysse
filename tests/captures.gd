@@ -1,6 +1,8 @@
 extends SceneTree
 ## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
-## 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
+## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée).
+## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
+## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 const DOSSIER := "res://docs/captures/"
@@ -8,6 +10,8 @@ const ECHELLE := 2  # 640x360 agrandi ×2 en « plus proche voisin » pour reste
 
 var _plongee: Node
 var _bell: CharacterBody2D
+var _palette: Dictionary = {}      # couleur RGBA8 -> nom
+var _captures_hors_palette := 0
 
 
 func _initialize() -> void:
@@ -16,9 +20,47 @@ func _initialize() -> void:
 
 func _scenarios() -> void:
 	await process_frame
+	for nom: String in Palette.noms():
+		_palette[Palette.couleur(nom).to_rgba32()] = nom
+	await _planche_palette()
 	await _scenario_plongee()
 	await _scenario_jeu()
-	quit(0)
+	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
+		else "%d capture(s) avec des couleurs hors palette" % _captures_hors_palette))
+	quit(0 if _captures_hors_palette == 0 else 1)
+
+
+# --- 00 : planche de la palette ------------------------------------------------------
+
+func _planche_palette() -> void:
+	var planche := Control.new()
+	var fond := ColorRect.new()
+	fond.color = Palette.couleur("nuit")
+	fond.size = Vector2(640, 360)
+	planche.add_child(fond)
+	var noms := Palette.noms()
+	for i in noms.size():
+		var case := Vector2(16 + (i % 6) * 104, 16 + (i / 6) * 84)
+		var bord := ColorRect.new()
+		bord.color = Palette.couleur("noir")
+		bord.position = case - Vector2.ONE
+		bord.size = Vector2(42, 42)
+		planche.add_child(bord)
+		var echantillon := ColorRect.new()
+		echantillon.color = Palette.couleur(noms[i])
+		echantillon.position = case
+		echantillon.size = Vector2(40, 40)
+		planche.add_child(echantillon)
+		var nom := Label.new()
+		nom.text = noms[i]
+		nom.position = case + Vector2(0, 44)
+		Pixel.texte(nom, "blanc", "")
+		planche.add_child(nom)
+	root.add_child(planche)
+	await _images(3)
+	await _capturer("00-palette")
+	root.remove_child(planche)
+	planche.queue_free()
 
 
 # --- 01-05 : plongée seule ------------------------------------------------------
@@ -192,8 +234,26 @@ func _touche(code: Key) -> void:
 func _capturer(nom: String) -> void:
 	await RenderingServer.frame_post_draw
 	var image := root.get_viewport().get_texture().get_image()
+	_verifier_palette(nom, image)
 	if image.get_width() != 640 * ECHELLE:
 		image.resize(640 * ECHELLE, 360 * ECHELLE, Image.INTERPOLATE_NEAREST)
 	var chemin := ProjectSettings.globalize_path(DOSSIER + nom + ".png")
 	var erreur := image.save_png(chemin)
 	print("%s  %s (%dx%d)" % ["OK  " if erreur == OK else "ERREUR", chemin, image.get_width(), image.get_height()])
+
+
+func _verifier_palette(nom: String, image: Image) -> void:
+	var hors := {}
+	for y in image.get_height():
+		for x in image.get_width():
+			var couleur := image.get_pixel(x, y)
+			couleur.a = 1.0
+			if not _palette.has(couleur.to_rgba32()):
+				hors[couleur.to_html(false)] = int(hors.get(couleur.to_html(false), 0)) + 1
+	if hors.is_empty():
+		print("      palette OK : %s" % nom)
+	else:
+		_captures_hors_palette += 1
+		var exemples := hors.keys().slice(0, 5)
+		print("      HORS PALETTE : %s (%d couleurs, ex. %s)" % [nom, hors.size(), exemples])
+

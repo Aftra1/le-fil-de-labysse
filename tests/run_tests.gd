@@ -83,6 +83,9 @@ func _lancer() -> void:
 	_titre("Étape 3 : remontée d'urgence, butin rangé dans l'inventaire")
 	await _test_flux_urgence()
 
+	_titre("Rendu pixel art")
+	_test_rendu_pixel()
+
 	print("")
 	print("TOTAL : %d/%d PASS" % [_reussis, _total])
 	quit(0 if _reussis == _total else 1)
@@ -638,6 +641,7 @@ func _test_panneau_inventaire() -> void:
 
 	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
 	nuage.derive = 0.0
+	nuage.position = Vector2(60.0, 60.0)  # hors du panneau (sinon le clic tombe sur le panneau)
 	panneau.ouvrir()
 	await _cliquer(nuage.position)
 	_verifier(_jeu.inventaire.quantite("nuage") == 0, "inventaire ouvert : un clic ne récolte pas")
@@ -798,4 +802,41 @@ func _test_flux_urgence() -> void:
 	var annonce: String = jeu.get_node("Ile/HUD").texte_annonce()
 	_verifier(annonce.contains("perdu 3"), "urgence : l'île annonce la perte", annonce)
 	await _fermer_jeu(jeu)
+
+
+# --- Rendu pixel art ------------------------------------------------------------
+
+func _test_rendu_pixel() -> void:
+	var noms := Palette.noms()
+	_verifier(noms.size() >= 16 and noms.size() <= 24, "palette : entre 16 et 24 couleurs", "%d" % noms.size())
+
+	var inconnues: Array = []
+	var ressources: Dictionary = Donnees.charger_json("res://data/ressources.json")
+	for id: String in ressources:
+		if not Palette.contient(str(ressources[id]["couleur"])):
+			inconnues.append(ressources[id]["couleur"])
+	for zone: Dictionary in Donnees.charger_json("res://data/zones.json"):
+		for nom: String in zone["paliers"]:
+			if not Palette.contient(nom):
+				inconnues.append(nom)
+	_verifier(inconnues.is_empty(), "données : toutes les couleurs sont des noms de la palette", str(inconnues))
+
+	var police: FontFile = load("res://assets/fonts/DotGothic16-Regular.ttf")
+	_verifier(police.antialiasing == TextServer.FONT_ANTIALIASING_NONE
+		and police.subpixel_positioning == TextServer.SUBPIXEL_POSITIONING_DISABLED,
+		"police : sans antialiasing ni positionnement sous-pixel")
+	_verifier(ProjectSettings.get_setting("gui/theme/custom_font") == "res://assets/fonts/DotGothic16-Regular.ttf",
+		"police : DotGothic16 est la police du projet")
+	_verifier(FileAccess.file_exists("res://assets/fonts/OFL-DotGothic16.txt"), "police : licence OFL fournie")
+	_verifier(ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter") == 0,
+		"textures : filtrage « nearest »")
+
+	var cloche := Pixel.motif(Cloche.MOTIF, Cloche.COULEURS_MOTIF)
+	_verifier(cloche.get_width() >= 16 and cloche.get_width() <= 24 and cloche.get_height() >= 16 and cloche.get_height() <= 24,
+		"cloche : sprite de 16 à 24 px", "%dx%d" % [cloche.get_width(), cloche.get_height()])
+	var lignes_regulieres := true
+	for motif: PackedStringArray in [Cloche.MOTIF, Gisement.CRISTAL, Gisement.CORAIL, SourceRessource.FILON]:
+		for ligne in motif:
+			lignes_regulieres = lignes_regulieres and ligne.length() == motif[0].length()
+	_verifier(lignes_regulieres, "sprites : dessins rectangulaires (toutes les lignes ont la même largeur)")
 

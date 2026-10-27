@@ -9,7 +9,6 @@ signal plongee_demandee
 const POSITION_CLOCHE := Vector2(320.0, 318.0)
 const ATTACHE_CABLE := Vector2(320.0, 288.0)
 const ZONE_CLOCHE := Vector2(16.0, 18.0)      # demi-taille de la zone cliquable
-const BANDE_CIEL := 6.0                       # le dégradé du ciel est dessiné par bandes
 const DUREE_EFFET := 0.8
 const MONTEE_EFFET := 18.0
 
@@ -20,17 +19,18 @@ const DESSOUS := [
 ]
 const DESSUS := [Vector2(140, 200), Vector2(500, 200), Vector2(493, 208), Vector2(147, 208)]
 const CENTRE_SOLEIL := Vector2(560.0, 58.0)
+const RAYON_SOLEIL := 12
 
-const COULEUR_ROCHE := Color("9a93b5")
-const COULEUR_ROCHE_SOMBRE := Color("7a7397")
-const COULEUR_DESSUS := Color("f4efe6")
-const COULEUR_BORD := Color("e8b923")
-const COULEUR_SOLEIL := Color("ffe08a")
-const COULEUR_TREUIL := Color("4a4660")
-const COULEUR_CABLE := Color("d8dde6")
-const COULEUR_SURVOL := Color(1.0, 1.0, 1.0, 0.8)
-const COULEUR_EFFET := Color("ffffff")
-const COULEUR_EFFET_CONTOUR := Color("2a3550")
+# Couleurs : noms de la palette
+const COULEUR_ROCHE := "lavande"
+const COULEUR_ROCHE_SOMBRE := "lavande_fonce"
+const COULEUR_DESSUS := "creme"
+const COULEUR_BORD := "or"
+const COULEUR_SOLEIL := "or_clair"
+const COULEUR_HALO := "or_clair"
+const COULEUR_TREUIL := "ardoise"
+const COULEUR_CABLE := "ardoise"
+const COULEUR_SURVOL := "blanc"
 
 var cloche_visible := true:
 	set(valeur):
@@ -56,6 +56,7 @@ var _hasard := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	Pixel.activer_motifs(self)
 	_hasard.randomize()
 	_reglages = Donnees.charger_json("res://data/ile.json")
 	_creer_sources()
@@ -157,16 +158,14 @@ func _recolter(source: SourceRessource, nombre: int) -> void:
 func _afficher_gain(lieu: Vector2, nombre: int) -> void:
 	var etiquette := Label.new()
 	etiquette.text = "+%d" % nombre
-	etiquette.position = lieu + Vector2(-8.0, -30.0)
-	etiquette.add_theme_font_size_override("font_size", 12)
-	etiquette.add_theme_color_override("font_color", COULEUR_EFFET)
-	etiquette.add_theme_color_override("font_outline_color", COULEUR_EFFET_CONTOUR)
-	etiquette.add_theme_constant_override("outline_size", 3)
+	etiquette.position = (lieu + Vector2(-8.0, -30.0)).round()
+	Pixel.texte(etiquette)
 	_effets.add_child(etiquette)
-	var animation := etiquette.create_tween().set_parallel()
-	animation.tween_property(etiquette, "position:y", etiquette.position.y - MONTEE_EFFET, DUREE_EFFET)
-	animation.tween_property(etiquette, "modulate:a", 0.0, DUREE_EFFET)
-	animation.chain().tween_callback(etiquette.queue_free)
+	# Pas de fondu (il créerait des couleurs hors palette) : le texte monte au pixel près, puis disparaît.
+	var animation := etiquette.create_tween()
+	animation.tween_method(func(y: float) -> void: etiquette.position.y = roundf(y),
+		etiquette.position.y, etiquette.position.y - MONTEE_EFFET, DUREE_EFFET)
+	animation.tween_callback(etiquette.queue_free)
 
 
 func _souris_sur_cloche() -> bool:
@@ -367,35 +366,37 @@ func _sauvees(nombre: int) -> String:
 # --- Dessin -------------------------------------------------------------------
 
 func _draw() -> void:
-	var y := 0.0
-	while y < 360.0:
-		draw_rect(Rect2(0.0, y, 640.0, BANDE_CIEL + 1.0), DecorCiel.couleur(y + BANDE_CIEL / 2.0))
-		y += BANDE_CIEL
-	draw_circle(CENTRE_SOLEIL, 26.0, Color(COULEUR_SOLEIL, 0.3))
-	draw_circle(CENTRE_SOLEIL, 18.0, COULEUR_SOLEIL)
+	Pixel.bandes(self, 0.0, 640.0, 0.0, 360.0, 0, Decor.couleur_ciel)
+	Pixel.sprite(self, Pixel.anneau(RAYON_SOLEIL + 4, Palette.couleur(COULEUR_HALO), true), CENTRE_SOLEIL)
+	Pixel.sprite(self, Pixel.disque(RAYON_SOLEIL, Palette.couleur(COULEUR_SOLEIL)), CENTRE_SOLEIL)
 	Ile.dessiner_ile(self, cloche_visible)
 	if cloche_visible and _survol_cloche:
-		draw_rect(Rect2(POSITION_CLOCHE - ZONE_CLOCHE, ZONE_CLOCHE * 2.0), COULEUR_SURVOL, false, 1.0)
+		Pixel.cadre(self, Rect2(POSITION_CLOCHE - ZONE_CLOCHE, ZONE_CLOCHE * 2.0), Palette.couleur(COULEUR_SURVOL))
 
 
 ## Corps de l'île, treuil et (si demandé) câble et cloche amarrée.
 static func dessiner_ile(toile: CanvasItem, avec_cloche: bool, decalage: Vector2 = Vector2.ZERO) -> void:
+	decalage = decalage.round()
 	var dessous := PackedVector2Array()
 	for point: Vector2 in DESSOUS:
 		dessous.append(point + decalage)
-	toile.draw_colored_polygon(dessous, COULEUR_ROCHE)
+	toile.draw_colored_polygon(dessous, Palette.couleur(COULEUR_ROCHE))
 	var ombre := PackedVector2Array([
 		Vector2(220, 262) + decalage, Vector2(280, 282) + decalage, Vector2(320, 288) + decalage,
 		Vector2(360, 282) + decalage, Vector2(420, 262) + decalage, Vector2(320, 270) + decalage,
 	])
-	toile.draw_colored_polygon(ombre, COULEUR_ROCHE_SOMBRE)
+	toile.draw_colored_polygon(ombre, Palette.couleur(COULEUR_ROCHE_SOMBRE))
+	# Bande tramée entre le dessus et la roche, pour adoucir sans dégradé lisse
+	toile.draw_texture_rect(Pixel.damier(Palette.couleur(COULEUR_ROCHE), Palette.couleur(COULEUR_ROCHE_SOMBRE)),
+		Rect2(Vector2(150, 208) + decalage, Vector2(340, 2)), true)
 	var dessus := PackedVector2Array()
 	for point: Vector2 in DESSUS:
 		dessus.append(point + decalage)
-	toile.draw_colored_polygon(dessus, COULEUR_DESSUS)
-	toile.draw_line(Vector2(140, 200) + decalage, Vector2(500, 200) + decalage, COULEUR_BORD, 2.0)
-	toile.draw_rect(Rect2(Vector2(312, 282) + decalage, Vector2(16, 8)), COULEUR_TREUIL)
+	toile.draw_colored_polygon(dessus, Palette.couleur(COULEUR_DESSUS))
+	Pixel.rect(toile, Rect2(Vector2(140, 199) + decalage, Vector2(361, 2)), Palette.couleur(COULEUR_BORD))
+	Pixel.rect(toile, Rect2(Vector2(312, 282) + decalage, Vector2(16, 8)), Palette.couleur(COULEUR_TREUIL))
 	if avec_cloche:
 		var haut_cloche := POSITION_CLOCHE + decalage - Vector2(0.0, Cloche.HAUTEUR / 2.0)
-		toile.draw_line(ATTACHE_CABLE + decalage, haut_cloche, COULEUR_CABLE, 2.0)
+		var attache := ATTACHE_CABLE + decalage
+		Pixel.rect(toile, Rect2(attache.x, attache.y, 1, haut_cloche.y - attache.y), Palette.couleur(COULEUR_CABLE))
 		Cloche.dessiner(toile, POSITION_CLOCHE + decalage)

@@ -1,15 +1,40 @@
 class_name Gisement
 extends Node2D
-## Un gisement de minerai : un cercle coloré, un stock limité et une jauge de minage.
+## Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage.
 
 const RAYON := 7.0
-const RAYON_ANNEAU := 12.0
-const EPAISSEUR_ANNEAU := 1.0
-const EPAISSEUR_JAUGE := 3.0
-const SEGMENTS_ARC := 32
-const COULEUR_GRISE := Color("5a6270")
-const COULEUR_ANNEAU := Color(1.0, 1.0, 1.0, 0.5)
-const COULEUR_JAUGE := Color("ffffff")
+const RAYON_ANNEAU := 12
+const ECART_POINTS := 3.0
+
+const CRISTAL: PackedStringArray = [
+	".....k.....",
+	"....kCk....",
+	"....kCk....",
+	".k..kCck...",
+	"kCk.kCck.k.",
+	"kCckkCckkCk",
+	"kCckCcckCck",
+	".kckCcckcck",
+	".kcckcckck.",
+	"..kkkkkkk..",
+]
+const COULEURS_CRISTAL := { "k": "lagon_profond", "c": "cyan", "C": "cyan_clair" }
+const CORAIL: PackedStringArray = [
+	".v...v...v.",
+	".L...L..vL.",
+	"vL..vL..L..",
+	".Lv.L..vL..",
+	"..LvL.vL...",
+	"...LLvL....",
+	"....LLv....",
+	"....vL.....",
+	"...fvvf....",
+	"..ffffff...",
+]
+const COULEURS_CORAIL := { "v": "violet", "L": "violet_lumineux", "f": "violet_fonce" }
+const COULEURS_GRISEES := {
+	"k": "ardoise", "c": "lavande_fonce", "C": "lavande", "v": "lavande_fonce", "L": "lavande", "f": "ardoise",
+}
 
 var minerai := ""
 var couleur := Color.WHITE
@@ -55,13 +80,14 @@ func retirer_unite() -> void:
 
 
 func _draw() -> void:
-	var teinte := COULEUR_GRISE if grise else couleur
-	draw_circle(Vector2.ZERO, RAYON, teinte)
-	draw_arc(Vector2.ZERO, RAYON, 0.0, TAU, SEGMENTS_ARC, teinte.darkened(0.4), 1.0)
-	# Un petit point par unité restante
+	var dessin: PackedStringArray = CORAIL if minerai == "corail" else CRISTAL
+	var couleurs: Dictionary = COULEURS_CORAIL if minerai == "corail" else COULEURS_CRISTAL
+	Pixel.sprite(self, Pixel.motif(dessin, COULEURS_GRISEES if grise else couleurs), Vector2.ZERO)
+	# Un point par unité restante
+	var teinte := Palette.couleur("lavande") if grise else couleur
 	for i in stock:
-		draw_circle(Vector2((i - (stock - 1) / 2.0) * 4.0, RAYON + 4.0), 1.0, teinte)
+		Pixel.rect(self, Rect2(Vector2((i - (stock - 1) / 2.0) * ECART_POINTS, RAYON + 2.0).floor(), Vector2.ONE), teinte)
 	if en_evidence and not grise:
-		draw_arc(Vector2.ZERO, RAYON_ANNEAU, 0.0, TAU, SEGMENTS_ARC, COULEUR_ANNEAU, EPAISSEUR_ANNEAU)
+		Pixel.sprite(self, Pixel.anneau(RAYON_ANNEAU, Palette.couleur("blanc")), Vector2.ZERO)
 	if progres > 0.0:
-		draw_arc(Vector2.ZERO, RAYON_ANNEAU, -PI / 2.0, -PI / 2.0 + TAU * progres, SEGMENTS_ARC, COULEUR_JAUGE, EPAISSEUR_JAUGE)
+		Pixel.sprite(self, Pixel.jauge(RAYON_ANNEAU, progres, Palette.couleur("blanc")), Vector2.ZERO)

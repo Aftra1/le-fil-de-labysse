@@ -10,23 +10,27 @@ extends Node2D
 enum Mode { CLIC, MAINTIEN, RESERVE }
 enum Forme { EOLIENNE, FILON, NUAGE }
 
-const SEGMENTS_ARC := 32
-const RAYON_POINT := 1.5
-const ECART_POINTS := 5.0
+const ECART_POINTS := 4.0
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
-const LONGUEUR_PALE := 16.0
-const HAUTEUR_MAT := 50.0
+const LONGUEUR_PALE := 13.0
+const HAUTEUR_MAT := 50
+const TAILLE_NUAGE := Vector2i(32, 16)
 
-const COULEUR_SURVOL := Color(1.0, 1.0, 1.0, 0.7)
-const COULEUR_JAUGE := Color("ffffff")
-const COULEUR_VIDE := Color(1.0, 1.0, 1.0, 0.35)
-const COULEUR_MAT := Color("6d6a80")
-const COULEUR_PALE := Color("f4efe6")
-const COULEUR_MOYEU := Color("e8b923")
-const COULEUR_FILON := Color("ffd34d")
-const COULEUR_FILON_BORD := Color("b8860b")
-const COULEUR_FILON_VIDE := Color("b9b2a0")
-const COULEUR_NUAGE := Color("ffffff")
+const FILON: PackedStringArray = [
+	"....d....",
+	"...djd...",
+	"...djd...",
+	"..djOd...",
+	"..djOd.d.",
+	"d.djOddjd",
+	"djdjOdjOd",
+	"djdOOdOOd",
+	"dOdOOdOdd",
+	".ddOOddd.",
+	".ddddddd.",
+]
+const COULEURS_FILON := { "d": "or_fonce", "O": "or", "j": "or_clair" }
+const COULEURS_FILON_VIDE := { "d": "lavande_fonce", "O": "lavande", "j": "lavande" }
 
 var id_ressource := ""
 var mode := Mode.CLIC
@@ -103,41 +107,33 @@ func _draw() -> void:
 		Forme.NUAGE:
 			_dessiner_nuage()
 	if en_survol and est_disponible():
-		draw_arc(Vector2.ZERO, rayon_clic, 0.0, TAU, SEGMENTS_ARC, COULEUR_SURVOL, 1.0)
+		Pixel.sprite(self, Pixel.anneau(int(rayon_clic), Palette.couleur("blanc")), Vector2.ZERO)
 	if progres > 0.0:
-		draw_arc(Vector2.ZERO, rayon_clic, -PI / 2.0, -PI / 2.0 + TAU * progres, SEGMENTS_ARC, COULEUR_JAUGE, 3.0)
+		Pixel.sprite(self, Pixel.jauge(int(rayon_clic), progres, Palette.couleur("blanc")), Vector2.ZERO)
 
 
 func _dessiner_eolienne() -> void:
-	draw_line(Vector2.ZERO, Vector2(0.0, HAUTEUR_MAT), COULEUR_MAT, 2.0)
+	Pixel.rect(self, Rect2(0, 0, 1, HAUTEUR_MAT), Palette.couleur("ardoise"))
+	Pixel.rect(self, Rect2(1, 2, 1, HAUTEUR_MAT - 2), Palette.couleur("lavande_fonce"))
 	for i in 3:
 		var direction := Vector2.from_angle(_angle + i * TAU / 3.0)
-		draw_line(Vector2.ZERO, direction * LONGUEUR_PALE, COULEUR_PALE, 3.0)
-	draw_circle(Vector2.ZERO, 3.0, COULEUR_MOYEU)
-	_dessiner_points(Vector2(0.0, -LONGUEUR_PALE - 8.0), COULEUR_PALE)
+		Pixel.ligne(self, Vector2.ZERO, direction * LONGUEUR_PALE, Palette.couleur("blanc"))
+	Pixel.rect(self, Rect2(-1, -1, 3, 3), Palette.couleur("or"))
+	_dessiner_points(Vector2(0.0, -LONGUEUR_PALE - 6.0), Palette.couleur("blanc"))
 
 
 func _dessiner_filon() -> void:
-	var teinte := COULEUR_FILON if est_disponible() else COULEUR_FILON_VIDE
-	var grand := PackedVector2Array([Vector2(0, -9), Vector2(5, 0), Vector2(0, 7), Vector2(-5, 0)])
-	var petit := PackedVector2Array([Vector2(-7, -3), Vector2(-4, 2), Vector2(-7, 7), Vector2(-10, 2)])
-	draw_colored_polygon(petit, teinte.darkened(0.15))
-	draw_colored_polygon(grand, teinte)
-	grand.append(grand[0])
-	draw_polyline(grand, COULEUR_FILON_BORD, 1.0)
-	_dessiner_points(Vector2(0.0, -15.0), COULEUR_FILON)
+	Pixel.sprite(self, Pixel.motif(FILON, COULEURS_FILON if est_disponible() else COULEURS_FILON_VIDE), Vector2.ZERO)
+	_dessiner_points(Vector2(0.0, -10.0), Palette.couleur("or"))
 
 
 func _dessiner_nuage() -> void:
-	draw_circle(Vector2(-12.0, 2.0), 9.0, COULEUR_NUAGE)
-	draw_circle(Vector2(0.0, -3.0), 12.0, COULEUR_NUAGE)
-	draw_circle(Vector2(12.0, 2.0), 8.0, COULEUR_NUAGE)
-	draw_rect(Rect2(-12.0, 2.0, 24.0, 9.0), COULEUR_NUAGE)
-	_dessiner_points(Vector2(0.0, 16.0), COULEUR_NUAGE)
+	Pixel.sprite(self, Pixel.nuage(TAILLE_NUAGE.x, TAILLE_NUAGE.y, Palette.couleur("blanc"), Palette.couleur("nacre")), Vector2.ZERO)
+	_dessiner_points(Vector2(0.0, TAILLE_NUAGE.y / 2.0 + 3.0), Palette.couleur("blanc"))
 
 
-## Un point par unité de plafond : plein si disponible, transparent sinon.
+## Un point de 2x2 px par unité de plafond : plein si disponible, lavande sinon.
 func _dessiner_points(centre: Vector2, teinte: Color) -> void:
 	for i in plafond:
 		var point := centre + Vector2((i - (plafond - 1) / 2.0) * ECART_POINTS, 0.0)
-		draw_circle(point, RAYON_POINT, teinte if i < stock else COULEUR_VIDE)
+		Pixel.rect(self, Rect2(point.floor() - Vector2.ONE, Vector2(2, 2)), teinte if i < stock else Palette.couleur("lavande"))

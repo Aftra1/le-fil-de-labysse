@@ -4,16 +4,15 @@ extends CanvasLayer
 
 const POSITION_BARRE := Vector2(8.0, 8.0)
 const TAILLE_BARRE := Vector2(120.0, 8.0)
-const TAILLE_POLICE := 12
-const TAILLE_POLICE_ANNONCE := 16
 const SEUIL_OXYGENE_BAS := 0.25
 const DUREE_ANNONCE := 4.0
 const LARGEUR_ECRAN := 640.0
 
-const COULEUR_FOND := Color(0.0, 0.0, 0.0, 0.5)
-const COULEUR_OXYGENE := Color("3fe0e8")
-const COULEUR_OXYGENE_BAS := Color("b06cff")
-const COULEUR_TEXTE := Color("ffffff")
+# Couleurs : noms de la palette
+const COULEUR_CADRE := "nacre"
+const COULEUR_FOND := "noir"
+const COULEUR_OXYGENE := "cyan"
+const COULEUR_OXYGENE_BAS := "violet_lumineux"
 
 var _remplissage := ColorRect.new()
 var _profondeur := Label.new()
@@ -25,8 +24,13 @@ var _annonce_restante := 0.0
 
 
 func _ready() -> void:
+	var cadre := ColorRect.new()
+	cadre.color = Palette.couleur(COULEUR_CADRE)
+	cadre.position = POSITION_BARRE - Vector2.ONE * 2.0
+	cadre.size = TAILLE_BARRE + Vector2.ONE * 4.0
+	add_child(cadre)
 	var fond := ColorRect.new()
-	fond.color = COULEUR_FOND
+	fond.color = Palette.couleur(COULEUR_FOND)
 	fond.position = POSITION_BARRE - Vector2.ONE
 	fond.size = TAILLE_BARRE + Vector2.ONE * 2.0
 	add_child(fond)
@@ -35,16 +39,16 @@ func _ready() -> void:
 	_remplissage.size = TAILLE_BARRE
 	add_child(_remplissage)
 
-	_placer(_profondeur, Vector2(8.0, 22.0))
+	_placer(_profondeur, Vector2(8.0, 18.0))
 	_placer(_zone, Vector2(8.0, 36.0))
-	_placer(_sac, Vector2(8.0, 50.0))
+	_placer(_sac, Vector2(8.0, 54.0))
 
-	_placer(_annonce, Vector2(0.0, 36.0), TAILLE_POLICE_ANNONCE)
+	_placer(_annonce, Vector2(0.0, 80.0))
 	_annonce.size.x = LARGEUR_ECRAN
 	_annonce.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_annonce.visible = false
 
-	_placer(_message, Vector2(8.0, 330.0))
+	_placer(_message, Vector2(8.0, 334.0))
 	_message.visible = false
 
 
@@ -55,8 +59,8 @@ func _process(delta: float) -> void:
 
 
 func mettre_a_jour(ratio_oxygene: float, profondeur_m: float, nom_zone: String, message_bas: String) -> void:
-	_remplissage.size.x = TAILLE_BARRE.x * clampf(ratio_oxygene, 0.0, 1.0)
-	_remplissage.color = COULEUR_OXYGENE_BAS if ratio_oxygene < SEUIL_OXYGENE_BAS else COULEUR_OXYGENE
+	_remplissage.size.x = roundf(TAILLE_BARRE.x * clampf(ratio_oxygene, 0.0, 1.0))
+	_remplissage.color = Palette.couleur(COULEUR_OXYGENE_BAS if ratio_oxygene < SEUIL_OXYGENE_BAS else COULEUR_OXYGENE)
 	_profondeur.text = "Profondeur : %d m" % int(profondeur_m)
 	_zone.text = nom_zone
 	_message.text = message_bas
@@ -74,10 +78,7 @@ func annoncer(texte: String, duree: float = DUREE_ANNONCE) -> void:
 	_annonce_restante = duree
 
 
-func _placer(etiquette: Label, position_etiquette: Vector2, taille_police: int = TAILLE_POLICE) -> void:
+func _placer(etiquette: Label, position_etiquette: Vector2) -> void:
 	etiquette.position = position_etiquette
-	etiquette.add_theme_font_size_override("font_size", taille_police)
-	etiquette.add_theme_color_override("font_color", COULEUR_TEXTE)
-	etiquette.add_theme_color_override("font_outline_color", Color.BLACK)
-	etiquette.add_theme_constant_override("outline_size", 3)
+	Pixel.texte(etiquette, "blanc", "noir")
 	add_child(etiquette)

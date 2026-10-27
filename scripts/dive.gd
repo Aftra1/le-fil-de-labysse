@@ -13,7 +13,6 @@ const PROFONDEUR_MAX := 3000.0
 const PIXELS_PAR_METRE := 10.0
 const LARGEUR_DECOR := 2000.0
 const HAUTEUR_CIEL := 400.0
-const HAUTEUR_BANDE := 30.0     # le dégradé de l'eau est dessiné par bandes
 const MARGE_CAMERA_HAUT := 90.0 # ciel visible au-dessus de l'eau quand on est en surface
 const MARGE_CAMERA_BAS := 60.0
 
@@ -40,13 +39,14 @@ const ESSAIS_PLACEMENT := 200
 # Câble
 const SEGMENTS_CABLE := 16
 const ONDULATION_CABLE := 6.0
-const EPAISSEUR_CABLE := 2.0
 
-# Couleurs
-const COULEUR_CIEL := Color("cfe9f7")
-const COULEUR_SURFACE := Color("ffffff")
-const COULEUR_REPERE := Color(1.0, 1.0, 1.0, 0.25)
-const COULEUR_CABLE := Color("d8dde6")
+# Dessin (couleurs : noms de la palette)
+const DEMI_ECRAN := Vector2(320.0, 180.0)
+const LONGUEUR_REPERE := 6.0
+const COULEUR_SURFACE := "blanc"
+const COULEUR_SOUS_SURFACE := "nacre"
+const COULEUR_REPERE := "nacre"
+const COULEUR_CABLE := "nacre"
 
 var oxygene := OXYGENE_MAX
 
@@ -70,6 +70,7 @@ var _gisement_a_portee: Gisement = null
 
 
 func _ready() -> void:
+	Pixel.activer_motifs(self)
 	_hasard.randomize()
 	_zones = Donnees.charger_json("res://data/zones.json")
 	_minerais = Donnees.charger_json("res://data/minerais.json")
@@ -297,38 +298,42 @@ func _trouver_emplacement(existantes: Array[Vector2], y_min: float, y_max: float
 # --- Dessin -----------------------------------------------------------------
 
 func _draw() -> void:
+	# On ne dessine que la partie visible (plus une marge), au pixel près.
+	var centre := _camera.get_screen_center_position().round()
+	var haut := centre.y - DEMI_ECRAN.y - 8.0
+	var bas := centre.y + DEMI_ECRAN.y + 8.0
 	var gauche := -LARGEUR_DECOR / 2.0
-	draw_rect(Rect2(gauche, SURFACE_Y - HAUTEUR_CIEL, LARGEUR_DECOR, HAUTEUR_CIEL), COULEUR_CIEL)
 
-	var y := SURFACE_Y
-	while y < SURFACE_Y + PROFONDEUR_MAX + MARGE_CAMERA_BAS + 200.0:
-		var profondeur_m := (y + HAUTEUR_BANDE / 2.0 - SURFACE_Y) / PIXELS_PAR_METRE
-		var zone := _zone_a(profondeur_m)
-		var debut := float(zone["debut_m"])
-		var t := clampf((profondeur_m - debut) / (float(zone["fin_m"]) - debut), 0.0, 1.0)
-		var couleur := Color.html(str(zone["couleur_haut"])).lerp(Color.html(str(zone["couleur_bas"])), t)
-		draw_rect(Rect2(gauche, y, LARGEUR_DECOR, HAUTEUR_BANDE + 1.0), couleur)
-		y += HAUTEUR_BANDE
+	if haut < SURFACE_Y:
+		Pixel.rect(self, Rect2(gauche, haut, LARGEUR_DECOR, SURFACE_Y - haut), Palette.couleur(Decor.CIEL_SURFACE))
+	var eau := func(y: float) -> Color:
+		return Decor.couleur_eau(_zones, y - SURFACE_Y, PIXELS_PAR_METRE)
+	Pixel.bandes(self, gauche, LARGEUR_DECOR, maxf(haut, SURFACE_Y), bas, 0, eau)
 
-	draw_line(Vector2(gauche, SURFACE_Y), Vector2(-gauche, SURFACE_Y), COULEUR_SURFACE, 2.0)
+	Pixel.rect(self, Rect2(gauche, SURFACE_Y - 1.0, LARGEUR_DECOR, 1.0), Palette.couleur(COULEUR_SURFACE))
+	Pixel.rect(self, Rect2(gauche, SURFACE_Y, LARGEUR_DECOR, 1.0), Palette.couleur(COULEUR_SOUS_SURFACE))
 
-	# Repères de profondeur tous les 10 m
-	var repere := SURFACE_Y + PIXELS_PAR_METRE * 10.0
-	while repere <= SURFACE_Y + PROFONDEUR_MAX:
-		draw_line(Vector2(-300.0, repere), Vector2(-280.0, repere), COULEUR_REPERE, 1.0)
-		draw_line(Vector2(280.0, repere), Vector2(300.0, repere), COULEUR_REPERE, 1.0)
-		repere += PIXELS_PAR_METRE * 10.0
+	# Repères de profondeur tous les 10 m, sur les bords
+	var pas := PIXELS_PAR_METRE * 10.0
+	var repere := maxf(ceilf(haut / pas), 1.0) * pas
+	while repere <= minf(bas, SURFACE_Y + PROFONDEUR_MAX):
+		for x: float in [-300.0, 300.0 - LONGUEUR_REPERE]:
+			Pixel.rect(self, Rect2(x, repere, LONGUEUR_REPERE, 1.0), Palette.couleur(COULEUR_REPERE))
+		repere += pas
 
-	_dessiner_cable()
+	_dessiner_cable(haut, bas)
 
 
-func _dessiner_cable() -> void:
+## Câble de 1 px entre la surface et le haut de la cloche, légèrement ondulant.
+func _dessiner_cable(haut: float, bas: float) -> void:
 	var debut := Vector2(0.0, SURFACE_Y)
-	var fin: Vector2 = _cloche.position - Vector2(0.0, 13.0)
-	var points := PackedVector2Array()
-	for i in SEGMENTS_CABLE + 1:
+	var fin: Vector2 = _cloche.position.round() - Vector2(0.0, Cloche.HAUTEUR / 2.0)
+	var precedent := debut
+	for i in range(1, SEGMENTS_CABLE + 1):
 		var t := float(i) / SEGMENTS_CABLE
 		var point := debut.lerp(fin, t)
 		point.x += sin(t * PI) * ONDULATION_CABLE * sin(_temps * 1.5 + t * 4.0)
-		points.append(point)
-	draw_polyline(points, COULEUR_CABLE, EPAISSEUR_CABLE)
+		point = point.round()
+		if maxf(precedent.y, point.y) >= haut and minf(precedent.y, point.y) <= bas:
+			Pixel.ligne(self, precedent, point, Palette.couleur(COULEUR_CABLE))
+		precedent = point

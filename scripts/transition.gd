@@ -2,34 +2,36 @@ class_name Transition
 extends Node2D
 ## Transition entre l'île et la plongée : la cloche descend du ciel jusqu'à l'océan
 ## (ou remonte), la caméra la suit à travers 3 calques de nuages en parallaxe.
-## Tout est dessiné en code, dans le repère « monde » de DecorCiel :
+## Tout est dessiné en code, dans le repère « monde » de Decor :
 ## l'île occupe y = 0..360, la surface de l'océan est à y = HAUTEUR_CIEL.
 ## La dernière image de la descente correspond à la première image de la plongée
 ## (surface à 90 px du haut, cloche au centre en x) : le changement de scène ne se voit pas.
-## Un clic ou une touche accélère la fin (DUREE_SAUT) avec un court fondu au noir.
+## Un clic ou une touche accélère la fin (DUREE_SAUT) avec un court fondu au noir tramé.
+## Rendu pixel art : paliers de couleur tramés, nuages et cloche en sprites, positions entières.
 
 signal terminee
 
 const DUREE := 2.5
 const DUREE_SAUT := 0.25
-const OPACITE_SAUT := 0.9
+const NIVEAU_SAUT_MAX := 14       # densité maximale de la trame noire (sur 16)
 const HAUTEUR_ECRAN := 360.0
 const LARGEUR_ECRAN := 640.0
 const Y_SURFACE_ECRAN_FIN := 90.0  # surface de l'océan dans la première image de la plongée
-const BANDE := 6.0
-const LONGUEUR_ZONE_1 := 1500.0    # px : même dégradé d'eau que la plongée
+const PIXELS_PAR_METRE := 10.0
 
-# Calques de nuages : facteur de parallaxe, nombre, rayon, opacité
+# Calques de nuages : facteur de parallaxe, nombre, taille du sprite, couleurs (palette)
 const CALQUES := [
-	{ "facteur": 0.3, "nombre": 3, "rayon": 10.0, "opacite": 0.45 },
-	{ "facteur": 0.6, "nombre": 6, "rayon": 14.0, "opacite": 0.7 },
-	{ "facteur": 1.0, "nombre": 8, "rayon": 20.0, "opacite": 0.85 },
+	{ "facteur": 0.3, "nombre": 3, "taille": Vector2i(18, 9), "couleur": "blanc", "ombre": "ciel_3" },
+	{ "facteur": 0.6, "nombre": 6, "taille": Vector2i(26, 13), "couleur": "blanc", "ombre": "ciel_3" },
+	{ "facteur": 1.0, "nombre": 8, "taille": Vector2i(40, 20), "couleur": "blanc", "ombre": "nacre" },
 ]
 const GRAINE_NUAGES := 7
 
-const COULEUR_SURFACE := Color("ffffff")
-const COULEUR_CABLE := Color("d8dde6")
-const COULEUR_NUAGE := Color("ffffff")
+# Couleurs : noms de la palette
+const COULEUR_SURFACE := "blanc"
+const COULEUR_SOUS_SURFACE := "nacre"
+const COULEUR_CABLE := "ardoise"
+const COULEUR_SAUT := "noir"
 
 var _actif := false
 var _descente := true
@@ -40,8 +42,7 @@ var _avance_saut := 0.0
 var _fige := false
 var _x_bas := LARGEUR_ECRAN / 2.0
 var _ile: Node2D = null
-var _eau_haut := Color("5fb4d9")
-var _eau_bas := Color("1b4a78")
+var _zones: Array = []
 var _nuages: Array = []          # par calque : liste de Vector2 (repère monde du calque)
 
 @onready var _fond: Node2D = $Fond
@@ -54,9 +55,9 @@ func _ready() -> void:
 	_avant.z_index = 10
 	_fond.draw.connect(_dessiner_fond)
 	_avant.draw.connect(_dessiner_avant)
-	var zones: Array = Donnees.charger_json("res://data/zones.json")
-	_eau_haut = Color.html(str(zones[0]["couleur_haut"]))
-	_eau_bas = Color.html(str(zones[0]["couleur_bas"]))
+	Pixel.activer_motifs(_fond)
+	Pixel.activer_motifs(_avant)
+	_zones = Donnees.charger_json("res://data/zones.json")
 	_placer_nuages()
 
 
@@ -130,19 +131,19 @@ func _profondeur_visuelle() -> float:
 
 func _cloche_monde(e: float) -> Vector2:
 	var x := lerpf(Ile.POSITION_CLOCHE.x, _x_bas, e)
-	return Vector2(x, lerpf(Ile.POSITION_CLOCHE.y, DecorCiel.HAUTEUR_CIEL, e))
+	return Vector2(x, lerpf(Ile.POSITION_CLOCHE.y, Decor.HAUTEUR_CIEL, e))
 
 
-## Centre vertical de la caméra (repère monde) : au départ l'écran de l'île,
+## Centre vertical de la caméra (repère monde), arrondi au pixel : au départ l'écran de l'île,
 ## à la fin la cloche est à la surface, à 90 px du haut comme dans la plongée.
 func _camera(e: float) -> float:
 	var depart := HAUTEUR_ECRAN / 2.0 - Ile.POSITION_CLOCHE.y
 	var fin := HAUTEUR_ECRAN / 2.0 - Y_SURFACE_ECRAN_FIN
-	return _cloche_monde(e).y + lerpf(depart, fin, e)
+	return roundf(_cloche_monde(e).y + lerpf(depart, fin, e))
 
 
 func _vers_ecran(y_monde: float, camera: float, facteur: float = 1.0) -> float:
-	return y_monde - (camera - HAUTEUR_ECRAN / 2.0) * facteur
+	return roundf(y_monde - (camera - HAUTEUR_ECRAN / 2.0) * facteur)
 
 
 func _appliquer() -> void:
@@ -158,21 +159,18 @@ func _appliquer() -> void:
 # --- Dessin ---------------------------------------------------------------------
 
 func _couleur_monde(y_monde: float) -> Color:
-	if y_monde < DecorCiel.HAUTEUR_CIEL:
-		return DecorCiel.couleur(y_monde)
-	var t := clampf((y_monde - DecorCiel.HAUTEUR_CIEL) / LONGUEUR_ZONE_1, 0.0, 1.0)
-	return _eau_haut.lerp(_eau_bas, t)
+	if y_monde < Decor.HAUTEUR_CIEL:
+		return Decor.couleur_ciel(y_monde)
+	return Decor.couleur_eau(_zones, y_monde - Decor.HAUTEUR_CIEL, PIXELS_PAR_METRE)
 
 
 func _dessiner_fond() -> void:
 	var camera := _camera(_profondeur_visuelle())
-	var y := 0.0
-	while y < HAUTEUR_ECRAN:
-		var y_monde := y + BANDE / 2.0 + camera - HAUTEUR_ECRAN / 2.0
-		_fond.draw_rect(Rect2(0.0, y, LARGEUR_ECRAN, BANDE + 1.0), _couleur_monde(y_monde))
-		y += BANDE
-	var surface := _vers_ecran(DecorCiel.HAUTEUR_CIEL, camera)
-	_fond.draw_line(Vector2(0.0, surface), Vector2(LARGEUR_ECRAN, surface), COULEUR_SURFACE, 2.0)
+	var decalage := int(camera - HAUTEUR_ECRAN / 2.0)
+	Pixel.bandes(_fond, 0.0, LARGEUR_ECRAN, 0.0, HAUTEUR_ECRAN, decalage, _couleur_monde)
+	var surface := _vers_ecran(Decor.HAUTEUR_CIEL, camera)
+	Pixel.rect(_fond, Rect2(0.0, surface - 1.0, LARGEUR_ECRAN, 1.0), Palette.couleur(COULEUR_SURFACE))
+	Pixel.rect(_fond, Rect2(0.0, surface, LARGEUR_ECRAN, 1.0), Palette.couleur(COULEUR_SOUS_SURFACE))
 	for calque in 2:
 		_dessiner_calque(_fond, calque, camera)
 
@@ -181,27 +179,33 @@ func _dessiner_avant() -> void:
 	var e := _profondeur_visuelle()
 	var camera := _camera(e)
 	var cloche := _cloche_monde(e)
-	var cloche_ecran := Vector2(cloche.x, _vers_ecran(cloche.y, camera))
+	var cloche_ecran := Vector2(cloche.x, _vers_ecran(cloche.y, camera)).round()
 	var attache := Vector2(Ile.ATTACHE_CABLE.x, _vers_ecran(Ile.ATTACHE_CABLE.y, camera))
-	_avant.draw_line(attache, cloche_ecran - Vector2(0.0, Cloche.HAUTEUR / 2.0), COULEUR_CABLE, 2.0)
+	var haut_cloche := cloche_ecran.y - Cloche.HAUTEUR / 2.0
+	if attache.x == cloche_ecran.x:
+		var debut := maxf(attache.y, -1.0)
+		Pixel.rect(_avant, Rect2(attache.x, debut, 1.0, maxf(haut_cloche - debut, 0.0)), Palette.couleur(COULEUR_CABLE))
+	else:
+		Pixel.ligne(_avant, attache, Vector2(cloche_ecran.x, haut_cloche), Palette.couleur(COULEUR_CABLE))
 	Cloche.dessiner(_avant, cloche_ecran)
 	_dessiner_calque(_avant, 2, camera)
 	if _saut:
-		var opacite := sin(PI * _avance_saut) * OPACITE_SAUT
-		_avant.draw_rect(Rect2(0.0, 0.0, LARGEUR_ECRAN, HAUTEUR_ECRAN), Color(0.0, 0.0, 0.0, opacite))
+		var niveau := roundi(sin(PI * _avance_saut) * NIVEAU_SAUT_MAX)
+		if niveau > 0:
+			_avant.draw_texture_rect(Pixel.trame(niveau, Palette.couleur(COULEUR_SAUT)),
+				Rect2(0.0, 0.0, LARGEUR_ECRAN, HAUTEUR_ECRAN), true)
 
 
 func _dessiner_calque(toile: Node2D, calque: int, camera: float) -> void:
 	var reglage: Dictionary = CALQUES[calque]
-	var rayon := float(reglage["rayon"])
-	var teinte := Color(COULEUR_NUAGE, float(reglage["opacite"]))
+	var taille: Vector2i = reglage["taille"]
+	var texture := Pixel.nuage(taille.x, taille.y, Palette.couleur(str(reglage["couleur"])),
+		Palette.couleur(str(reglage["ombre"])))
 	for centre: Vector2 in _nuages[calque]:
 		var ecran := Vector2(centre.x, _vers_ecran(centre.y, camera, float(reglage["facteur"])))
-		if ecran.y < -rayon * 2.0 or ecran.y > HAUTEUR_ECRAN + rayon * 2.0:
+		if ecran.y < -taille.y or ecran.y > HAUTEUR_ECRAN + taille.y:
 			continue
-		toile.draw_circle(ecran + Vector2(-rayon, rayon * 0.2), rayon * 0.75, teinte)
-		toile.draw_circle(ecran, rayon, teinte)
-		toile.draw_circle(ecran + Vector2(rayon, rayon * 0.2), rayon * 0.7, teinte)
+		Pixel.sprite(toile, texture, ecran)
 
 
 ## Les nuages sont placés pour être hors écran au début et à la fin :
@@ -212,7 +216,7 @@ func _placer_nuages() -> void:
 	var camera_fin := _camera_fin()
 	for reglage: Dictionary in CALQUES:
 		var facteur := float(reglage["facteur"])
-		var marge := float(reglage["rayon"]) * 2.0
+		var marge := float((reglage["taille"] as Vector2i).y)
 		var y_min := HAUTEUR_ECRAN + marge
 		var y_max := (camera_fin - HAUTEUR_ECRAN / 2.0) * facteur - marge
 		var liste: Array[Vector2] = []
@@ -223,4 +227,4 @@ func _placer_nuages() -> void:
 
 
 func _camera_fin() -> float:
-	return DecorCiel.HAUTEUR_CIEL + HAUTEUR_ECRAN / 2.0 - Y_SURFACE_ECRAN_FIN
+	return Decor.HAUTEUR_CIEL + HAUTEUR_ECRAN / 2.0 - Y_SURFACE_ECRAN_FIN

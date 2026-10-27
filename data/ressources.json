@@ -1,7 +1,7 @@
 {
-	"vent": { "nom": "Vent", "couleur": "#d6efff" },
-	"nuage": { "nom": "Ouate de nuage", "couleur": "#ffffff" },
-	"cristal_solaire": { "nom": "Cristal solaire", "couleur": "#ffd34d" },
-	"cristal_lagon": { "nom": "Cristal de lagon", "couleur": "#7ff0ff" },
-	"corail": { "nom": "Corail luisant", "couleur": "#ff7fb0" }
+	"vent": { "nom": "Vent", "couleur": "ciel_3" },
+	"nuage": { "nom": "Ouate de nuage", "couleur": "blanc" },
+	"cristal_solaire": { "nom": "Cristal solaire", "couleur": "or" },
+	"cristal_lagon": { "nom": "Cristal de lagon", "couleur": "cyan" },
+	"corail": { "nom": "Corail luisant", "couleur": "violet_lumineux" }
 }

@@ -5,7 +5,7 @@ extends Node
 ## donc ZQSD fonctionne tel quel en AZERTY.
 ## Garde aussi l'inventaire et la liste des ressources (data/ressources.json).
 
-## { id: { "nom": ..., "couleur": ... } }, dans l'ordre d'affichage.
+## { id: { "nom": ..., "couleur": nom dans la palette } }, dans l'ordre d'affichage.
 var ressources: Dictionary = {}
 var inventaire := Inventaire.new()
 
@@ -20,7 +20,7 @@ func nom_ressource(id: String) -> String:
 
 
 func couleur_ressource(id: String) -> Color:
-	return Color.html(str(ressources[id]["couleur"])) if ressources.has(id) else Color.MAGENTA
+	return Palette.couleur(str(ressources[id]["couleur"])) if ressources.has(id) else Color.MAGENTA
 
 
 func _declarer_actions() -> void:

@@ -52,10 +52,24 @@ Captures d'écran automatiques (Xvfb + rendu logiciel Mesa), enregistrées dans 
 tests/captures.sh
 ```
 
+## Rendu pixel art
+
+- Résolution interne 640x360, affichée en 1280x720 (zoom entier, sans filtrage).
+- Palette fixe de 23 couleurs dans `data/palette.json` (classe `Palette`) : toutes les couleurs du jeu en viennent, y compris celles des données (`ressources.json`, `zones.json`).
+- Dégradés en paliers nets avec bandes tramées (Bayer 4x4), jamais lisses ; pas de transparence partielle (les voiles et fondus sont tramés).
+- Formes au pixel près : petites textures générées en code (`scripts/pixel.gd`), positions arrondies au pixel entier.
+- `tests/captures.sh` vérifie que chaque capture n'utilise que des couleurs de la palette (un antialiasing ferait apparaître des couleurs intermédiaires).
+
+## Police et licence
+
+Police **DotGothic16** (Fontworks, https://github.com/fontworks-fonts/DotGothic16), sous licence
+**SIL Open Font License 1.1** : texte complet dans `assets/fonts/OFL-DotGothic16.txt`.
+Elle est utilisée à sa taille native (16 px), sans antialiasing.
+
 ## Structure
 
 - `scenes/`, `scripts/` : scènes et code (`jeu.tscn` = scène principale, `scripts/autoload/game.gd` = contrôles et inventaire)
-- `assets/` : sprites, audio, polices
+- `assets/` : sprites, audio, polices (`assets/fonts/` : DotGothic16 et sa licence)
 - `data/` : données de jeu
 - `tests/` : tests de logique et captures d'écran
 - `docs/captures/` : captures générées par `tests/captures.sh` (dossier ignoré par Godot grâce à `docs/.gdignore`)
