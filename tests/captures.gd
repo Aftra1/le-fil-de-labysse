@@ -2,7 +2,8 @@ extends SceneTree
 ## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
 ## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ;
 ## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ;
-## 20-27 : écran titre, menu pause, sauvegarde abîmée (22-24 : réservés à l'îlot).
+## 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
+## sauvegarde abîmée.
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -37,6 +38,7 @@ func _scenarios() -> void:
 	await _scenario_plongee()
 	await _scenario_jeu()
 	await _scenario_ameliorations()
+	await _scenario_ilot()
 	await _scenario_menus()
 	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
@@ -264,6 +266,39 @@ func _scenario_ameliorations() -> void:
 	await _images(60)
 	await _capturer("19-hud-reservoir")
 	await _fermer_plongee(plongee)
+
+
+# --- 22-24 : îlot, passerelle de nuage, bassin de lumière ---------------------------
+
+func _scenario_ilot() -> void:
+	root.get_node("Game").inventaire = Inventaire.new()
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	jeu.avec_titre = false
+	root.add_child(jeu)
+	var ile: Node = jeu.get_node("Ile")
+	await _images(20)
+	_souris(ile.centre_ilot())
+	await _images(5)
+	await _capturer("22-ilot-non-relie")
+	await _verifier_grille_monde(ile)
+
+	var inventaire: Inventaire = root.get_node("Game").inventaire
+	inventaire.ajouter("fil_nuage", 4)
+	inventaire.ajouter("cristal_solaire", 3)
+	inventaire.ajouter("corail", 2)
+	await _cliquer(ile.centre_ilot())
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.selectionner("passerelle")
+	await _images(3)
+	await _capturer("23-atelier-construction")
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	_souris(ile.bassin().position)
+	await _images(30)
+	await _capturer("24-ilot-relie")
+	await _verifier_grille_monde(ile)
+	await _fermer_jeu(jeu)
+	root.get_node("Game").inventaire = Inventaire.new()
 
 
 # --- 20-27 : écran titre, menu pause, sauvegarde abîmée ------------------------------

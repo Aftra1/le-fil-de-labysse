@@ -183,6 +183,13 @@ const ICONE_RESERVOIR: PackedStringArray = [
 	".MMMMMm.",
 	"..mmmm..",
 ]
+const ICONE_PASSERELLE: PackedStringArray = [
+	"T.......T",
+	"TNNNNNNNT",
+	"T.N...N.T",
+	"TtTtTtTtT",
+	".T.....T.",
+]
 const COULEURS_CABANE := {
 	"c": "roche.2", "o": "or.2", "O": "or.3", "w": "terre.1", "W": "terre.2", "d": "interface.1", "f": "or.5",
 }
@@ -540,6 +547,55 @@ static func cabane(allumee: bool) -> ImageTexture:
 	if not allumee:
 		couleurs["f"] = "or.1"
 	return Pixel.motif(CABANE, couleurs, CONTOUR)
+
+
+## Îlot flottant (monde 320x180) : herbe, terre, roche effilée vers le bas, contour brun.
+## Tant qu'il n'est pas relié, chaque pixel est assombri d'un ton (toujours dans la palette).
+const LARGEUR_ILOT := 34
+const HAUTEUR_ILOT := 20
+
+static func ilot(relie: bool) -> ImageTexture:
+	var cle := "ilot:%s" % relie
+	if _cache.has(cle):
+		return _cache[cle]
+	var hasard := RandomNumberGenerator.new()
+	hasard.seed = GRAINE + 7
+	var image := Image.create(LARGEUR_ILOT, HAUTEUR_ILOT, false, Image.FORMAT_RGBA8)
+	for x in LARGEUR_ILOT:
+		var u := (x + 0.5) / LARGEUR_ILOT * 2.0 - 1.0
+		var bas := 6 + roundi(13.0 * pow(maxf(1.0 - u * u, 0.0), 0.8))
+		for y in mini(bas, HAUTEUR_ILOT):
+			var nom := ""
+			if y == 0:
+				nom = "herbe.5" if hasard.randf() < 0.3 else "herbe.4"
+			elif y <= 2:
+				nom = "herbe.3" if y == 1 else "herbe.2"
+			elif y <= 4:
+				nom = "terre.2" if y == 3 else "terre.1"
+			else:
+				var tirage := hasard.randf()
+				nom = "roche.4" if tirage < 0.15 else ("roche.2" if tirage < 0.45 else "roche.3")
+				if y == bas - 1:
+					nom = "roche.1"
+			image.set_pixel(x, y, c(nom))
+	# Deux éclats de cristal de lagon dans la roche
+	for eclat: Vector2i in [Vector2i(11, 8), Vector2i(22, 10)]:
+		image.set_pixelv(eclat, c("lagon.5"))
+	image = Pixel.contourner(image, c(CONTOUR))
+	if not relie:
+		for y in image.get_height():
+			for x in image.get_width():
+				var teinte := image.get_pixel(x, y)
+				if teinte.a > 0.0:
+					image.set_pixel(x, y, Palette.plus_sombre(teinte))
+	var texture := ImageTexture.create_from_image(image)
+	_cache[cle] = texture
+	return texture
+
+
+## Icône d'une construction (atelier).
+static func icone_construction(_id: String) -> Texture2D:
+	return Pixel.motif(ICONE_PASSERELLE, COULEURS_OBJETS, CONTOUR)
 
 
 ## Icône d'une amélioration de la cloche (atelier).
