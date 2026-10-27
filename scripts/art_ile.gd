@@ -645,3 +645,6 @@ static func styler_bouton(bouton: Button) -> void:
 	bouton.add_theme_stylebox_override("pressed", cadre(1.0, "interface.3"))
 	for etat in ["font_color", "font_hover_color", "font_pressed_color"]:
 		bouton.add_theme_color_override(etat, c(CONTOUR))
+	# Bouton inactif : crème plus sombre, texte grisé (toujours dans la palette).
+	bouton.add_theme_stylebox_override("disabled", cadre(1.0, "interface.3", "interface"))
+	bouton.add_theme_color_override("font_disabled_color", c("interface.2"))

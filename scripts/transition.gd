@@ -116,7 +116,13 @@ func decalage_ecran() -> Vector2i:
 
 
 func _unhandled_input(evenement: InputEvent) -> void:
-	if not _actif or _saut:
+	if not _actif:
+		return
+	# Échap est ignoré : il ne passe pas la transition et n'ouvre pas le menu pause.
+	if evenement.is_action("pause"):
+		get_viewport().set_input_as_handled()
+		return
+	if _saut:
 		return
 	var appui: bool = (evenement is InputEventKey and evenement.pressed and not evenement.is_echo()) \
 			or (evenement is InputEventMouseButton and evenement.pressed)

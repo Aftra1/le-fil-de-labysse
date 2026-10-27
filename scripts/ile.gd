@@ -3,9 +3,12 @@ extends Node2D
 ## L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire,
 ## atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace).
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
+## Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 ## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
 signal plongee_demandee
+## Une fabrication ou une installation à l'atelier : la scène principale sauvegarde.
+signal partie_modifiee
 
 const POSITION_CLOCHE := Vector2(320.0, 318.0)
 const ATTACHE_CABLE := Vector2(320.0, 288.0)
@@ -80,6 +83,7 @@ func _sur_fabrication(id: String, amelioration: bool) -> void:
 	else:
 		_interface.annoncer("Fabriqué : %s" % Game.nom_ressource(id))
 	_interface.rafraichir_inventaire()
+	partie_modifiee.emit()
 
 
 func _unhandled_input(evenement: InputEvent) -> void:
@@ -91,12 +95,9 @@ func _unhandled_input(evenement: InputEvent) -> void:
 	elif evenement.is_action_pressed("atelier"):
 		_basculer_atelier()
 		get_viewport().set_input_as_handled()
-	elif evenement.is_action_pressed("pause"):
-		if panneau_ouvert():
-			_panneau.fermer()
-			_atelier.fermer()
-		else:
-			get_tree().quit()
+	elif evenement.is_action_pressed("pause") and panneau_ouvert():
+		_panneau.fermer()
+		_atelier.fermer()
 		get_viewport().set_input_as_handled()
 	elif panneau_ouvert():
 		return
@@ -339,12 +340,27 @@ func preparer_depart() -> void:
 	process_mode = Node.PROCESS_MODE_DISABLED
 
 
-## Appelé à la fin de la remontée : rattrape la recharge, range le butin, annonce le résultat.
-func arriver(temps_plongee: float, gardees: Dictionary, perdues: Dictionary, urgence: bool) -> void:
+## L'île redevient active (fin de remontée, ou retour à l'écran titre depuis une plongée).
+func reprendre() -> void:
 	process_mode = Node.PROCESS_MODE_INHERIT
 	position = Vector2.ZERO
+	visible = true
 	cloche_visible = true
 	_interface.visible = true
+
+
+## Interface de l'île cachée sous l'écran titre (le décor reste visible).
+func afficher_interface(afficher: bool) -> void:
+	_interface.visible = afficher
+	if not afficher:
+		_panneau.fermer()
+		_atelier.fermer()
+		_arreter_maintien()
+
+
+## Appelé à la fin de la remontée : rattrape la recharge, range le butin, annonce le résultat.
+func arriver(temps_plongee: float, gardees: Dictionary, perdues: Dictionary, urgence: bool) -> void:
+	reprendre()
 	rattraper(temps_plongee)
 
 	var refuse := Game.inventaire.ajouter_tout(gardees)
@@ -372,6 +388,37 @@ func rattraper(secondes: float) -> void:
 	_attente_nuage = 0.0
 	for i in mini(nouveaux, int(reglage["maximum"]) - _nombre_nuages()):
 		_creer_nuage(_hasard.randf_range(60.0, 580.0))
+
+
+# --- Sauvegarde ------------------------------------------------------------------------
+
+## État des sources fixes (les nuages ne sont pas sauvegardés : ils réapparaissent seuls).
+func etat_sources() -> Dictionary:
+	var filons: Array = []
+	for filon in _filons:
+		filons.append(filon.etat())
+	return {"eolienne": _eolienne.etat(), "filons": filons}
+
+
+## Reprend l'état sauvegardé des sources ; ce qui manque ou est faux garde la valeur de départ.
+func restaurer_sources(donnees: Dictionary) -> void:
+	reinitialiser_sources()
+	if donnees.get("eolienne") is Dictionary:
+		_eolienne.restaurer(donnees["eolienne"])
+	var filons = donnees.get("filons")
+	if filons is Array:
+		for i in mini((filons as Array).size(), _filons.size()):
+			if filons[i] is Dictionary:
+				_filons[i].restaurer(filons[i])
+	queue_redraw()
+
+
+## Sources remises à leur stock de départ (nouvelle partie).
+func reinitialiser_sources() -> void:
+	_eolienne.restaurer({"stock": int(_reglages["eolienne"]["stock_initial"]), "recharge": 0.0})
+	for filon in _filons:
+		filon.restaurer({"stock": int(_reglages["filons"]["stock_initial"]), "recharge": 0.0})
+	_interface.rafraichir_inventaire()
 
 
 func _total(butin: Dictionary) -> int:

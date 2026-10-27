@@ -13,6 +13,8 @@ En ligne de commande : `godot --path .` (ou `godot --headless --path . --quit-af
 
 ## Contrôles
 
+Le jeu s'ouvre sur l'écran titre : **Continuer** (reprend la partie sauvegardée), **Nouvelle partie** (demande confirmation si une partie existe), **Quitter**.
+
 Sur l'île (à la souris) :
 
 | Action | Commande |
@@ -23,7 +25,8 @@ Sur l'île (à la souris) :
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
 | Atelier | C ou un clic sur la cabane (Échap pour fermer) |
-| Passer la transition | N'importe quelle touche ou un clic |
+| Passer la transition | N'importe quelle touche ou un clic (sauf Échap, ignoré) |
+| Menu pause | Échap (si aucun panneau n'est ouvert) |
 
 En plongée :
 
@@ -31,10 +34,27 @@ En plongée :
 |---|---|
 | Se déplacer | ZQSD (AZERTY) / WASD / flèches |
 | Miner (maintenir près d'un gisement) | E ou Espace |
-| Quitter | Échap |
+| Menu pause | Échap (le jeu est figé ; quitter la plongée abandonne son butin) |
 
 Les touches sont physiques : ZQSD fonctionne sur un clavier AZERTY.
 La plongée se termine quand la cloche revient en surface après être descendue sous 10 m.
+
+## Sauvegarde
+
+La partie est sauvegardée automatiquement dans un fichier JSON :
+
+- Windows : `%APPDATA%\Le Fil de l'Abysse\sauvegarde.json`
+- Linux : `~/.local/share/Le Fil de l'Abysse/sauvegarde.json`
+
+Moments de sauvegarde : départ en plongée, retour sur l'île, fabrication ou installation à l'atelier,
+fermeture de la fenêtre, Retour au titre et Quitter depuis le menu pause. Fermer le jeu en pleine plongée
+garde l'état du départ (le butin en cours est perdu, rien d'autre). Au chargement, les sources de l'île
+rattrapent le temps passé jeu fermé, sans dépasser leurs plafonds.
+
+Le fichier contient : version du format, date, inventaire, niveaux des améliorations, îlots reliés,
+état des sources de l'île. À côté : `sauvegarde.bak` (sauvegarde précédente, reprise si le fichier est
+abîmé) et, au besoin, `sauvegarde.corrompue.json` (fichier illisible mis de côté, jamais supprimé).
+Une sauvegarde d'une version plus récente du jeu n'est jamais écrasée.
 
 ## Tests
 

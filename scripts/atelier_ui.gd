@@ -14,7 +14,6 @@ const HAUTEUR_DETAIL := 196.0
 const ECART := 4
 const COULEUR_TEXTE := "contour_haut"
 const COULEUR_MANQUE := "corail.2"
-const COULEUR_INACTIF := "interface.2"
 
 var onglet := "composants"       # « composants » ou « ameliorations »
 var selection := ""
@@ -84,8 +83,6 @@ func _ready() -> void:
 	contenu.add_child(espace)
 	_bouton = Button.new()
 	ArtIle.styler_bouton(_bouton)
-	_bouton.add_theme_stylebox_override("disabled", ArtIle.cadre(1.0, "interface.3", "interface"))
-	_bouton.add_theme_color_override("font_disabled_color", Palette.couleur(COULEUR_INACTIF))
 	_bouton.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_bouton.pressed.connect(fabriquer_selection)
 	contenu.add_child(_bouton)

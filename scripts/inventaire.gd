@@ -46,3 +46,24 @@ func total() -> int:
 	for id: String in _quantites:
 		somme += int(_quantites[id])
 	return somme
+
+
+# --- Sauvegarde -------------------------------------------------------------------------
+
+## Quantités non nulles { id: nombre }.
+func vers_dictionnaire() -> Dictionary:
+	var resultat := {}
+	for id: String in _quantites:
+		if int(_quantites[id]) > 0:
+			resultat[id] = int(_quantites[id])
+	return resultat
+
+
+## Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND.
+static func depuis_dictionnaire(donnees: Dictionary, ids_connus: Array) -> Inventaire:
+	var inventaire := Inventaire.new()
+	for id in donnees:
+		var valeur = donnees[id]
+		if ids_connus.has(str(id)) and (valeur is float or valeur is int):
+			inventaire.ajouter(str(id), int(valeur))
+	return inventaire
