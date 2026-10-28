@@ -12,7 +12,7 @@ const FREINAGE := 120.0               # décélération quand on lâche les touc
 
 # Limites de la zone
 const DEMI_LARGEUR_ZONE := 280.0
-const PROFONDEUR_MAX_PX := 3000.0
+const PROFONDEUR_MAX_PX := 4500.0
 
 # Dessin : sprite pixel art de 20x22 px (une lettre = une couleur de la palette, « . » = transparent)
 const LARGEUR := 20.0

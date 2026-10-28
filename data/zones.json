@@ -31,5 +31,21 @@
 			"abysse.2",
 			"abysse.1"
 		]
+	},
+	{
+		"id": "faille",
+		"nom": "Faille volcanique",
+		"debut_m": 300,
+		"fin_m": 450,
+		"conso_oxygene": 1.8,
+		"gisements": 6,
+		"gisements_des_m": 305,
+		"minerai": "pierre_braise",
+		"paliers": [
+			"abysse.1",
+			"roche.1",
+			"roche.0",
+			"abysse.0"
+		]
 	}
 ]

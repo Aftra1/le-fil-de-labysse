@@ -4,6 +4,7 @@
 	"cristal_solaire": { "nom": "Cristal solaire", "couleur": "or", "categorie": "ressource" },
 	"cristal_lagon": { "nom": "Cristal de lagon", "couleur": "cyan", "categorie": "ressource" },
 	"corail": { "nom": "Corail luisant", "couleur": "violet_lumineux", "categorie": "ressource" },
+	"pierre_braise": { "nom": "Pierre de braise", "couleur": "or.4", "categorie": "ressource" },
 	"fil_nuage": { "nom": "Fil de nuage", "couleur": "nuage.3", "categorie": "composant" },
 	"lentille": { "nom": "Lentille solaire", "couleur": "or.4", "categorie": "composant" },
 	"poche_air": { "nom": "Poche d'air", "couleur": "ciel.4", "categorie": "composant" }

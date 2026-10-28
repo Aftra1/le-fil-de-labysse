@@ -4,7 +4,8 @@ extends SceneTree
 ##
 ## Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
 ## → fils de nuage → câble tressé → plongées dans la Forêt de coraux → lanterne et réservoir →
-## passerelle de nuage → récolte du bassin de lumière sur l'îlot.
+## passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
+## (pierre de braise) → lanterne de niveau 2 → récolte du bassin de lumière sur l'îlot.
 ##
 ## Conduite de la cloche : touches ZQSD (physiques) avec l'inertie du jeu ; le robot relâche les
 ## touches à la distance de freinage, mine en maintenant E, et remonte quand l'oxygène restant
@@ -54,13 +55,17 @@ const ECART_VISEE := 6.0                  # le joueur humain vise à quelques pi
 const APPROCHE := 70.0
 const VITESSE_APPROCHE := 35.0
 
-# Objectifs, dans l'ordre où un joueur les poursuit
+# Objectifs, dans l'ordre où un joueur les poursuit : [genre, id, niveau visé]
 const OBJECTIFS := [
-	["amelioration", "cable"],
-	["amelioration", "lanterne"],
-	["amelioration", "reservoir"],
-	["construction", "passerelle"],
+	["amelioration", "cable", 1],
+	["amelioration", "lanterne", 1],
+	["amelioration", "reservoir", 1],
+	["construction", "passerelle", 1],
+	["amelioration", "reservoir", 2],
+	["amelioration", "cable", 2],
+	["amelioration", "lanterne", 2],
 ]
+const MINERAIS := ["pierre_braise", "corail", "cristal_lagon"]   # du plus profond au moins profond
 
 var _video := false
 var _sortie := ""
@@ -107,6 +112,8 @@ func _lancer() -> void:
 	_ile_script = load("res://scripts/ile.gd")
 	Sauvegarde.chemin = SAUVEGARDE
 	_effacer_sauvegarde()
+	if _video:
+		_preparer_sauvegarde_video()
 	_jeu = load("res://scenes/jeu.tscn").instantiate()
 	_jeu.action_quitter = func() -> void: pass
 	root.add_child(_jeu)
@@ -114,12 +121,15 @@ func _lancer() -> void:
 	_atelier_ui = _ile.get_node("Atelier")
 	await _attendre(1.0)
 
-	# Écran titre : Nouvelle partie (pas de sauvegarde, donc pas de confirmation)
-	await _cliquer(_centre(_jeu.get_node("EcranTitre").bouton_nouvelle))
-	_noter("Nouvelle partie")
 	if _video:
+		# Écran titre : Continuer (partie préparée, voir _preparer_sauvegarde_video)
+		await _cliquer(_centre(_jeu.get_node("EcranTitre").bouton_continuer))
+		_noter("Continuer")
 		await _sequence_video()
 	else:
+		# Écran titre : Nouvelle partie (pas de sauvegarde, donc pas de confirmation)
+		await _cliquer(_centre(_jeu.get_node("EcranTitre").bouton_nouvelle))
+		_noter("Nouvelle partie")
 		await _partie_complete()
 	_relacher_tout()
 	_effacer_sauvegarde()
@@ -184,7 +194,7 @@ func _objectifs_restants() -> Array:
 	var atelier: Atelier = _game.atelier
 	var restants: Array = []
 	for objectif: Array in OBJECTIFS:
-		var fait := atelier.est_au_maximum(objectif[1]) if objectif[0] == "amelioration" \
+		var fait := atelier.niveau(objectif[1]) >= int(objectif[2]) if objectif[0] == "amelioration" \
 			else atelier.est_construite(objectif[1])
 		if not fait:
 			restants.append(objectif)
@@ -194,15 +204,30 @@ func _objectifs_restants() -> Array:
 func _ingredients_objectif(objectif: Array) -> Dictionary:
 	var atelier: Atelier = _game.atelier
 	if objectif[0] == "amelioration":
-		return atelier.prochain_niveau(objectif[1])["ingredients"]
+		return atelier.recette_niveau(objectif[1], int(objectif[2]))["ingredients"]
 	return atelier.ingredients_construction(objectif[1])
 
 
 ## Plonger si une ressource de l'abysse manque et qu'elle est atteignable avec le câble actuel.
 func _plongee_utile(besoins: Dictionary) -> bool:
-	if besoins.has("cristal_lagon"):
-		return true
-	return besoins.has("corail") and _game.atelier.longueur_cable_m() > 150.0
+	for minerai: String in MINERAIS:
+		if besoins.has(minerai) and _atteignable(minerai, _game.atelier.longueur_cable_m() * 10.0):
+			return true
+	return false
+
+
+## Zone (data/zones.json) où l'on trouve ce minerai.
+func _zone_de(minerai: String) -> Dictionary:
+	for zone: Dictionary in _zones:
+		if zone["minerai"] == minerai:
+			return zone
+	return {}
+
+
+## Vrai si des gisements de ce minerai peuvent se trouver à portée de minage avec ce câble (px).
+func _atteignable(minerai: String, limite_px: float) -> bool:
+	var zone := _zone_de(minerai)
+	return limite_px + 24.0 > float(zone.get("gisements_des_m", zone["debut_m"])) * 10.0
 
 
 # --- Île : récolte -------------------------------------------------------------------
@@ -219,6 +244,13 @@ func _recolter_utile(besoins: Dictionary) -> bool:
 			if filon.stock > 0 and _besoins().has("cristal_solaire"):
 				await _maintenir_sur(filon, "cristal_solaire")
 				a_fait = true
+	# Îlot relié : le bassin de lumière donne du cristal de lagon sans plonger.
+	var bassin: SourceRessource = _ile.bassin()
+	if _ile.ilot_relie() and bassin.stock > 0 and _besoins().has("cristal_lagon"):
+		var avant: int = _game.inventaire.quantite("cristal_lagon")
+		await _maintenir_sur(bassin, "cristal_lagon")
+		_bassin_recolte += _game.inventaire.quantite("cristal_lagon") - avant
+		a_fait = true
 	var essais := 0
 	while _besoins().has("nuage") and essais < 30:
 		var nuage := _nuage_visible()
@@ -270,8 +302,8 @@ func _recolter_bassin() -> void:
 	await _attendre(1.2)
 	_bouton_souris(bassin.position, false)
 	await _attendre(_profil["clic"])
-	_bassin_recolte = _game.inventaire.quantite("cristal_lagon") - avant
-	_noter("Bassin de lumière récolté : +%d cristal de lagon" % _bassin_recolte)
+	_bassin_recolte += _game.inventaire.quantite("cristal_lagon") - avant
+	_noter("Bassin de lumière récolté : %d cristaux de lagon au total" % _bassin_recolte)
 
 
 # --- Île : atelier ---------------------------------------------------------------------
@@ -308,7 +340,8 @@ func _prochaine_fabrication() -> Array:
 	var restants := _objectifs_restants()
 	for i in restants.size():
 		var objectif: Array = restants[i]
-		if objectif[0] == "amelioration" and atelier.peut_ameliorer(objectif[1]):
+		if objectif[0] == "amelioration" and atelier.niveau(objectif[1]) == int(objectif[2]) - 1 \
+				and atelier.peut_ameliorer(objectif[1]):
 			return ["ameliorations", objectif[1]]
 		if objectif[0] == "construction" and atelier.peut_construire(objectif[1]):
 			return ["construction", objectif[1]]
@@ -355,7 +388,9 @@ func _plonger(besoins: Dictionary) -> void:
 		mesure["perdues"] = perdues
 		mesure["urgence"] = urgence)
 	var debut_eau := _secondes()
+	_marque_video("sous_l_eau")
 	await _conduire(plongee, besoins, mesure)
+	_marque_video("surface")
 	mesure["duree_sous_eau_s"] = _secondes() - debut_eau
 	_relacher_tout()
 	while _jeu.etat != 0:
@@ -384,6 +419,12 @@ func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 	var exploration := {"rang": -1, "sens": 1.0}
 	while _jeu.etat == 2:
 		mesure["profondeur_max_m"] = maxf(mesure["profondeur_max_m"], cloche.position.y / 10.0)
+		if _video and not mesure.has("video_fond") and cloche.position.y >= 2900.0:
+			mesure["video_fond"] = true
+			_marque_video("fond")
+		if _video and remonter and not mesure.has("video_remontee"):
+			mesure["video_remontee"] = true
+			_marque_video("remontee")
 		if en_exploration:
 			mesure["exploration_s"] += 1.0 / IPS
 		_regarder(plongee, cloche, vus)
@@ -400,7 +441,7 @@ func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 		var voulus := _voulus(besoins, sac)
 		if not remonter:
 			remonter = plongee._sac.est_plein() or voulus.is_empty() \
-				or plongee.oxygene < _oxygene_pour_remonter(cloche.position.y) + _temps_vers(cloche, cible) * 1.8
+				or plongee.oxygene < _oxygene_pour_remonter(cloche.position.y) + _temps_vers(cloche, cible) * _conso_a(cloche.position.y)
 		if remonter:
 			_touche_maintenue(KEY_E, false)
 			# La plongée ne compte qu'après être descendu sous 10 m : sinon, on y descend d'abord.
@@ -467,10 +508,14 @@ func _regarder(plongee: Node, cloche: Node2D, vus: Array) -> void:
 func _point_exploration(plongee: Node, cloche: Node2D, voulus: Dictionary, etat: Dictionary) -> Vector2:
 	if _profil["connait_gisements"]:
 		return Vector2.INF
-	var minerai := "corail" if voulus.has("corail") and plongee.limite_px > 1550.0 else "cristal_lagon"
-	if not voulus.has(minerai):
+	var minerai := ""
+	for candidat: String in MINERAIS:
+		if voulus.has(candidat) and _atteignable(candidat, plongee.limite_px):
+			minerai = candidat
+			break
+	if minerai == "":
 		return Vector2.INF
-	var zone: Dictionary = _zones[1] if minerai == "corail" else _zones[0]
+	var zone := _zone_de(minerai)
 	var haut := float(zone.get("gisements_des_m", zone["debut_m"])) * 10.0
 	var bas := minf(float(zone["fin_m"]) * 10.0, plongee.limite_px)
 	var sombre := ArtAbysse.niveau_obscurite(haut / 10.0, _game.atelier.obscurite_max()) > 0
@@ -491,19 +536,19 @@ func _point_exploration(plongee: Node, cloche: Node2D, voulus: Dictionary, etat:
 ## Minerais encore voulus pendant cette plongée : { id: nombre }.
 func _voulus(besoins: Dictionary, sac: Dictionary) -> Dictionary:
 	var voulus := {}
-	for id: String in ["corail", "cristal_lagon"]:
+	for id: String in MINERAIS:
 		var manque := int(besoins.get(id, 0)) - int(sac.get(id, 0))
 		if manque > 0:
 			voulus[id] = manque
 	return voulus
 
 
-## Gisement voulu le plus proche, atteignable avec le câble ; le corail passe avant le cristal.
+## Gisement voulu le plus proche, atteignable avec le câble ; le minerai le plus profond passe d'abord.
 ## Le joueur humain ne choisit que parmi les gisements qu'il a aperçus.
 func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abandonnees: Array, vus: Array) -> Node2D:
 	var limite: float = plongee.limite_px + 24.0
 	var connus: Array = plongee.get_node("Gisements").get_children() if _profil["connait_gisements"] else vus
-	for minerai: String in ["corail", "cristal_lagon"]:
+	for minerai: String in MINERAIS:
 		if not voulus.has(minerai):
 			continue
 		var meilleur: Node2D = null
@@ -522,12 +567,19 @@ func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abando
 
 ## Oxygène qu'un joueur prudent garde pour remonter d'ici (consommation de chaque zone + marge).
 func _oxygene_pour_remonter(y: float) -> float:
-	var debut_coraux := float(_zones[1]["debut_m"]) * 10.0
-	var dans_coraux := maxf(y - debut_coraux, 0.0)
-	var dans_lagon := minf(y, debut_coraux)
-	var conso := 1.2   # CONSOMMATION_PAR_S de dive.gd
-	return (dans_coraux / VITESSE_CLOCHE) * conso * float(_zones[1]["conso_oxygene"]) \
-		+ (dans_lagon / VITESSE_CLOCHE) * conso * float(_zones[0]["conso_oxygene"]) + 1.0 + float(_profil["marge_oxygene"])
+	var besoin := 1.0 + float(_profil["marge_oxygene"])
+	for zone: Dictionary in _zones:
+		var dedans := clampf(y, float(zone["debut_m"]) * 10.0, float(zone["fin_m"]) * 10.0) - float(zone["debut_m"]) * 10.0
+		besoin += dedans / VITESSE_CLOCHE * 1.2 * float(zone["conso_oxygene"])   # 1,2 : CONSOMMATION_PAR_S de dive.gd
+	return besoin
+
+
+## Consommation d'air par seconde à cette profondeur (px).
+func _conso_a(y: float) -> float:
+	for zone: Dictionary in _zones:
+		if y < float(zone["fin_m"]) * 10.0:
+			return 1.2 * float(zone["conso_oxygene"])
+	return 1.2 * float(_zones[-1]["conso_oxygene"])
 
 
 func _temps_vers(cloche: Node2D, cible: Variant) -> float:
@@ -562,34 +614,45 @@ func _pousser(distance: float, vitesse: float) -> bool:
 
 # --- Séquence vidéo (environ 40 s) -----------------------------------------------------
 
+## Partie préparée pour la vidéo : câble de 450 m, réservoir de 200, lanterne de niveau 1, îlot relié,
+## deux lentilles et deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2).
+func _preparer_sauvegarde_video() -> void:
+	Sauvegarde.ecrire({
+		"inventaire": {"vent": 3, "nuage": 4, "cristal_solaire": 2, "cristal_lagon": 3, "corail": 2,
+			"lentille": 2, "pierre_braise": 2},
+		"ameliorations": {"cable": 2, "lanterne": 1, "reservoir": 2},
+		"ilots": ["ilot_est"],
+		"ile": {},
+	})
+
+
+## Séquence vidéo : île (un nuage donne deux ouates), descente, plongée jusqu'à la Faille volcanique,
+## minage de deux pierres de braise, remontée, atelier (lanterne de niveau 2). Les trajets verticaux
+## sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh).
 func _sequence_video() -> void:
-	await _attendre(2.0)
-	await _cliquer(_ile._eolienne.position)
-	var nuage := _nuage_visible()
-	for i in 4:
-		nuage = _nuage_visible()
-		if nuage != null:
-			await _cliquer(nuage.position)
-	await _maintenir_sur(_ile._filons[1], "cristal_solaire")
-	await _attendre(0.5)
-	await _plonger({"cristal_lagon": 6})
-	await _fabriquer_video()
-
-
-func _fabriquer_video() -> void:
-	await _touche(KEY_C)
-	await _attendre(1.0)
-	await _cliquer(_centre(_atelier_ui._onglets["composants"]))
-	for bouton in _atelier_ui._liste.get_children():
-		if bouton.get_meta("id") == "fil_nuage":
-			await _cliquer(_centre(bouton))
-	await _attendre(1.0)
-	await _cliquer(_centre(_atelier_ui._bouton))
 	await _attendre(1.5)
+	var nuage := _nuage_visible()
+	if nuage != null:
+		await _cliquer(nuage.position)
+	await _attendre(1.0)
+	await _plonger({"pierre_braise": 2})
+	await _touche(KEY_C)
+	await _attendre(1.0)
 	await _cliquer(_centre(_atelier_ui._onglets["ameliorations"]))
+	for bouton in _atelier_ui._liste.get_children():
+		if bouton.get_meta("id") == "lanterne":
+			await _cliquer(_centre(bouton))
+	await _attendre(1.5)
+	await _cliquer(_centre(_atelier_ui._bouton))
 	await _attendre(2.0)
 	await _touche(KEY_C)
-	await _attendre(2.0)
+	await _attendre(2.5)
+
+
+## Repère de montage pour la vidéo (temps de jeu = temps du film).
+func _marque_video(nom: String) -> void:
+	if _video:
+		print("VIDEO %s %.3f" % [nom, _secondes()])
 
 
 # --- Mesures ---------------------------------------------------------------------------

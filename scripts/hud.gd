@@ -5,7 +5,8 @@ extends CanvasLayer
 ## glisser() fait entrer ou sortir les panneaux par les bords de l'écran (transitions), au pixel près.
 
 const MARGE := 6.0
-const TAILLE_BARRE := Vector2(140.0, 10.0)
+# Réserve de base ; le réservoir allonge la jauge (×1,5 puis ×2 : 96, 144, 192 px).
+const TAILLE_BARRE := Vector2(96.0, 10.0)
 const SEUIL_OXYGENE_BAS := 0.25
 const DUREE_ANNONCE := 4.0
 const COULEUR_TEXTE := "cyan.3"

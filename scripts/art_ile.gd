@@ -624,6 +624,8 @@ static func icone(id: String, k: float) -> Texture2D:
 			return Pixel.motif(FILON if grand else FILON_PETIT, couleurs_rampe("cyan", -2), CONTOUR)
 		"corail":
 			return Pixel.motif(CORAIL if grand else CORAIL_PETIT, couleurs_rampe("corail"), CONTOUR)
+		"pierre_braise":
+			return Pixel.motif(ArtAbysse.BRAISE, couleurs_rampe("or"), CONTOUR)
 		"fil_nuage":
 			return Pixel.motif(FIL_NUAGE, COULEURS_OBJETS, CONTOUR)
 		"lentille":

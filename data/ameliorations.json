@@ -1,5 +1,5 @@
 {
-	"cable": { "longueur_m": [150, 300] },
-	"lanterne": { "rayon_halo": [40, 60], "obscurite_max": [3, 2] },
-	"reservoir": { "oxygene_max": [100, 150] }
+	"cable": { "longueur_m": [150, 300, 450] },
+	"lanterne": { "rayon_halo": [40, 60, 80], "obscurite_max": [3, 2, 1] },
+	"reservoir": { "oxygene_max": [100, 150, 200] }
 }

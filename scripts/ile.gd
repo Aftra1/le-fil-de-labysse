@@ -189,8 +189,8 @@ func _recolter(source: SourceRessource, nombre: int) -> void:
 	if place <= 0:
 		_interface.annoncer("Inventaire plein : %s" % Game.nom_ressource(source.id_ressource))
 		return
-	var pris := source.prendre(mini(nombre, place))
-	Game.inventaire.ajouter(source.id_ressource, pris)
+	var prises := source.prendre(mini(nombre, ceili(float(place) / source.rendement)))
+	var pris := Game.inventaire.ajouter(source.id_ressource, prises * source.rendement)
 	_afficher_gain(source.position, pris)
 	_interface.rafraichir_inventaire()
 	if source.forme == SourceRessource.Forme.NUAGE and not source.est_disponible():
@@ -378,6 +378,7 @@ func _creer_nuage(x: float) -> void:
 	nuage.mode = SourceRessource.Mode.CLIC
 	nuage.forme = SourceRessource.Forme.NUAGE
 	nuage.plafond = int(reglage["prises"])
+	nuage.rendement = int(reglage.get("ouates_par_prise", 1))
 	nuage.stock = nuage.plafond
 	nuage.rayon_clic = 22.0
 	nuage.derive = _hasard.randf_range(float(reglage["vitesse_min"]), float(reglage["vitesse_max"]))

@@ -57,7 +57,7 @@ func retirer_unite() -> void:
 func dessiner_monde(toile: CanvasItem) -> void:
 	var p := VueMonde.vers_monde(position)
 	Pixel.sprite_ombre(toile, ArtAbysse.gisement(minerai, grise), p, Palette.plus_sombre(ArtAbysse.couleur_eau(p.y)))
-	var plein := Palette.couleur("corail.4" if minerai == "corail" else "cyan.3")
+	var plein := Palette.couleur(ArtAbysse.lueur(minerai))
 	for i in stock:
 		var point := (p + Vector2((i - (stock - 1) / 2.0) * 2.0, 6.0)).floor()
 		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur("metal.3") if grise else plein)
