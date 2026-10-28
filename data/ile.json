@@ -17,6 +17,7 @@
 	"nuages": {
 		"ressource": "nuage",
 		"prises": 3,
+		"ouates_par_prise": 2,
 		"maximum": 4,
 		"minimum": 2,
 		"apparition_s": 3.0,

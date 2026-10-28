@@ -10,7 +10,7 @@ signal retour_ile(gardees: Dictionary, perdues: Dictionary, urgence: bool)
 
 # Monde (pixels)
 const SURFACE_Y := 0.0
-const PROFONDEUR_MAX := 3000.0
+const PROFONDEUR_MAX := 4500.0   # fond de la Faille volcanique (450 m)
 const PIXELS_PAR_METRE := 10.0
 const MARGE_CAMERA_HAUT := 90.0 # ciel visible au-dessus de l'eau quand on est en surface
 const MARGE_CAMERA_BAS := 60.0

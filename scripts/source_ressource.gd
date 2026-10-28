@@ -2,7 +2,7 @@ class_name SourceRessource
 extends Node2D
 ## Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot).
 ## Trois façons de récolter :
-## - CLIC : un clic = une unité (nuages) ;
+## - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 ## - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
 ## - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne).
 ## Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
@@ -23,6 +23,8 @@ var id_ressource := ""
 var mode := Mode.CLIC
 var forme := Forme.NUAGE
 var stock := 0
+## Unités récoltées par prise (nuages : 2 ouates par clic).
+var rendement := 1
 var plafond := 1
 var recharge_s := 0.0          # 0 : pas de recharge
 var duree_maintien := 1.0

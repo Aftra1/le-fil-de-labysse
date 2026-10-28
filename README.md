@@ -19,7 +19,7 @@ Sur l'île (à la souris) :
 
 | Action | Commande |
 |---|---|
-| Récolter un nuage | Clic sur le nuage |
+| Récolter un nuage | Clic sur le nuage (2 ouates par clic, 3 clics par nuage) |
 | Vider l'éolienne (vent) | Clic sur l'éolienne |
 | Récolter un cristal solaire | Maintenir le clic sur un filon (1 s) |
 | Relier l'îlot | Construire la passerelle de nuage à l'atelier (onglet Construction ; un clic sur l'îlot l'ouvre) |
@@ -40,6 +40,10 @@ En plongée :
 
 Les touches sont physiques : ZQSD fonctionne sur un clavier AZERTY.
 La plongée se termine quand la cloche revient en surface après être descendue sous 10 m.
+
+Zones de plongée : Lagon de lumière (0 à 150 m, cristal de lagon), Forêt de coraux (150 à 300 m, corail
+luisant), Faille volcanique (300 à 450 m, pierre de braise). Le câble tressé ouvre les zones une à une
+(150 m → 300 m → 450 m) ; le réservoir d'air de niveau 2 (200) est nécessaire pour revenir du fond de la Faille.
 
 ## Sauvegarde
 

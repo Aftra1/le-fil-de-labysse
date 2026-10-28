@@ -23,6 +23,15 @@ const CRISTAL: PackedStringArray = [
 	".211110",
 	"..0000.",
 ]
+const BRAISE: PackedStringArray = [
+	"..4.3..",
+	".4543..",
+	"345543.",
+	"2354432",
+	"1234321",
+	".12221.",
+	"..000..",
+]
 const CORAIL: PackedStringArray = [
 	".4...4.",
 	".3.4.3.",
@@ -38,12 +47,14 @@ const CORAIL: PackedStringArray = [
 const DEBUT_OBSCURITE_M := 40.0
 const PAS_OBSCURITE_M := 40.0
 const ANNEAU_HALO := 10.0
-const LUEURS := ["cyan.3", "corail.4"]   # bioluminescence et éclats : jamais assombris
+const LUEURS := ["cyan.3", "corail.4", "or.5"]   # bioluminescence, éclats et braises : jamais assombris
+const FOND_MAGMA := 12           # le sol de la Faille est à 12 pixels du monde sous la cloche au plus bas
 
 ## Horloge figée (vérification du raccord entre transition et plongée).
 static var figer_temps := false
 static var _etapes: Array = []    # [profondeur en px du monde, couleur], de la surface vers le fond
 static var _cache: Dictionary = {}
+static var _debuts_zones: Array = []
 
 
 static func c(nom: String) -> Color:
@@ -132,7 +143,26 @@ static func dessiner_eau(toile: CanvasItem, zone: Rect2, profondeur_max: float, 
 			if phase == 0:
 				toile.draw_rect(Rect2(x, -2, 1, 1), c("nuage.3"))
 	_dessiner_particules(toile, Rect2(zone.position.x, haut, zone.size.x, bas - haut), t)
+	_dessiner_magma(toile, zone, profondeur_max, t)
 
+
+## Fond de la Faille : roche sombre crénelée, fissures de magma qui palpitent (lueur jamais assombrie).
+static func _dessiner_magma(toile: CanvasItem, zone: Rect2, profondeur_max: float, t: float) -> void:
+	var sol := profondeur_max + FOND_MAGMA
+	if zone.end.y < profondeur_max - 2.0 or zone.position.y > sol + 40.0:
+		return
+	for x in range(floori(zone.position.x), ceili(zone.end.x)):
+		var bosse := int(_hasard(floori(x / 3.0), 7, 20) * 3.0)
+		var haut := sol - float(bosse)
+		toile.draw_rect(Rect2(x, haut, 1, zone.end.y - haut + 1.0), c("roche.1"))
+		toile.draw_rect(Rect2(x, haut, 1, 1), c("roche.2"))
+		# Fissures : des failles rougeoyantes de 1 à 2 pixels, dont l'éclat va et vient
+		var fissure := floori(x / 2.0)
+		if _hasard(fissure, 8, 21) < 0.14:
+			var vive := posmod(int(t * 2.0 + _hasard(fissure, 8, 22) * 6.0), 6) < 3
+			toile.draw_rect(Rect2(x, haut + 1.0, 1, 4), c("or.1"))
+			toile.draw_rect(Rect2(x, haut + 1.0, 1, 2), c("or.3"))
+			toile.draw_rect(Rect2(x, haut, 1, 1), c("or.5" if vive else "or.4"))
 
 ## Particules : un point par cellule (ou rien), qui dérive d'un pixel entier à la fois.
 ## Lagon : poussière claire ; forêt de coraux : bioluminescence cyan et violette.
@@ -148,7 +178,12 @@ static func _dessiner_particules(toile: CanvasItem, zone: Rect2, t: float) -> vo
 			var y := cy * n + posmod(int(_hasard(cx, cy, 14) * n - t * monte), n)
 			if y < 3 or not zone.has_point(Vector2(x, y)):
 				continue
-			var profond := y >= int(_etapes_zone_2())
+			if y >= int(_debut_zone(2)):
+				# Faille : rares braises qui montent, un point de lueur or
+				if _hasard(cx, cy, 16) < 0.35:
+					toile.draw_rect(Rect2(x, y, 1, 1), c("or.5" if _hasard(cx, cy, 15) < 0.5 else "or.3"))
+				continue
+			var profond := y >= int(_debut_zone(1))
 			var vive := _hasard(cx, cy, 15)
 			var teinte := c("lagon.5") if not profond else (c("cyan.3") if vive < 0.5 else c("corail.4"))
 			if profond and vive < 0.18:
@@ -219,6 +254,7 @@ static func materiau_obscurite() -> ShaderMaterial:
 	materiau.set_shader_parameter("px_par_metre", PX_PAR_METRE)
 	materiau.set_shader_parameter("lueur_1", c(LUEURS[0]))
 	materiau.set_shader_parameter("lueur_2", c(LUEURS[1]))
+	materiau.set_shader_parameter("lueur_3", c(LUEURS[2]))
 	return materiau
 
 
@@ -234,6 +270,7 @@ uniform float px_par_metre;
 uniform int obscurite_max;
 uniform vec4 lueur_1;
 uniform vec4 lueur_2;
+uniform vec4 lueur_3;
 
 void fragment() {
 	vec4 c = texture(TEXTURE, UV);
@@ -245,7 +282,8 @@ void fragment() {
 	int crans = d < rayon ? 0 : (d < rayon + anneau ? 1 : (d < rayon + 2.0 * anneau ? 2 : 3));
 	int k = min(crans, niveau);
 	COLOR = c;
-	if (k > 0 && distance(c.rgb, lueur_1.rgb) > 0.002 && distance(c.rgb, lueur_2.rgb) > 0.002) {
+	if (k > 0 && distance(c.rgb, lueur_1.rgb) > 0.002 && distance(c.rgb, lueur_2.rgb) > 0.002
+			&& distance(c.rgb, lueur_3.rgb) > 0.002) {
 		for (int i = 0; i < nombre; i++) {
 			vec4 p = texelFetch(table, ivec2(i, 0), 0);
 			if (distance(p.rgb, c.rgb) < 0.002) {
@@ -261,9 +299,26 @@ void fragment() {
 # --- Sprites ---------------------------------------------------------------------------------
 
 static func gisement(minerai: String, grise: bool) -> ImageTexture:
-	var dessin := CORAIL if minerai == "corail" else CRISTAL
-	var rampe := "metal" if grise else ("corail" if minerai == "corail" else "cyan")
-	return Pixel.motif(dessin, ArtIle.couleurs_rampe(rampe), CONTOUR)
+	var dessin := CRISTAL
+	var rampe := "cyan"
+	match minerai:
+		"corail":
+			dessin = CORAIL
+			rampe = "corail"
+		"pierre_braise":
+			dessin = BRAISE
+			rampe = "or"
+	return Pixel.motif(dessin, ArtIle.couleurs_rampe("metal" if grise else rampe), CONTOUR)
+
+
+## Couleur de lueur d'un minerai (stock, anneaux) : jamais assombrie par l'obscurité.
+static func lueur(minerai: String) -> String:
+	match minerai:
+		"corail":
+			return "corail.4"
+		"pierre_braise":
+			return "or.5"
+	return "cyan.3"
 
 
 ## Cadre des panneaux de l'abysse : liseré bleu nuit, métal sombre en relief, lueur cyan, fond nuit.
@@ -294,9 +349,14 @@ static func _charger() -> void:
 			_etapes.append([roundi(debut + (fin - debut) * j / paliers.size()), c(str(paliers[j]))])
 
 
-static func _etapes_zone_2() -> float:
+## Début de la zone d'indice « indice » (0 : Lagon, 1 : Coraux, 2 : Faille), en pixels du monde.
+static func _debut_zone(indice: int) -> float:
+	if not _debuts_zones.is_empty():
+		return _debuts_zones[indice] if indice < _debuts_zones.size() else 1e9
 	var zones: Array = Donnees.charger_json("res://data/zones.json")
-	return float(zones[1]["debut_m"]) * PX_PAR_METRE if zones.size() > 1 else 1e9
+	for zone: Dictionary in zones:
+		_debuts_zones.append(float(zone["debut_m"]) * PX_PAR_METRE)
+	return _debuts_zones[indice] if indice < _debuts_zones.size() else 1e9
 
 
 ## Nombre pseudo-aléatoire stable dans [0, 1) pour une cellule et un usage donnés.

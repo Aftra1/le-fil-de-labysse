@@ -10,5 +10,11 @@
 		"duree_minage": 1.0,
 		"stock_min": 3,
 		"stock_max": 5
+	},
+	"pierre_braise": {
+		"valeur": 5,
+		"duree_minage": 1.5,
+		"stock_min": 2,
+		"stock_max": 4
 	}
 }

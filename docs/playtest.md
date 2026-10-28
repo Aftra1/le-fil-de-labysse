@@ -1,6 +1,6 @@
-# Playtest automatique : boucle complète du MVP
+# Playtest automatique : boucle complète avec la Faille volcanique
 
-Date : 27 octobre 2026, branche `etape-6-playtest`.
+Date : 28 octobre 2026, branche `etape-4-faille` (étape 4, partie 2).
 
 ## Méthode
 
@@ -8,151 +8,149 @@ Date : 27 octobre 2026, branche `etape-6-playtest`.
 (`Input.parse_input_event`), sans téléportation ni modification de l'inventaire :
 
 1. écran titre → clic sur **Nouvelle partie** ;
-2. île : clic sur l'éolienne, clics sur les nuages (en suivant leur dérive), clic maintenu sur les filons ;
+2. île : clic sur l'éolienne, clics sur les nuages (2 ouates par clic), clic maintenu sur les filons et,
+   une fois l'îlot relié, sur le bassin de lumière quand il manque du cristal de lagon ;
 3. atelier : touche **C**, clics sur les onglets, la recette et le bouton Fabriquer / Installer / Construire ;
 4. plongée : clic sur la cloche, transition non passée, conduite aux touches **ZQSD** avec l'inertie du jeu,
-   minage en maintenant **E**, remontée quand l'air restant couvre la remontée plus une marge ;
-5. objectifs dans l'ordre : câble tressé → lanterne → réservoir → passerelle de nuage → récolte du bassin.
-
-Le robot ne récolte que ce qui sert à ses objectifs. Avant de plonger, il ramasse tout ce qui est
-disponible sur l'île : selon l'arrivée des nuages, il passe de 36 à 88 s sur l'île au début de la partie.
+   minage en maintenant **E**, remontée quand l'air restant couvre la remontée (consommation de chaque zone)
+   plus une marge ;
+5. objectifs dans l'ordre : câble 1 → lanterne 1 → réservoir 1 → passerelle de nuage → **réservoir 2 →
+   câble 2 → lanterne 2** (avec les pierres de braise de la Faille).
 
 ### Deux profils
 
 | | Robot parfait | Joueur humain |
 |---|---|---|
-| Gisements | connaît la position de tous | ne voit que ceux **à l'écran et éclairés** (hors de l'obscurité, ou dans le halo de la lanterne), qu'il garde en mémoire pendant la plongée |
-| Recherche | va droit au plus proche | **explore en zigzag** la bande de profondeur du minerai voulu (rangées plus serrées dans le noir) |
-| Réaction en plongée | à chaque image | une décision toutes les **0,3 à 0,6 s** ; entre deux, les touches restent dans leur état |
-| Pilotage | freine au pixel près | erreur de **±40 %** sur la distance de freinage, vise à ±6 px, ralentit près de la cible (comme on tapote les touches) |
-| Minage | maintient E à 18 px | maintient E dès que le jeu l'affiche (24 px) |
+| Gisements | connaît la position de tous | ne voit que ceux **à l'écran et éclairés** (hors de l'obscurité, ou dans le halo), qu'il garde en mémoire pendant la plongée |
+| Recherche | va droit au plus proche | **explore en zigzag** la bande de profondeur du minerai voulu |
+| Réaction en plongée | à chaque image | une décision toutes les **0,3 à 0,6 s** |
+| Pilotage | freine au pixel près | erreur de **±40 %** sur la distance de freinage, vise à ±6 px, ralentit près de la cible |
 | Marge d'air | 8 | **25** |
 | Souris (déplacement / clic / lecture d'un menu) | 0,25 / 0,12 / 0,4 s | 0,5 / 0,2 / 1,0 s |
-| Lecture de l'annonce du butin | 1 s | 2 s |
 
-Les temps sont des **temps de jeu** (60 images de physique par seconde). Quatre parties par profil :
-les gisements sont placés au hasard à chaque plongée.
-
+Temps de jeu (60 images par seconde), quatre parties par profil, gisements placés au hasard à chaque plongée.
 Relancer : `GODOT=/chemin/vers/godot tests/playtest.sh 4 --video` (mesures brutes dans
-`docs/playtest/mesures-<profil>-N.json`, vidéo dans `docs/playtest/`).
+`docs/playtest/mesures-<profil>-N.json`).
 
-## Réglages appliqués depuis la première série
+## Contenu ajouté (étape 4, partie 2)
 
-| | Réglage | Avant | Après |
-|---|---|---|---|
-| E | Profondeur des premiers coraux (`data/zones.json`, `gisements_des_m`) | 150 m | **155 m** |
-| A | Éolienne : recharge / plafond (`data/ile.json`) | 12 s / 5 | **8 s / 6** |
-| D | Gisements de cristal de lagon : nombre / profondeur des premiers | 12 / 10 m | **8 / 30 m** |
-| C | Consommation d'air dans la Forêt de coraux | ×1,4 | **×1,5** |
-| F | Cristal de lagon : lentille / réservoir (`data/recettes.json`) | 2 / 4 (10 au total) | **1 / 3 (8 au total)** |
-| G | Passerelle sans corail | | refusé |
+| | Réglage |
+|---|---|
+| Faille volcanique | 300 à 450 m, 6 gisements de **pierre de braise** à partir de 305 m (2 à 4 pierres, 1,5 s par pierre), air **×1,8** |
+| Câble niveau 2 | **450 m** : 4 fils de nuage, 2 coraux, 3 cristaux solaires |
+| Réservoir niveau 2 | **200** d'air : 3 poches d'air, 2 coraux, 3 cristaux de lagon |
+| Lanterne niveau 2 | halo **80**, obscurité au plus 1 ton : 2 lentilles, 4 pierres de braise |
+| Nuages | **2 ouates par clic** (3 clics par nuage) |
+
+### Chiffres revus avec les réglages de l'étape 6
+
+- **Budget d'air à 450 m** (test `budget 450 m`, aller-retour à pleine vitesse sans s'arrêter) :
+  - réservoir 200 : 159 à 300 m, 130 à 450 m, **59 au retour** en surface, soit 27 s de travail possibles au fond ;
+  - réservoir 150 : **9 au retour** : le niveau 2 du réservoir est nécessaire pour la Faille, ce que l'ordre des
+    objectifs (réservoir 2 avant câble 2) respecte.
+- **Coûts des niveaux 2** : une première série avait 4 coraux pour le câble et 3 pour le réservoir (14 coraux au
+  total dans la partie). Le joueur humain faisait alors **4 à 5 plongées dans les coraux, dont une revenue
+  vide**. Ramenés à 2 + 2 (11 coraux au total), il lui en faut 2 à 3. Ce sont les chiffres ci-dessous.
 
 ## Résultats
 
 ### Vue d'ensemble
 
-| | Robot parfait **avant** réglages | Robot parfait | **Joueur humain** |
-|---|---|---|---|
-| Durée totale (4 parties) | 153 à 155 s | 113 à 163 s | **210 à 222 s** |
-| Durée moyenne | 2 min 34 | 2 min 16 | **3 min 35** |
-| Plongées par partie | 3 | 2 | **3** |
-| Sur l'île | 70 s (45 %) | 61 s (45 %) | 68 s (31 %) |
-| Sous l'eau | 68 s (44 %) | 64 s (47 %) | 131 s (61 %) |
-| En transition | 15 s (10 %) | 10 s (7 %) | 14 s (7 %) |
-| **Remontées automatiques** | 0 | 0 | **0** |
-| **Attentes de plus de 10 s** | 4 (une par partie, vent) | **0** | **0** |
+| | Robot parfait | **Joueur humain** |
+|---|---|---|
+| Durée totale (4 parties) | 308 à 323 s | **399 à 502 s** |
+| Durée moyenne | 5 min 14 | **7 min 41** |
+| Plongées par partie | 5 | **5 à 6** |
+| Sur l'île | 92 s (29 %) | 114 s (25 %) |
+| Sous l'eau | 195 s (62 %) | 317 s (69 %) |
+| En transition | 25 s (8 %) | 29 s (6 %) |
+| **Remontées automatiques** | 0 | **0** |
+| **Attentes de plus de 10 s** | 0 | **0** |
+
+Avant cette partie de l'étape 4, la même boucle (sans la Faille ni les niveaux 2) durait 1 min 54 à 2 min 43
+pour le robot et 3 min 30 à 3 min 42 pour le joueur humain.
 
 ### Joueur humain : plongées et air restant
 
-| Partie | Plongée | Prof. max | Sous l'eau | dont exploration | Butin | **Air restant** |
-|---|---|---|---|---|---|---|
-| 1 | 1 (Lagon) | 91 m | 40,9 s | 15,3 s | 8 cristaux | **52** / 100 |
-| 1 | 2 (Coraux) | 192 m | 51,6 s | 26,2 s | 5 coraux | **27** / 100 |
-| 1 | 3 (Coraux) | 189 m | 45,5 s | 21,0 s | 2 coraux | **38** / 100 |
-| 2 | 1 (Lagon) | 86 m | 36,1 s | 13,0 s | 8 cristaux | **57** / 100 |
-| 2 | 2 (Coraux) | 178 m | 53,0 s | 21,8 s | 5 coraux | **25** / 100 |
-| 2 | 3 (Coraux) | 163 m | 38,7 s | 18,2 s | 2 coraux | **51** / 100 |
-| 3 | 1 (Lagon) | 67 m | 31,9 s | 8,7 s | 8 cristaux | **62** / 100 |
-| 3 | 2 (Coraux) | 198 m | 51,8 s | 26,5 s | 4 coraux | **26** / 100 |
-| 3 | 3 (Coraux) | 189 m | 48,0 s | 22,5 s | 3 coraux | **34** / 100 |
-| 4 | 1 (Lagon) | 53 m | 27,6 s | 8,8 s | 8 cristaux | **68** / 100 |
-| 4 | 2 (Coraux) | 192 m | 52,4 s | 27,7 s | 3 coraux | **26** / 100 |
-| 4 | 3 (Coraux) | 189 m | 47,3 s | 20,3 s | 4 coraux | **35** / 100 |
+| Partie | Lagon (2 plongées) | Forêt de coraux | **Faille volcanique** |
+|---|---|---|---|
+| 1 | 69 et 67 / 100 | 25 / 100 (6 coraux), 46 / 150 (5) | **61 / 200** (4 pierres, 84,5 s sous l'eau) |
+| 2 | 51 et 61 / 100 | 26 / 100 (3), 26 / 100 (7), 92 / 150 (1) | **43 / 200** (4 pierres, 92,4 s) |
+| 3 | 26 et 61 / 100 | 24 / 100 (3), 26 / 100 (4), 86 / 150 (4) | **51 / 200** (4 pierres, 89,1 s) |
+| 4 | 59 et 52 / 100 | 23 / 100 (6), 79 / 150 (5) | **21 / 200** (2 pierres, 103,2 s), puis **84 / 200** (2 pierres) |
 
-- **Aucune remontée automatique** et aucune perte de butin.
-- Air restant : 52 à 68 au retour du Lagon, **25 à 27** à la fin de la première plongée en Forêt de coraux
-  (le joueur remonte sur sa marge de 25), 34 à 51 à la seconde.
-- Les 7 coraux ne tiennent jamais en une plongée : l'air manque avant (3 à 5 coraux la première fois).
-- L'exploration prend 9 à 15 s dans le Lagon et 18 à 28 s dans les coraux, soit 30 à 50 % du temps sous l'eau.
+- **Aucune remontée automatique** en 23 plongées.
+- Dans la Faille, l'exploration prend **36 à 58 s** par plongée (contre 20 à 30 s dans les coraux) : c'est
+  sombre, les gisements sont rares (6) et le halo est de 60 tant que la lanterne n'est pas au niveau 2.
+- Une partie sur quatre demande 2 plongées dans la Faille. La plus longue revient à 21 / 200, sous la marge
+  de 25 du joueur : il a mal estimé sa remontée depuis 396 m, mais l'air n'est pas tombé à zéro.
 
 ### Robot parfait : plongées et air restant
 
-| Partie | Plongée 1 (Lagon, 8 cristaux) | Plongée 2 (Coraux, 7 coraux) |
-|---|---|---|
-| 1 | 89 m, 26,0 s, air **70** | 175 m, 39,8 s, air **46** |
-| 2 | 47 m, 18,5 s, air **79** | 197 m, 44,5 s, air **38** |
-| 3 | 67 m, 21,8 s, air **75** | 177 m, 40,6 s, air **45** |
-| 4 | 55 m, 21,2 s, air **75** | 185 m, 44,0 s, air **39** |
+| Partie | Lagon | Coraux | Faille |
+|---|---|---|---|
+| 1 | 78, 77 / 100 | 26 / 100 (8), 103 / 150 (3) | 70 / 200 (4 pierres, 383 m) |
+| 2 | 80, 79 / 100 | 42 / 100 (8), 108 / 150 (3) | 76 / 200 (4 pierres, 373 m) |
+| 3 | 69, 73 / 100 | 37 / 100 (8), 109 / 150 (3) | 70 / 200 (4 pierres, 383 m) |
+| 4 | 75, 80 / 100 | 37 / 100 (8), 105 / 150 (3) | 86 / 200 (4 pierres, 343 m) |
 
 ### Attentes de plus de 10 s sans rien à faire
 
-**Aucune**, pour les deux profils (contre une attente de vent par partie avant les réglages). Le vent n'a plus
-jamais manqué : il en reste même 0 à 1 (robot) ou 3 (humain) en fin de partie.
+**Aucune**, pour les deux profils. Le robot parfait attend un peu de vent avant le dernier fil de nuage du câble
+de niveau 2 (15 à 28 s au total, en attentes courtes) ; le joueur humain, plus lent, ne l'attend jamais.
 
 ### Ressources en trop ou qui ont manqué
 
-- **En trop** : 1 cristal de lagon (celui du bassin, récolté en dernier) et 0 à 3 vents. Rien d'autre.
-- **Ont manqué** : rien sur l'île. En plongée, l'air limite le corail du joueur humain (2 plongées au lieu d'une).
+- **En trop** : 1 cristal de lagon, celui du bassin, récolté en dernier. Rien d'autre.
+- **Ont manqué** : rien sur l'île (vent compris). En plongée, l'air limite le corail et la pierre de braise du
+  joueur humain, sans jamais de remontée automatique.
 
 ## Vidéo
 
-Séquence de 46 s enregistrée avec Movie Maker (Xvfb, 640x360 à 30 images/s), jouée par le robot parfait avec
-les nouveaux réglages : écran titre, récolte, descente, plongée jusqu'à 75 m (obscurité et halo visibles),
-minage de 6 cristaux, remontée, atelier (fabrication d'un fil de nuage).
+Séquence de 42 s (Movie Maker, Xvfb, 640x360 à 30 images/s), jouée par le robot à partir d'une partie
+préparée (câble 450 m, réservoir 200, lanterne 1, îlot relié, 2 lentilles et 2 pierres de braise en poche) :
+écran titre → **Continuer** → un clic sur un nuage (+2) → descente → traversée du Lagon, de la Forêt de coraux
+et de la Faille (**accélérée ×4**) → minage de 2 pierres de braise dans la Faille → remontée (**accélérée ×4**)
+→ atelier : **lanterne de cristal niveau 2**. Les passages accélérés sont repérés automatiquement par le robot
+(lignes `VIDEO` du journal) et montés par `tests/playtest.sh`.
 
-- MP4 (2,1 Mo, 1280x720) : `docs/playtest/sequence.mp4`
-- GIF (4,1 Mo, 640x360, 12 images/s) : `docs/playtest/sequence.gif`
+- MP4 (2,5 Mo, 1280x720) : `docs/playtest/sequence.mp4`
+- GIF (4,5 Mo, 640x360, 12 images/s) : `docs/playtest/sequence.gif`
 
 ## Conclusions
 
-### Ce que les réglages ont corrigé
+### Ce qui fonctionne
 
-1. **Le vent ne dicte plus la fin de partie** : aucune attente de plus de 10 s pour les deux profils.
-2. **Le câble tressé redevient indispensable** : premiers coraux à 155 m, hors de portée du câble de 150 m
-   (vérifié par `tests/run_tests.gd`).
-3. **Plus de plongée « 2 cristaux »** : 8 cristaux au total, une seule plongée de cristal pour les deux profils.
-4. **Le Lagon se cherche** : les cristaux sont répartis entre 30 et 150 m (le joueur humain descend jusqu'à
-   53 à 91 m). On voit l'obscurité et le halo, et l'exploration prend 9 à 15 s.
-5. **La Forêt de coraux crée de la tension sans punir** : le joueur humain remonte avec 25 à 27 d'air (sa
-   marge), sans jamais de remontée automatique. À ×1,5, il a le temps d'explorer 20 à 28 s et de miner
-   3 à 5 coraux par plongée ; ×1,7 n'a pas été mesuré.
+1. **La boucle complète double** : 7 min 41 en moyenne pour le joueur humain simulé (3 min 35 avant), soit
+   sans doute 10 à 15 minutes pour un vrai joueur qui découvre le jeu.
+2. **Le réservoir et la lanterne servent enfin** : la Faille ne se fait qu'avec 200 d'air (9 au retour avec
+   150), et la lanterne de niveau 1 éclaire les recherches dans la Faille (60 de halo dans le noir).
+3. **La Faille est tendue sans punir** : 21 à 84 / 200 au retour, aucune remontée automatique, 1 ou 2 plongées.
+4. **Aucune attente** de plus de 10 s : le vent suit, même avec 26 vents nécessaires au total.
+5. **Les nuages** : 2 ouates par clic divisent par deux les clics (38 ouates nécessaires dans la partie).
 
 ### Ce qui reste à surveiller
 
-6. **La boucle reste courte** : 3 min 35 pour le joueur humain simulé, sans doute 5 à 8 minutes pour un vrai
-   joueur qui découvre le jeu. La PR 2 de l'étape 4 (Faille volcanique et niveaux 2) l'allongera.
-7. **Lanterne, réservoir et bassin n'ont toujours aucun usage une fois obtenus.** Le réservoir et la lanterne
-   s'installent avec les coraux de la dernière plongée : aucune plongée ne s'est faite avec eux. À traiter dans
-   la PR 2 de l'étape 4.
-8. **Le corail demande deux plongées au joueur humain**, dont la seconde pour 2 à 4 coraux. Ce n'est pas une
-   corvée (38 à 48 s), mais si le test sur PC la trouve longue, la piste est le stock des gisements de corail
-   (3 à 5), pas l'air.
-9. Le robot parfait passe 36 ou 88 s sur l'île selon qu'il ramasse tous les nuages avant sa première plongée
-   ou non : les nuages arrivent lentement (environ 1 nuage récoltable par seconde au mieux). Ce n'est pas une
-   attente, mais 23 nuages représentent beaucoup de clics. Le test sur PC dira si c'est agréable ou répétitif.
+6. **La lanterne de niveau 2 et le bassin ne servent toujours pas** : la lanterne 2 est le dernier objectif, et le
+   bassin n'est jamais utile (les 13 cristaux de lagon sont tous ramenés par les 2 premières plongées, avant que
+   l'îlot soit relié). Ce sera à traiter avec « Le Fond » (après le MVP) ou en demandant du cristal de lagon
+   pour la lanterne 2 ou la passerelle.
+7. **L'exploration dans la Faille** (36 à 58 s par plongée) est le passage le plus long. Si le test sur PC la
+   trouve pénible : 8 gisements au lieu de 6, ou une pierre de braise plus lumineuse dans le noir.
+8. Le joueur humain est revenu une fois avec 21 / 200 depuis 396 m : sans risque de game over, mais la remontée
+   depuis le fond de la Faille est longue (environ 36 s à pleine vitesse). C'est le seul moment où la jauge descend vraiment.
 
-### Propositions restantes (non appliquées)
+### Propositions (non appliquées)
 
 | # | Proposition |
 |---|---|
-| B | Poche d'air : 3 → 2 vents. **Plus nécessaire** : le vent ne manque plus. |
-| H | Donner un usage à la lanterne et au réservoir dans la PR 2 de l'étape 4 (Faille volcanique sombre et gourmande en air). |
-| I | Si les clics sur les nuages lassent au test sur PC : nuages à 4 prises au lieu de 3, ou fil de nuage à 2 nuages au lieu de 3. |
+| J | Lanterne de niveau 2 : ajouter 3 cristaux de lagon à la recette, pour donner un rôle au bassin en fin de partie. |
+| K | Faille : 8 gisements au lieu de 6 si l'exploration paraît longue au test sur PC. |
+| L | Bassin de lumière : 1 cristal toutes les 30 s au lieu de 45, s'il doit compter dans la boucle. |
 
 ### Limites du robot
 
-- Le joueur humain simulé ne se trompe pas de minerai, ne relit pas les recettes et ne récolte pas « pour voir ».
-  Il ne passe jamais les transitions.
-- Il repère les gisements seulement dans la zone éclairée, alors que les éclats cyan et violets des
-  gisements restent visibles dans le noir (règle de la palette) : un vrai joueur les trouvera un peu plus vite.
+- Le joueur humain simulé ne se trompe pas de minerai et ne récolte pas « pour voir ». Il ne passe jamais les transitions.
+- Il ne repère les gisements que dans la zone éclairée, alors que les éclats cyan, violets et or restent
+  visibles dans le noir : un vrai joueur les trouvera un peu plus vite, surtout dans la Faille.
 - Le menu pause et la sauvegarde en cours de partie ne sont pas joués (couverts par `tests/run_tests.gd`).

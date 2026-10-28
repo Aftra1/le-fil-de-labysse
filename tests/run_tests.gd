@@ -50,6 +50,9 @@ func _lancer() -> void:
 	_titre("Budget d'oxygène (aller-retour à 300 m, plongée à pleine vitesse)")
 	await _test_budget_oxygene()
 
+	_titre("Étape 4 (partie 2) : budget d'oxygène jusqu'au fond de la Faille (450 m)")
+	await _test_budget_faille()
+
 	_titre("Étape 2 : sac")
 	_test_sac()
 
@@ -99,6 +102,7 @@ func _lancer() -> void:
 	await _test_limite_cable()
 	await _test_reservoir()
 	_test_obscurite_regles()
+	_test_lueur_braise()
 
 	_titre("Étape 4 : équilibre (sans grind)")
 	_test_equilibre()
@@ -343,7 +347,7 @@ func _test_budget_oxygene() -> void:
 			mesure_150 = true
 			o2_150 = _plongee.oxygene
 			t_150 = t
-		if _bell.position.y >= _dive_script.PROFONDEUR_MAX - 0.5:
+		if _bell.position.y >= _plongee.limite_px - 0.5:
 			mesure_300 = true
 			o2_300 = _plongee.oxygene
 			t_300 = t
@@ -408,11 +412,13 @@ func _test_placement() -> void:
 	var zones: Array = Donnees.charger_json("res://data/zones.json")
 	var y_min_cristal := 1e9
 	var y_min_corail := 1e9
+	var y_min_braise := 1e9
 	for generation in 5:
 		await _demarrer()
 		var liste := _gisements()
 		var cristaux := 0
 		var coraux := 0
+		var braises := 0
 		for gisement in liste:
 			y_min = minf(y_min, gisement.position.y)
 			y_max = maxf(y_max, gisement.position.y)
@@ -421,17 +427,24 @@ func _test_placement() -> void:
 				cristaux += 1
 				y_min_cristal = minf(y_min_cristal, gisement.position.y)
 				comptes_ok = comptes_ok and gisement.position.y < 1500.0
-			else:
+			elif gisement.minerai == "corail":
 				coraux += 1
 				y_min_corail = minf(y_min_corail, gisement.position.y)
-				comptes_ok = comptes_ok and gisement.position.y >= 1500.0
-		comptes_ok = comptes_ok and cristaux == int(zones[0]["gisements"]) and coraux == int(zones[1]["gisements"])
+				comptes_ok = comptes_ok and gisement.position.y >= 1500.0 and gisement.position.y < 3000.0
+			else:
+				braises += 1
+				y_min_braise = minf(y_min_braise, gisement.position.y)
+				comptes_ok = comptes_ok and gisement.minerai == "pierre_braise" and gisement.position.y >= 3000.0
+		comptes_ok = comptes_ok and cristaux == int(zones[0]["gisements"]) and coraux == int(zones[1]["gisements"]) \
+			and braises == int(zones[2]["gisements"])
 		for i in liste.size():
 			for j in range(i + 1, liste.size()):
 				ecart_min = minf(ecart_min, liste[i].position.distance_to(liste[j].position))
 		await _terminer()
-	_verifier(comptes_ok, "placement : %d cristaux en zone 1, %d coraux en zone 2 (5 tirages)"
-		% [int(zones[0]["gisements"]), int(zones[1]["gisements"])])
+	_verifier(comptes_ok, "placement : %d cristaux en zone 1, %d coraux en zone 2, %d pierres de braise en zone 3 (5 tirages)"
+		% [int(zones[0]["gisements"]), int(zones[1]["gisements"]), int(zones[2]["gisements"])])
+	_verifier(y_min_braise >= 3050.0, "placement : pierres de braise à partir de 305 m (hors de portée du câble de 300 m)",
+		"y min %.0f px" % y_min_braise)
 	_verifier(y_min_cristal >= 300.0, "placement : cristaux de lagon à partir de 30 m", "y min %.0f px" % y_min_cristal)
 	_verifier(y_min_corail >= 1550.0, "placement : coraux à partir de 155 m (hors de portée du câble de 150 m)",
 		"y min %.0f px" % y_min_corail)
@@ -644,8 +657,8 @@ func _test_recolte() -> void:
 	nuage.derive = 0.0
 	var prises: int = nuage.stock
 	await _cliquer(nuage.position)
-	_verifier(_jeu.inventaire.quantite("nuage") == 1 and nuage.stock == prises - 1,
-		"nuage : un clic = une ouate de nuage", "stock %d → %d" % [prises, nuage.stock])
+	_verifier(_jeu.inventaire.quantite("nuage") == 2 and nuage.stock == prises - 1,
+		"nuage : un clic = deux ouates de nuage (une prise)", "stock %d → %d" % [prises, nuage.stock])
 
 	var eolienne: SourceRessource = ile._eolienne
 	var reserve: int = eolienne.stock
@@ -699,7 +712,7 @@ func _test_panneau_inventaire() -> void:
 
 	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
 	nuage.derive = 0.0
-	nuage.position = Vector2(60.0, 60.0)  # hors du panneau (sinon le clic tombe sur le panneau)
+	nuage.position = Vector2(24.0, 346.0)  # hors du panneau (sinon le clic tombe sur le panneau)
 	panneau.ouvrir()
 	await _cliquer(nuage.position)
 	_verifier(_jeu.inventaire.quantite("nuage") == 0, "inventaire ouvert : un clic ne récolte pas")
@@ -1025,14 +1038,33 @@ func _test_atelier_logique() -> void:
 		"câble tressé : installé, ingrédients retirés, câble à 300 m")
 	inventaire.ajouter("fil_nuage", 9)
 	inventaire.ajouter("cristal_lagon", 9)
+	_verifier(not atelier.ameliorer("cable") and atelier.niveau("cable") == 1,
+		"câble niveau 2 : refusé sans corail ni cristal solaire")
+	inventaire.ajouter("corail", 2)
+	inventaire.ajouter("cristal_solaire", 3)
+	_verifier(atelier.ameliorer("cable") and atelier.niveau("cable") == 2 and atelier.longueur_cable_m() == 450.0,
+		"câble niveau 2 : 4 fils de nuage, 2 coraux, 3 cristaux solaires ; câble à 450 m")
+	inventaire.ajouter("fil_nuage", 9)
+	inventaire.ajouter("corail", 9)
+	inventaire.ajouter("cristal_solaire", 9)
 	_verifier(not atelier.ameliorer("cable") and atelier.est_au_maximum("cable") and atelier.prochain_niveau("cable").is_empty(),
-		"câble tressé : ne s'installe qu'une fois (niveau maximal de cette étape)")
+		"câble : niveau maximal (2) atteint, rien de plus à installer")
 	inventaire.ajouter("lentille", 1)
 	inventaire.ajouter("corail", 5)
 	_verifier(atelier.ameliorer("lanterne") and atelier.rayon_halo() == 60.0 and atelier.obscurite_max() == 2,
 		"lanterne de cristal : halo 40 → 60, obscurité 3 → 2 tons")
 	inventaire.ajouter("poche_air", 2)
 	_verifier(atelier.ameliorer("reservoir") and atelier.oxygene_max() == 150.0, "réservoir d'air : oxygène 100 → 150")
+	inventaire.ajouter("poche_air", 3)
+	inventaire.ajouter("cristal_lagon", 3)
+	inventaire.ajouter("corail", 2)
+	_verifier(atelier.ameliorer("reservoir") and atelier.oxygene_max() == 200.0, "réservoir niveau 2 : oxygène 150 → 200")
+	inventaire.ajouter("lentille", 2)
+	_verifier(not atelier.ameliorer("lanterne") and atelier.niveau("lanterne") == 1,
+		"lanterne niveau 2 : refusée sans pierre de braise")
+	inventaire.ajouter("pierre_braise", 4)
+	_verifier(atelier.ameliorer("lanterne") and atelier.rayon_halo() == 80.0 and atelier.obscurite_max() == 1,
+		"lanterne niveau 2 : 2 lentilles, 4 pierres de braise ; halo 80, obscurité au plus 1 ton")
 
 
 func _test_atelier_ile() -> void:
@@ -1104,6 +1136,16 @@ func _test_reservoir() -> void:
 		"%.0f px" % _plongee._interface.largeur_jauge())
 	root.remove_child(_plongee)
 	_plongee.queue_free()
+	await _images(2)
+	_jeu.atelier.niveaux["reservoir"] = 2
+	_plongee = load(SCENE_PLONGEE).instantiate()
+	root.add_child(_plongee)
+	await _images(2)
+	_verifier(_plongee.oxygene_max == 200.0 and _plongee._interface.largeur_jauge() == largeur_base * 2.0,
+		"réservoir niveau 2 : 200 d'oxygène, jauge 2 fois plus longue", "%.0f px" % _plongee._interface.largeur_jauge())
+	root.remove_child(_plongee)
+	_plongee.queue_free()
+	_jeu.atelier.niveaux["reservoir"] = 0
 	await _images(2)
 
 
@@ -1688,3 +1730,62 @@ func _test_ilot_sauvegarde() -> void:
 	_verifier(ile.ilot_relie() and ile.bassin().stock == 1, "sauvegarde sans état du bassin : stock de départ (1)")
 	await _fermer_jeu(jeu)
 	_effacer_sauvegarde()
+
+
+# --- Étape 4 (partie 2) : Faille volcanique ----------------------------------------------
+
+## Aller-retour à pleine vitesse jusqu'à « fond » px ; renvoie [oxygène à 300 m, au fond, en surface, remontée auto].
+func _aller_retour(fond: float) -> Array:
+	Input.action_press("move_down")
+	var o2_300 := -1.0
+	var t := 0.0
+	while _bell.position.y < fond - 0.5 and t < 80.0:
+		await _images(1)
+		t += 1.0 / IMAGES_PAR_S
+		if o2_300 < 0.0 and _bell.position.y >= 3000.0:
+			o2_300 = _plongee.oxygene
+	var o2_fond: float = _plongee.oxygene
+	Input.action_release("move_down")
+	Input.action_press("move_up")
+	t = 0.0
+	while _bell.position.y > _dive_script.SEUIL_SURFACE and t < 80.0:
+		await _images(1)
+		t += 1.0 / IMAGES_PAR_S
+	Input.action_release("move_up")
+	return [o2_300, o2_fond, _plongee.oxygene, _bell.remontee_auto]
+
+
+func _test_budget_faille() -> void:
+	var conso_faille := float(Donnees.charger_json("res://data/zones.json")[2]["conso_oxygene"])
+	_jeu.atelier.niveaux = {"cable": 2, "lanterne": 1, "reservoir": 2}
+	await _demarrer()
+	_jeu.atelier.niveaux = {"cable": 2, "lanterne": 1, "reservoir": 2}
+	_plongee.appliquer_ameliorations()
+	var mesure := await _aller_retour(4500.0)
+	print("   réservoir 200 : 300 m → %.1f, 450 m → %.1f, retour en surface → %.1f" % [mesure[0], mesure[1], mesure[2]])
+	var secondes: float = float(mesure[2]) / (_dive_script.CONSOMMATION_PAR_S * conso_faille)
+	_verifier(not mesure[3] and float(mesure[2]) > 40.0, "budget 450 m (réservoir 200) : aller-retour sans remontée d'urgence",
+		"%.0f d'air au retour" % mesure[2])
+	_verifier(secondes >= 20.0, "budget 450 m : au moins 20 s de recherche et de minage au fond de la Faille",
+		"%.1f s" % secondes)
+	await _terminer()
+
+	# Avec le réservoir de niveau 1 seulement, le fond de la Faille n'est pas atteignable sans risque.
+	_jeu.atelier.niveaux = {"cable": 2, "lanterne": 1, "reservoir": 1}
+	await _demarrer()
+	_jeu.atelier.niveaux = {"cable": 2, "lanterne": 1, "reservoir": 1}
+	_plongee.appliquer_ameliorations()
+	var juste := await _aller_retour(4500.0)
+	print("   réservoir 150 : 300 m → %.1f, 450 m → %.1f, retour en surface → %.1f%s" % [juste[0], juste[1], juste[2],
+		" (remontée automatique)" if juste[3] else ""])
+	_verifier(juste[3] or float(juste[2]) < 15.0, "réservoir 150 : le fond de la Faille est hors de portée (il faut le niveau 2)",
+		"%.0f d'air au retour" % juste[2])
+	await _terminer()
+	_jeu.atelier.niveaux = {"cable": 0, "lanterne": 0, "reservoir": 0}
+
+
+## Pierres de braise : leur lueur n'est jamais assombrie (même règle que le cyan et le corail).
+func _test_lueur_braise() -> void:
+	var lueur := Palette.couleur("or.5")
+	_verifier(ArtAbysse.assombrir(lueur, 400.0, 500.0, 40.0, 3) == lueur and ArtAbysse.lueur("pierre_braise") == "or.5",
+		"obscurité : la lueur des pierres de braise (or.5) n'est jamais assombrie")

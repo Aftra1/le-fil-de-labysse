@@ -2,6 +2,7 @@ extends SceneTree
 ## Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ :
 ## 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ;
 ## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ;
+## 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ;
 ## 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
 ## sauvegarde abîmée.
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
@@ -265,6 +266,36 @@ func _scenario_ameliorations() -> void:
 	plongee.get_node("Bell").position.y = 400.0
 	await _images(60)
 	await _capturer("19-hud-reservoir")
+	await _fermer_plongee(plongee)
+
+	# Faille volcanique : une pierre de braise à portée (lanterne niveau 1), puis le fond et son magma
+	# (lanterne niveau 2) ; la règle d'obscurité est vérifiée au pixel près, lueur des braises comprise.
+	_atelier().niveaux = { "cable": 2, "lanterne": 1, "reservoir": 2 }
+	plongee = await _nouvelle_plongee()
+	cloche = plongee.get_node("Bell")
+	var braise: Node2D = null
+	for enfant in plongee.get_node("Gisements").get_children():
+		if enfant.minerai == "pierre_braise" and (braise == null or enfant.position.y < braise.position.y):
+			braise = enfant
+	cloche.position = braise.position + Vector2(-16.0, -6.0)
+	cloche.controle_actif = false
+	ArtAbysse.figer_temps = true
+	await _images(120)
+	await _capturer("28-faille-braise")
+	await _verifier_obscurite(plongee)
+	ArtAbysse.figer_temps = false
+	await _fermer_plongee(plongee)
+
+	_atelier().niveaux = { "cable": 2, "lanterne": 2, "reservoir": 2 }
+	plongee = await _nouvelle_plongee()
+	cloche = plongee.get_node("Bell")
+	cloche.position = Vector2(30.0, 4500.0)
+	cloche.controle_actif = false
+	ArtAbysse.figer_temps = true
+	await _images(120)
+	await _capturer("29-faille-fond")
+	await _verifier_obscurite(plongee)
+	ArtAbysse.figer_temps = false
 	await _fermer_plongee(plongee)
 
 

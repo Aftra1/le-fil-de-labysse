@@ -71,7 +71,15 @@ func est_au_maximum(id: String) -> bool:
 func prochain_niveau(id: String) -> Dictionary:
 	if est_au_maximum(id):
 		return {}
-	return _recettes["ameliorations"][id]["niveaux"][niveau(id)]
+	return recette_niveau(id, niveau(id) + 1)
+
+
+## Recette d'un niveau donné (1 = premier niveau), vide s'il n'existe pas.
+func recette_niveau(id: String, cible: int) -> Dictionary:
+	var niveaux_recettes: Array = _recettes["ameliorations"][id]["niveaux"]
+	if cible < 1 or cible > niveaux_recettes.size():
+		return {}
+	return niveaux_recettes[cible - 1]
 
 
 func peut_ameliorer(id: String) -> bool:
