@@ -44,7 +44,7 @@ func _scenarios() -> void:
 	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
 		else "%d capture(s) avec des couleurs hors palette" % _captures_hors_palette))
-	quit(0 if _captures_hors_palette == 0 else 1)
+	await _couper_son_et_quitter(0 if _captures_hors_palette == 0 else 1)
 
 
 # --- 00 : planche de la palette ------------------------------------------------------
@@ -647,3 +647,11 @@ func _comparer(a: Image, b: Image, nom: String) -> void:
 		_captures_hors_palette += 1
 		print("      RACCORD (%s) : %d pixels différents" % [nom, differences])
 
+
+## Coupe le son quelques images avant de quitter (le serveur audio relâche alors ses lectures).
+func _couper_son_et_quitter(code: int) -> void:
+	root.get_node("Son").arreter()
+	for i in 10:
+		await process_frame
+		OS.delay_msec(20)   # le mixage audio tourne en temps réel, à côté des images
+	quit(code)

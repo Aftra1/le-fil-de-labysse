@@ -133,7 +133,7 @@ func _lancer() -> void:
 		await _partie_complete()
 	_relacher_tout()
 	_effacer_sauvegarde()
-	quit(0)
+	await _couper_son_et_quitter(0)
 
 
 # --- Partie complète ------------------------------------------------------------------
@@ -614,28 +614,32 @@ func _pousser(distance: float, vitesse: float) -> bool:
 
 # --- Séquence vidéo (environ 40 s) -----------------------------------------------------
 
-## Partie préparée pour la vidéo : câble de 450 m, réservoir de 200, lanterne de niveau 1, îlot relié,
-## deux lentilles et deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2).
+## Partie préparée pour la vidéo : câble de 450 m, réservoir de niveau 1 seulement (150 : l'air devient
+## juste en remontant de la Faille, on entend les bips), lanterne de niveau 1, îlot relié, deux lentilles et
+## deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2).
 func _preparer_sauvegarde_video() -> void:
 	Sauvegarde.ecrire({
 		"inventaire": {"vent": 3, "nuage": 4, "cristal_solaire": 2, "cristal_lagon": 3, "corail": 2,
 			"lentille": 2, "pierre_braise": 2},
-		"ameliorations": {"cable": 2, "lanterne": 1, "reservoir": 2},
+		"ameliorations": {"cable": 2, "lanterne": 1, "reservoir": 1},
 		"ilots": ["ilot_est"],
 		"ile": {},
 	})
 
 
-## Séquence vidéo : île (un nuage donne deux ouates), descente, plongée jusqu'à la Faille volcanique,
-## minage de deux pierres de braise, remontée, atelier (lanterne de niveau 2). Les trajets verticaux
-## sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh).
+## Séquence vidéo (avec le son) : île (nuage, éolienne), descente, plongée à travers le Lagon, la Forêt de
+## coraux et la Faille volcanique, minage de pierres de braise jusqu'à ce que l'air impose de remonter
+## (bips d'oxygène bas pendant la remontée), atelier (lanterne de niveau 2). Les trajets verticaux sont
+## repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh).
 func _sequence_video() -> void:
-	await _attendre(1.5)
+	await _attendre(2.5)
 	var nuage := _nuage_visible()
 	if nuage != null:
 		await _cliquer(nuage.position)
-	await _attendre(1.0)
-	await _plonger({"pierre_braise": 2})
+	await _attendre(0.8)
+	await _cliquer(_ile._eolienne.position)
+	await _attendre(1.5)
+	await _plonger({"pierre_braise": 8})
 	await _touche(KEY_C)
 	await _attendre(1.0)
 	await _cliquer(_centre(_atelier_ui._onglets["ameliorations"]))
@@ -801,3 +805,12 @@ func _effacer_sauvegarde() -> void:
 	for chemin: String in [SAUVEGARDE, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
 		if FileAccess.file_exists(chemin):
 			DirAccess.remove_absolute(chemin)
+
+
+## Coupe le son quelques images avant de quitter (le serveur audio relâche alors ses lectures).
+func _couper_son_et_quitter(code: int) -> void:
+	root.get_node("Son").arreter()
+	for i in 10:
+		await process_frame
+		OS.delay_msec(20)   # le mixage audio tourne en temps réel, à côté des images
+	quit(code)

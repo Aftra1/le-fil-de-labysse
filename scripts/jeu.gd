@@ -22,8 +22,12 @@ var temps_plongee := 0.0
 var avec_titre := true
 ## Vrai une fois la partie lancée (Continuer ou Nouvelle partie) : rien n'est sauvegardé avant.
 var partie_en_cours := false
-## Action des boutons Quitter (remplaçable dans les tests).
-var action_quitter: Callable = func() -> void: get_tree().quit()
+## Action des boutons Quitter et de la fermeture de la fenêtre (remplaçable dans les tests) : le son
+## est coupé un instant avant de quitter.
+var action_quitter: Callable = func() -> void:
+	Son.arreter()
+	await get_tree().create_timer(0.15, true, false, true).timeout
+	get_tree().quit()
 
 var _plongee: Node2D = null
 var _gardees: Dictionary = {}
@@ -39,6 +43,8 @@ var _lecture: Dictionary = {}     # résultat de Sauvegarde.lire() affiché à l
 
 
 func _ready() -> void:
+	# La fermeture de la fenêtre passe par _notification (sauvegarde, son coupé, puis sortie).
+	get_tree().auto_accept_quit = false
 	_ile.plongee_demandee.connect(_lancer_descente)
 	_ile.partie_modifiee.connect(sauvegarder)
 	_transition.terminee.connect(_fin_transition)
@@ -48,6 +54,7 @@ func _ready() -> void:
 	_pause.reprendre.connect(fermer_pause)
 	_pause.retour_titre.connect(retour_au_titre)
 	_pause.quitter.connect(quitter)
+	_pause.volumes_modifies.connect(sauvegarder)
 	if avec_titre:
 		montrer_titre()
 	else:
@@ -57,11 +64,13 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if get_tree() != null:
 		get_tree().paused = false
+		get_tree().auto_accept_quit = true
 
 
 func _notification(quoi: int) -> void:
 	if quoi == NOTIFICATION_WM_CLOSE_REQUEST:
 		sauvegarder()
+		action_quitter.call()
 
 
 func _unhandled_input(evenement: InputEvent) -> void:
@@ -99,7 +108,10 @@ func montrer_titre() -> void:
 	_lecture = Sauvegarde.lire()
 	var statut: Sauvegarde.Statut = _lecture["statut"]
 	var peut_continuer := statut == Sauvegarde.Statut.OK or statut == Sauvegarde.Statut.RECUPEREE
+	if peut_continuer:
+		Son.charger_reglages(_lecture["partie"].get("reglages", {}))
 	_ile.afficher_interface(false)
+	Son.ambiance("ile", 1.0)
 	get_tree().paused = true
 	_titre.ouvrir(peut_continuer, peut_continuer or statut == Sauvegarde.Statut.TROP_RECENTE, _lecture["message"])
 
@@ -141,6 +153,7 @@ func donnees_partie() -> Dictionary:
 		"inventaire": Game.inventaire.vers_dictionnaire(),
 		"ameliorations": Game.atelier.niveaux.duplicate(),
 		"ilots": Game.atelier.ilots_relies.duplicate(),
+		"reglages": Son.reglages(),
 		"ile": _ile.etat_sources(),
 	}
 
@@ -189,6 +202,7 @@ func _abandonner_plongee() -> void:
 		_plongee.queue_free()
 	_plongee = null
 	etat = Etat.ILE
+	Son.ambiance("ile", 1.0)
 	_ile.reprendre()
 
 
@@ -198,6 +212,8 @@ func _lancer_descente() -> void:
 	if etat != Etat.ILE:
 		return
 	sauvegarder()
+	Son.jouer("souffle")
+	Son.ambiance("lagon", Transition.DUREE)
 	etat = Etat.DESCENTE
 	_ile.preparer_depart()
 	_plongee = SCENE_PLONGEE.instantiate()
@@ -233,6 +249,8 @@ func _sur_retour_ile(gardees: Dictionary, perdues: Dictionary, urgence: bool) ->
 
 
 func _lancer_remontee() -> void:
+	Son.jouer("souffle")
+	Son.ambiance("ile", Transition.DUREE)
 	_figer_plongee(true)
 	etat = Etat.REMONTEE
 	_ile.visible = true
