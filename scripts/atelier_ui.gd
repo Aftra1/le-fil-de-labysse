@@ -317,7 +317,7 @@ func _texte_amelioration() -> String:
 		texte = "Réserve de %d au lieu de %d." % [atelier.plafond_machine(selection) * 2, atelier.plafond_machine(selection)]
 	if atelier.nombre_machines(selection) == 0:
 		return texte + "\nConstruis d'abord cette machine."
-	return texte + "\nPour toutes tes machines de cette sorte."
+	return texte + "\nPour toutes ces machines."
 
 
 func _unite(ressource: String) -> String:

@@ -6,7 +6,8 @@ souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'in
 
 Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
 → fils de nuage → câble tressé → moulin à vent (clic sur un emplacement libre) → plongées dans la
-Forêt de coraux → lanterne → filet à nuages → réservoir →
+Forêt de coraux (le premier corail ouvre le palier 2) → lanterne → filet à nuages → réservoir → sac à 12 places →
+pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → entrepôt →
 passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
 (pierre de braise) → lanterne de niveau 2 → récolte du bassin de lumière sur l'îlot.
 
@@ -77,6 +78,7 @@ class Playtest(SceneTree):
     _bassin_recolte: 'int'
     _machines_construites: 'Array'
     _machines_recolte: 'Dictionary'
+    _paliers: 'Dictionary'
 
     def _initialize(self) -> 'void':
         Donnees.charger_json(...)
@@ -122,6 +124,7 @@ class Playtest(SceneTree):
     def _objectifs_restants(self) -> 'Array':
         Atelier.niveau(...)
         Atelier.nombre_machines(...)
+        Atelier.niveau_machine(...)
         Atelier.est_construite(...)
 
     def _ingredients_objectif(self, objectif: 'Array') -> 'Dictionary':
@@ -191,6 +194,7 @@ class Playtest(SceneTree):
         Atelier.peut_ameliorer(...)
         Atelier.peut_construire(...)
         Atelier.peut_construire_machine(...)
+        Atelier.peut_ameliorer_machine(...)
         self._ingredients_objectif(...)
         Atelier.composants(...)
         Atelier.peut_fabriquer(...)
@@ -277,16 +281,16 @@ class Playtest(SceneTree):
         Sauvegarde.ecrire(...)
 
     def _sequence_video(self) -> 'void':
-        """Séquence vidéo (avec le son) : les machines du palier 1. Sur l'île, le moulin tourne et le filet ondule ;
-        un clic vide chacune ; clic sur l'emplacement libre de l'ouest, atelier (onglet Machines) : un second
-        filet à nuages ; plongée dans le Lagon de lumière ; au retour, le moulin et les filets ont produit
-        pendant la plongée. Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage
-        (tests/playtest.sh)."""
+        """Séquence vidéo (avec le son) : le palier 2. L'îlot du nord et son entrepôt, la foreuse qui creuse le filon
+        du milieu (un clic la vide), le moulin et le filet ; à l'atelier, la vitesse du moulin (bouton Vitesse)
+        puis le sac de plongée à 12 places ; plongée dans la Forêt de coraux jusqu'à remplir le sac ; au retour,
+        les machines ont produit pendant la plongée. Les trajets verticaux sont repérés (lignes « VIDEO ») pour
+        être accélérés au montage (tests/playtest.sh)."""
         self._attendre(...)
         self._cliquer(...)
         self._deplacer_souris(...)
-        self._centre(...)
         self._touche(...)
+        self._centre(...)
         self._plonger(...)
 
     def _marque_video(self, nom: 'String') -> 'void':

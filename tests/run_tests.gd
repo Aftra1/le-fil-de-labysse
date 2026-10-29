@@ -133,6 +133,12 @@ func _lancer() -> void:
 	await _test_machines_ile()
 	await _test_machines_sauvegarde()
 
+	_titre("Palier 2 : îlot du nord, foreuse solaire, entrepôt, sac à 12 places, améliorations")
+	_test_palier2_logique()
+	await _test_palier2_ile()
+	await _test_palier2_sauvegarde()
+	await _test_sac_12()
+
 	_titre("Audio : synthèse, bus, volumes, sauvegarde")
 	_test_synthese()
 	_test_bus_et_volumes()
@@ -1933,6 +1939,216 @@ func _test_machines_sauvegarde() -> void:
 		"sauvegarde d'avant les machines : aucune machine, rien de cassé")
 	await _fermer_jeu(jeu)
 	_effacer_sauvegarde()
+
+
+# --- Palier 2 --------------------------------------------------------------------------------
+
+func _ingredients(inventaire: Inventaire, ingredients: Dictionary) -> void:
+	for id: String in ingredients:
+		inventaire.ajouter(id, int(ingredients[id]))
+
+
+func _test_palier2_logique() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	_verifier(atelier.palier == 1 and not atelier.decouvrir(["cristal_lagon", "vent"]), "palier 1 au départ")
+	_ingredients(inventaire, atelier.machine("foreuse")["ingredients"])
+	_verifier(not atelier.peut_construire_machine("foreuse"), "palier 1 : la foreuse n'est pas encore proposée")
+	_verifier(atelier.decouvrir(["corail"]) and atelier.palier == 2
+		and atelier.machines_disponibles() == ["moulin", "filet", "foreuse", "entrepot"],
+		"premier corail rapporté : palier 2, foreuse solaire et entrepôt proposés")
+	_verifier(atelier.construire_machine("foreuse", "ile_ouest") == "filon_1" and inventaire.total() == 0,
+		"foreuse : 1 lentille, 4 coraux, 4 cristaux solaires ; toujours posée sur un filon (le premier libre)")
+	_verifier(atelier.emplacements_libres() == ["ile_ouest", "ile_centre"] and atelier.emplacements_libres("foreuse") == ["filon_2", "filon_3"],
+		"un filon n'est pas un emplacement au sol, et inversement")
+	for i in 2:
+		_ingredients(inventaire, atelier.machine("foreuse")["ingredients"])
+		atelier.construire_machine("foreuse")
+	_ingredients(inventaire, atelier.machine("foreuse")["ingredients"])
+	_verifier(atelier.nombre_machines("foreuse") == 3 and not atelier.peut_construire_machine("foreuse"),
+		"3 filons, 3 foreuses au plus")
+	inventaire = Inventaire.new()
+	atelier = Atelier.new(inventaire)
+	atelier.palier = 2
+	_ingredients(inventaire, atelier.machine("entrepot")["ingredients"])
+	_verifier(atelier.construire_machine("entrepot") != "" and inventaire.plafond == 199 and inventaire.ajouter("vent", 150) == 150,
+		"entrepôt : 5 coraux, 4 fils de nuage, 4 cristaux de lagon ; l'inventaire garde jusqu'à 199")
+	_ingredients(inventaire, {"corail": 4, "fil_nuage": 4})
+	_verifier(atelier.construire("pont") and atelier.est_relie("ilot_nord")
+		and atelier.emplacements_libres().has("nord_ouest") and atelier.emplacements_libres().has("nord_est"),
+		"pont suspendu : 4 coraux, 4 fils de nuage ; deux emplacements sur l'îlot du nord")
+
+	_verifier(not atelier.peut_ameliorer_machine("moulin", "vitesse"), "amélioration impossible sans moulin construit")
+	_ingredients(inventaire, atelier.machine("moulin")["ingredients"])
+	atelier.construire_machine("moulin")
+	_ingredients(inventaire, atelier.prochaine_amelioration_machine("moulin", "vitesse"))
+	_ingredients(inventaire, atelier.prochaine_amelioration_machine("moulin", "capacite"))
+	_verifier(atelier.ameliorer_machine("moulin", "vitesse") and is_equal_approx(atelier.recharge_machine("moulin"), 10.0 / 1.5),
+		"moulin, vitesse niveau 1 : 1 vent toutes les 6,7 s au lieu de 10 s")
+	_verifier(atelier.ameliorer_machine("moulin", "capacite") and atelier.plafond_machine("moulin") == 16,
+		"moulin, réserve niveau 1 : 16 au lieu de 8")
+	_verifier(atelier.prochaine_amelioration_machine("moulin", "vitesse").is_empty()
+		and not atelier.ameliorer_machine("moulin", "vitesse"), "niveau 1 : maximum de cette PR")
+	_verifier(not atelier.machines_ameliorables().has("entrepot"), "l'entrepôt ne s'améliore pas (son niveau 2 viendra au palier 3)")
+	atelier.charger_niveaux_machines({"moulin": {"vitesse": 9, "inconnu": 1}, "fusee": {"vitesse": 1}, "filet": "x"})
+	_verifier(atelier.niveaux_machines == {"moulin": {"vitesse": 1}}, "améliorations lues : bornées, inconnues ignorées",
+		str(atelier.niveaux_machines))
+
+	inventaire = Inventaire.new()
+	atelier = Atelier.new(inventaire)
+	_verifier(atelier.places_sac() == 8, "sac de départ : 8 places")
+	_ingredients(inventaire, {"corail": 4, "poche_air": 2})
+	_verifier(atelier.ameliorer("sac") and atelier.places_sac() == 12 and inventaire.total() == 0,
+		"sac de plongée : 4 coraux, 2 poches d'air ; 12 places")
+	atelier.niveaux["lanterne"] = 1
+	atelier.charger_palier(null)
+	_verifier(atelier.palier == 2, "sauvegarde sans palier : déduit de la lanterne déjà installée")
+
+
+func _test_palier2_ile() -> void:
+	var son := _son()
+	son.vider_historique()
+	var ile := await _ouvrir_ile()
+	var atelier: Node = ile.get_node("Atelier")
+	_jeu.atelier.palier = 2
+	# Foreuse sur le premier filon, depuis l'atelier.
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("foreuse")["ingredients"])
+	atelier.ouvrir()
+	atelier.choisir_onglet("machines")
+	atelier.selectionner("foreuse")
+	_verifier(atelier._effet.text.contains("filon de gauche"), "atelier : la foreuse ira sur le filon de gauche", atelier._effet.text)
+	_verifier(atelier.fabriquer_selection(), "Construire : foreuse solaire")
+	atelier.fermer()
+	await _images(2)
+	var foreuse: SourceRessource = ile.machine("filon_1")
+	var filon: SourceRessource = ile._filons[0]
+	_verifier(foreuse != null and foreuse.forme == SourceRessource.Forme.FOREUSE and filon.get_parent() == null
+		and absf(foreuse.position.x - filon.position.x) < 0.5,
+		"la foreuse prend la place du filon, qui ne se récolte plus à la main")
+	ile.rattraper(15.0)
+	var apres_15 := foreuse.stock
+	ile.rattraper(10000.0)
+	_verifier(apres_15 == 1 and foreuse.stock == 6, "foreuse : 1 cristal solaire toutes les 15 s, réserve de 6",
+		"%d puis %d" % [apres_15, foreuse.stock])
+	var solaire: int = _jeu.inventaire.quantite("cristal_solaire")
+	await _cliquer(foreuse.position)
+	_verifier(_jeu.inventaire.quantite("cristal_solaire") == solaire + 6 and son.a_joue("foreuse"),
+		"un clic sur la foreuse : 6 cristaux solaires, avec son")
+
+	# Îlot du nord : survol, construction du pont, emplacements, entrepôt.
+	_souris(ile.centre_ilot("ilot_nord"))
+	await _images(2)
+	var aide: String = ile._texte_aide()
+	_verifier(aide.contains("pont suspendu"), "survol de l'îlot du nord : l'aide parle du pont suspendu", aide)
+	await _cliquer(ile.centre_ilot("ilot_nord"))
+	_verifier(atelier.est_ouvert() and atelier.onglet == "construction" and atelier.selection == "pont",
+		"clic sur l'îlot du nord : atelier, onglet Construction, pont suspendu choisi")
+	_ingredients(_jeu.inventaire, {"corail": 4, "fil_nuage": 4})
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	await _images(2)
+	var annonce: String = ile.get_node("HUD").texte_annonce()
+	_verifier(ile.ilot_relie("ilot_nord") and annonce.contains("nord"), "pont construit : l'îlot du nord est relié", annonce)
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("entrepot")["ingredients"])
+	await _cliquer(ile.centre_emplacement("nord_est"))
+	_verifier(atelier.est_ouvert() and atelier.emplacement_cible == "nord_est", "clic sur un emplacement de l'îlot du nord")
+	atelier.selectionner("entrepot")
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	await _images(2)
+	var entrepot: SourceRessource = ile.machine("nord_est")
+	_verifier(entrepot != null and entrepot.forme == SourceRessource.Forme.ENTREPOT and _jeu.inventaire.plafond == 199,
+		"entrepôt sur l'îlot du nord : inventaire jusqu'à 199")
+	_souris(entrepot.position)
+	await _images(2)
+	_souris(entrepot.position + Vector2(1, 0))
+	await _images(2)
+	aide = ile._texte_aide()
+	_verifier(aide.contains("199"), "survol de l'entrepôt : son effet", aide)
+
+	# Amélioration du moulin par les boutons de l'atelier.
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("moulin")["ingredients"])
+	_jeu.atelier.construire_machine("moulin", "ile_ouest")
+	ile.actualiser_machines()
+	_ingredients(_jeu.inventaire, _jeu.atelier.prochaine_amelioration_machine("moulin", "vitesse"))
+	atelier.ouvrir()
+	atelier.choisir_onglet("machines")
+	atelier.selectionner("moulin")
+	_verifier(atelier._modes.visible and not atelier._titre.visible, "palier 2 : boutons Construire, Vitesse, Réserve")
+	atelier.choisir_mode("vitesse")
+	_verifier(atelier._bouton.text == "Améliorer" and not atelier._bouton.disabled and atelier._effet.text.contains("6,7"),
+		"mode Vitesse : effet et bouton Améliorer", atelier._effet.text)
+	atelier._bouton.pressed.emit()
+	atelier.fermer()
+	await _images(2)
+	_verifier(is_equal_approx(ile.machine("ile_ouest").recharge_s, 10.0 / 1.5) and son.a_joue("installation"),
+		"Améliorer : le moulin produit plus vite, son d'installation")
+
+	# Annonce du palier au retour d'une plongée (après celle du butin).
+	_jeu.atelier.palier = 1
+	ile.arriver(0.0, {"corail": 2}, {}, false)
+	await _images(2)
+	var butin: String = ile.get_node("HUD").texte_annonce()
+	await _secondes(4.2)
+	var palier: String = ile.get_node("HUD").texte_annonce()
+	_verifier(butin.contains("Butin") and palier.contains("Palier 2") and palier.contains("foreuse"),
+		"premier corail rapporté : annonce du butin, puis du palier 2", "%s / %s" % [butin, palier])
+	await _fermer_ile(ile)
+
+
+func _test_palier2_sauvegarde() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var ile: Node = jeu.get_node("Ile")
+	var atelier: Atelier = _jeu.atelier
+	atelier.palier = 2
+	_ingredients(_jeu.inventaire, atelier.machine("foreuse")["ingredients"])
+	atelier.construire_machine("foreuse", "filon_2")
+	_ingredients(_jeu.inventaire, {"corail": 4, "fil_nuage": 4})
+	atelier.construire("pont")
+	_ingredients(_jeu.inventaire, atelier.machine("entrepot")["ingredients"])
+	atelier.construire_machine("entrepot", "nord_ouest")
+	_ingredients(_jeu.inventaire, atelier.prochaine_amelioration_machine("foreuse", "capacite"))
+	atelier.ameliorer_machine("foreuse", "capacite")
+	_jeu.inventaire.ajouter("vent", 150)
+	ile.actualiser_ilot()
+	ile.actualiser_machines()
+	ile.machine("filon_2").stock = 9
+	jeu.sauvegarder()
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	var foreuse: SourceRessource = ile.machine("filon_2")
+	_verifier(_jeu.atelier.palier == 2 and foreuse != null and foreuse.plafond == 12 and foreuse.stock == 9
+		and ile._filons[1].get_parent() == null,
+		"Continuer : palier 2, foreuse sur le filon du milieu, réserve améliorée (12) et son stock")
+	_verifier(_jeu.atelier.est_relie("ilot_nord") and ile.machine("nord_ouest") != null
+		and _jeu.inventaire.plafond == 199 and _jeu.inventaire.quantite("vent") == 150,
+		"Continuer : îlot du nord, entrepôt, 150 vents gardés")
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_nouvelle))
+	await _cliquer(_centre(jeu._titre.bouton_remplacer))
+	ile = jeu.get_node("Ile")
+	_verifier(_jeu.atelier.palier == 1 and ile._filons[1].get_parent() != null and _jeu.inventaire.plafond == 99
+		and not ile.ilot_relie("ilot_nord"), "Nouvelle partie : palier 1, filons libres, inventaire à 99, îlot du nord isolé")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+func _test_sac_12() -> void:
+	await _demarrer()
+	_jeu.atelier.niveaux["sac"] = 1
+	_plongee.appliquer_ameliorations()
+	_plongee._rafraichir_sac()
+	var texte: String = _plongee.get_node("HUD")._sac.text
+	_verifier(_plongee._sac.capacite == 12 and texte.contains("/12"), "sac de plongée installé : 12 places en plongée", texte)
+	await _terminer()
+	_jeu.atelier.niveaux["sac"] = 0
 
 
 # --- Étape 4 (partie 2) : Faille volcanique ----------------------------------------------
