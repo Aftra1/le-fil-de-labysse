@@ -86,7 +86,8 @@ Tests de logique (sans fenêtre), avec PASS/FAIL pour chaque point et un total :
 godot --headless --path . --fixed-fps 60 --script res://tests/run_tests.gd
 ```
 
-ou `tests/lancer.sh` (variable `GODOT=/chemin/vers/godot` si `godot` n'est pas dans le PATH).
+ou `tests/lancer.sh` (variable `GODOT=/chemin/vers/godot` si `godot` n'est pas dans le PATH), qui vérifie aussi
+que le miroir Python est à jour (voir plus bas).
 Code de sortie 0 si tout passe, 1 sinon. Durée : quelques secondes.
 
 Captures d'écran automatiques (Xvfb + rendu logiciel Mesa), enregistrées dans `docs/captures/` (01-05 : plongée, 06-13 : île et transitions) :
@@ -125,4 +126,7 @@ Elle est utilisée à sa taille native (16 px), sans antialiasing, pour l'interf
 - `data/` : données de jeu
 - `tests/` : tests de logique et captures d'écran
 - `docs/captures/` : captures générées par `tests/captures.sh` (dossier ignoré par Godot grâce à `docs/.gdignore`)
+- `docs/miroir/` et `docs/architecture.md` : générés par `python3 tests/generer_miroir.py`. Le miroir est un fichier `.py` par
+  script (classes, fonctions, signaux, constantes et appels, internes comme entre scripts, sans la logique) pour les outils d'analyse
+  qui ne lisent pas le GDScript, comme Graphify ; l'architecture liste les scripts, leur rôle et leurs dépendances.
 - `builds/` : exports (ignorés par git)

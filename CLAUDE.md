@@ -8,6 +8,7 @@
 - Prototype avec des formes simples ; le pixel art viendra plus tard.
 - Git : pour chaque étape, créer une branche depuis `main`, travailler dessus, ouvrir une Pull Request vers `main`, et ne jamais la fusionner sans l'accord de l'utilisateur.
 - À chaque fin d'étape : lancer tous les tests (anciens et nouveaux), mettre à jour les captures, mettre les résultats et les images dans la PR. Les tests sont dans `tests/`, jamais hors du dépôt.
+- À chaque fin d'étape, aussi : régénérer le miroir Python et l'architecture avec `python3 tests/generer_miroir.py` (docs/miroir/ et docs/architecture.md, lus par Graphify qui ne lit pas le GDScript) et les committer ; `tests/lancer.sh` échoue s'ils ne sont pas à jour.
 
 ## Technique
 - Godot 4.7, GDScript typé, cible Windows.
