@@ -111,6 +111,7 @@ class Jeu(Node2D):
         Inventaire.depuis_dictionnaire(...)
         Atelier.charger_niveaux(...)
         Atelier.charger_ilots(...)
+        Atelier.charger_machines(...)
         Ile.restaurer_sources(...)
         Ile.rattraper(...)
         Sauvegarde.secondes_depuis(...)

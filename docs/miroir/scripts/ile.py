@@ -5,6 +5,8 @@
 atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace).
 À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île,
 et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons).
+Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ;
+une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne).
 Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
@@ -39,6 +41,9 @@ class Ile(Node2D):
     MONTEE_EFFET = 18.0
     K = 0.5
     SONS_RECOLTE = ...
+    FORMES_MACHINES = ...
+    ZONE_EMPLACEMENT = ...
+    RAYON_MACHINE = 16.0
     plongee_demandee = Signal('')
     partie_modifiee = Signal('')
     cloche_visible: 'bool'
@@ -47,6 +52,8 @@ class Ile(Node2D):
     _filons: 'Array[SourceRessource]'
     _bassin: SourceRessource
     _survol_ilot: 'bool'
+    _survol_emplacement: 'String'
+    _machines: 'Dictionary'
     _souris: 'Vector2'
     _survol_cloche: 'bool'
     _survol_cabane: 'bool'
@@ -97,6 +104,8 @@ class Ile(Node2D):
         Atelier.niveau(...)
         Son.jouer(...)
         self.actualiser_ilot(...)
+        self.actualiser_machines(...)
+        Atelier.nom_machine(...)
         Game.nom_ressource(...)
         InterfaceIle.rafraichir_inventaire(...)
         self.partie_modifiee.emit(...)
@@ -124,6 +133,7 @@ class Ile(Node2D):
         PanneauInventaire.fermer(...)
         PanneauAtelier.ouvrir(...)
         PanneauAtelier.choisir_onglet(...)
+        PanneauAtelier.ouvrir_machines(...)
         self._recolter(...)
 
     def _gerer_maintien(self, delta: 'float') -> 'void':
@@ -162,6 +172,7 @@ class Ile(Node2D):
         self._source_sous_souris(...)
         self.ilot_relie(...)
         self._souris_sur_ilot(...)
+        self._emplacement_sous_souris(...)
         SourceRessource.est_disponible(...)
 
     def _texte_aide(self) -> 'String':
@@ -172,6 +183,25 @@ class Ile(Node2D):
         self._nouvelle_source(...)
         self._vecteur(...)
         self.actualiser_ilot(...)
+
+    def actualiser_machines(self) -> 'void':
+        """Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie)."""
+        Atelier.machine(...)
+        Atelier.nom_machine(...)
+        self.centre_emplacement(...)
+
+    def machine(self, lieu: 'String') -> SourceRessource:
+        """Machine posée sur un emplacement (null s'il est libre)."""
+        ...
+
+    def centre_emplacement(self, lieu: 'String') -> 'Vector2':
+        """Centre de la zone cliquable d'un emplacement (640x360), au-dessus du sol."""
+        self._vecteur(...)
+        Atelier.emplacement(...)
+
+    def _emplacement_sous_souris(self) -> 'String':
+        Atelier.emplacements_libres(...)
+        self.centre_emplacement(...)
 
     def ilot_relie(self) -> 'bool':
         Atelier.est_relie(...)
@@ -252,11 +282,13 @@ class Ile(Node2D):
         self.reinitialiser_sources(...)
         SourceRessource.restaurer(...)
         self.actualiser_ilot(...)
+        self.actualiser_machines(...)
 
     def reinitialiser_sources(self) -> 'void':
         """Sources remises à leur stock de départ (nouvelle partie)."""
         SourceRessource.restaurer(...)
         self.actualiser_ilot(...)
+        self.actualiser_machines(...)
         InterfaceIle.rafraichir_inventaire(...)
 
     def _total(self, butin: 'Dictionary') -> 'int':
@@ -273,6 +305,7 @@ class Ile(Node2D):
         SourceRessource.dessiner_monde(...)
         self._dessiner_cabane(...)
         self._dessiner_ilot(...)
+        self._dessiner_emplacements(...)
         VueMonde.vers_monde(...)
         ArtIle.cloche(...)
         Palette.couleur(...)
@@ -304,7 +337,19 @@ class Ile(Node2D):
         Pixel.cadre(...)
         self.centre_ilot(...)
 
+    def _dessiner_emplacements(self, toile: 'Node2D') -> 'void':
+        """Emplacements libres : une dalle de pierre et, au-dessus, la silhouette en pointillés or d'une machine."""
+        Atelier.emplacements_libres(...)
+        VueMonde.vers_monde(...)
+        self._vecteur(...)
+        Atelier.emplacement(...)
+        Palette.couleur(...)
+        Pixel.cadre(...)
+        self.centre_emplacement(...)
+
     def _fabrication_possible(self) -> 'bool':
+        Atelier.liste_machines(...)
+        Atelier.peut_construire_machine(...)
         Atelier.peut_construire(...)
         Atelier.composants(...)
         Atelier.peut_fabriquer(...)

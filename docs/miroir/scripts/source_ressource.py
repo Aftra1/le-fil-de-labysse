@@ -1,11 +1,12 @@
 # Fichier généré automatiquement, ne pas modifier.
 # Source : scripts/source_ressource.gd (le jeu n'utilise que le GDScript).
 # Régénérer : python3 tests/generer_miroir.py
-"""Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot).
+"""Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot)
+ou machine construite sur un emplacement (moulin à vent, filet à nuages).
 Trois façons de récolter :
 - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
-- RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne).
+- RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne, machines).
 Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 """
 
@@ -31,14 +32,19 @@ class SourceRessource(Node2D):
         FILON = 1
         NUAGE = 2
         BASSIN = 3
+        MOULIN = 4
+        FILET = 5
 
     VITESSE_PALES = 1.6
+    VITESSE_AILES = 1.1
+    HAUTEUR_MACHINE = 8
     IMAGES_PAR_SECONDE = 60
     K = 0.5
     FILON = ...
     TAILLE_NUAGE = ...
     HAUTEUR_MAT = 25
     id_ressource: 'String'
+    nom: 'String'
     mode: 'Mode'
     forme: 'Forme'
     stock: 'int'
@@ -89,6 +95,8 @@ class SourceRessource(Node2D):
         self._dessiner_filon(...)
         self._dessiner_nuage(...)
         self._dessiner_bassin(...)
+        self._dessiner_moulin(...)
+        self._dessiner_filet(...)
         self.est_disponible(...)
         Pixel.sprite(...)
         Pixel.anneau(...)
@@ -105,6 +113,18 @@ class SourceRessource(Node2D):
         """Bassin de lumière : une flaque du lagon creusée dans l'herbe, qui scintille quand elle est pleine."""
         Palette.couleur(...)
         self.est_disponible(...)
+        ArtAbysse.temps(...)
+        self._dessiner_points(...)
+
+    def _dessiner_moulin(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
+        """Moulin à vent : petite tour de bois au toit sombre, quatre ailes de toile sur une armature, qui
+        tournent tant qu'il produit (elles s'arrêtent quand la réserve est pleine : il est temps de la vider)."""
+        Palette.couleur(...)
+        self._dessiner_points(...)
+
+    def _dessiner_filet(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
+        """Filet à nuages : deux poteaux, un filet qui ondule au vent et les ouates prises dans ses mailles."""
+        Palette.couleur(...)
         ArtAbysse.temps(...)
         self._dessiner_points(...)
 

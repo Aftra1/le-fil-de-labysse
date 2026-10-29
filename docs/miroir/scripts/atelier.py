@@ -5,7 +5,8 @@
 et installe les améliorations de la cloche, niveau par niveau.
 Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json.
 Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux).
-Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié).
+Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié)
+et les machines de l'île (data/machines.json), chacune sur un emplacement libre.
 """
 
 from __future__ import annotations
@@ -21,8 +22,10 @@ class Atelier(RefCounted):
     inventaire: Inventaire
     niveaux: 'Dictionary'
     ilots_relies: 'Array'
+    machines: 'Dictionary'
     _recettes: 'Dictionary'
     _effets: 'Dictionary'
+    _machines: 'Dictionary'
 
     def _init(self, inventaire_joueur: Inventaire) -> 'void':
         Donnees.charger_json(...)
@@ -115,6 +118,60 @@ class Atelier(RefCounted):
     def charger_ilots(self, donnees: 'Array') -> 'void':
         """Îlots lus depuis une sauvegarde : seuls les îlots connus sont gardés, sans doublon."""
         self.ilot_de(...)
+
+    def liste_machines(self) -> 'Array':
+        """Identifiants des machines, dans l'ordre du fichier de données."""
+        ...
+
+    def machine(self, id: 'String') -> 'Dictionary':
+        """Réglages d'une machine : nom, ressource, recharge_s, plafond, ingredients, effet."""
+        ...
+
+    def nom_machine(self, id: 'String') -> 'String':
+        self.machine(...)
+
+    def emplacements(self) -> 'Array':
+        """Emplacements : [{ id, nom, position, ilot }], dans l'ordre du fichier de données."""
+        ...
+
+    def emplacement(self, id: 'String') -> 'Dictionary':
+        self.emplacements(...)
+
+    def emplacement_accessible(self, id: 'String') -> 'bool':
+        """Un emplacement est utilisable s'il est sur l'île ou sur un îlot relié."""
+        self.emplacement(...)
+        self.est_relie(...)
+
+    def emplacement_libre(self, id: 'String') -> 'bool':
+        self.emplacement_accessible(...)
+
+    def emplacements_libres(self) -> 'Array':
+        """Emplacements accessibles et libres, dans l'ordre du fichier de données."""
+        self.emplacements(...)
+        self.emplacement_libre(...)
+
+    def nombre_machines(self, id: 'String') -> 'int':
+        """Nombre de machines « id » construites."""
+        ...
+
+    def peut_construire_machine(self, id: 'String') -> 'bool':
+        self.emplacements_libres(...)
+        self.manquants(...)
+        self.machine(...)
+
+    def construire_machine(self, id: 'String', cible: 'String') -> 'String':
+        """Construit la machine sur « cible » si cet emplacement est libre, sinon sur le premier libre.
+        Renvoie l'emplacement choisi (vide si la construction est impossible)."""
+        self.peut_construire_machine(...)
+        self.emplacement_libre(...)
+        self.emplacements_libres(...)
+        self._payer(...)
+        self.machine(...)
+
+    def charger_machines(self, donnees: 'Dictionary') -> 'void':
+        """Machines lues depuis une sauvegarde : emplacements et machines inconnus ignorés.
+        À appeler après charger_ilots (un emplacement d'îlot n'existe que si l'îlot est relié)."""
+        self.emplacement_libre(...)
 
     def longueur_cable_m(self) -> 'float':
         self._effet(...)

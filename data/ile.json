@@ -33,7 +33,7 @@
 		"passerelle": [[492, 196], [554, 194]],
 		"bassin": {
 			"ressource": "cristal_lagon",
-			"position": [586, 194],
+			"position": [604, 194],
 			"plafond": 3,
 			"recharge_s": 45.0,
 			"duree_maintien": 1.0,

@@ -3,7 +3,8 @@ extends SceneTree
 ## souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'inventaire.
 ##
 ## Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
-## → fils de nuage → câble tressé → plongées dans la Forêt de coraux → lanterne et réservoir →
+## → fils de nuage → câble tressé → moulin à vent (clic sur un emplacement libre) → plongées dans la
+## Forêt de coraux → lanterne → filet à nuages → réservoir →
 ## passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
 ## (pierre de braise) → lanterne de niveau 2 → récolte du bassin de lumière sur l'îlot.
 ##
@@ -19,7 +20,8 @@ extends SceneTree
 ##
 ## Mesures (temps de jeu, 60 images par seconde) écrites dans le fichier passé après « -- » :
 ##   godot --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- --profil=humain --sortie=<fichier.json>
-## Mode vidéo (séquence courte d'environ 40 s, pour Movie Maker) : -- --video
+## Les machines sont vidées d'un clic quand leur ressource manque (avant l'éolienne et les nuages).
+## Mode vidéo (séquence courte avec les machines, pour Movie Maker) : -- --video
 ## Voir tests/playtest.sh et docs/playtest.md.
 
 const IPS := 60.0                         # images de physique par seconde
@@ -58,7 +60,9 @@ const VITESSE_APPROCHE := 35.0
 # Objectifs, dans l'ordre où un joueur les poursuit : [genre, id, niveau visé]
 const OBJECTIFS := [
 	["amelioration", "cable", 1],
+	["machine", "moulin", 1],
 	["amelioration", "lanterne", 1],
+	["machine", "filet", 1],
 	["amelioration", "reservoir", 1],
 	["construction", "passerelle", 1],
 	["amelioration", "reservoir", 2],
@@ -90,6 +94,8 @@ var _evenements: Array = []               # [temps_s, texte]
 var _manques := {}                        # ressource -> secondes passées à l'attendre sur l'île
 var _fabrications := {}                   # id -> nombre
 var _bassin_recolte := 0
+var _machines_construites: Array = []     # [temps_s, machine, emplacement]
+var _machines_recolte := {}               # ressource -> unités récoltées sur les machines
 
 
 func _initialize() -> void:
@@ -194,8 +200,14 @@ func _objectifs_restants() -> Array:
 	var atelier: Atelier = _game.atelier
 	var restants: Array = []
 	for objectif: Array in OBJECTIFS:
-		var fait := atelier.niveau(objectif[1]) >= int(objectif[2]) if objectif[0] == "amelioration" \
-			else atelier.est_construite(objectif[1])
+		var fait := false
+		match objectif[0]:
+			"amelioration":
+				fait = atelier.niveau(objectif[1]) >= int(objectif[2])
+			"machine":
+				fait = atelier.nombre_machines(objectif[1]) >= int(objectif[2])
+			_:
+				fait = atelier.est_construite(objectif[1])
 		if not fait:
 			restants.append(objectif)
 	return restants
@@ -205,6 +217,8 @@ func _ingredients_objectif(objectif: Array) -> Dictionary:
 	var atelier: Atelier = _game.atelier
 	if objectif[0] == "amelioration":
 		return atelier.recette_niveau(objectif[1], int(objectif[2]))["ingredients"]
+	if objectif[0] == "machine":
+		return atelier.machine(objectif[1])["ingredients"]
 	return atelier.ingredients_construction(objectif[1])
 
 
@@ -235,6 +249,15 @@ func _atteignable(minerai: String, limite_px: float) -> bool:
 ## Récolte ce qui sert aux objectifs et qui est disponible ; vrai si quelque chose a été fait.
 func _recolter_utile(besoins: Dictionary) -> bool:
 	var a_fait := false
+	# Machines d'abord : un clic vide toute leur réserve.
+	for lieu: String in _game.atelier.machines:
+		var machine: SourceRessource = _ile.machine(lieu)
+		if machine != null and machine.stock > 0 and _besoins().has(machine.id_ressource):
+			var avant: int = _game.inventaire.quantite(machine.id_ressource)
+			await _cliquer(machine.position)
+			_machines_recolte[machine.id_ressource] = int(_machines_recolte.get(machine.id_ressource, 0)) \
+				+ _game.inventaire.quantite(machine.id_ressource) - avant
+			a_fait = true
 	var eolienne: SourceRessource = _ile._eolienne
 	if besoins.has("vent") and eolienne.stock > 0:
 		await _cliquer(eolienne.position)
@@ -314,7 +337,13 @@ func _fabriquer_tout() -> void:
 	if plan.is_empty():
 		return
 	_fin_attente()
-	await _touche(KEY_C)
+	if plan[0] == "machines":
+		# Comme un joueur : clic sur un emplacement libre, l'atelier s'ouvre sur l'onglet Machines.
+		var libre: String = _game.atelier.emplacements_libres()[0]
+		await _deplacer_souris(_ile.centre_emplacement(libre))
+		await _cliquer(_ile.centre_emplacement(libre))
+	else:
+		await _touche(KEY_C)
 	await _attendre(_profil["reflexion"])
 	while not plan.is_empty():
 		var onglet: String = plan[0]
@@ -327,6 +356,8 @@ func _fabriquer_tout() -> void:
 		await _attendre(_profil["reflexion"])
 		await _cliquer(_centre(_atelier_ui._bouton))
 		_fabrications[id] = int(_fabrications.get(id, 0)) + 1
+		if onglet == "machines":
+			_machines_construites.append([_secondes(), id, _atelier_ui.dernier_emplacement])
 		_noter("Atelier : %s" % id)
 		plan = _prochaine_fabrication()
 	await _touche(KEY_C)
@@ -345,6 +376,8 @@ func _prochaine_fabrication() -> Array:
 			return ["ameliorations", objectif[1]]
 		if objectif[0] == "construction" and atelier.peut_construire(objectif[1]):
 			return ["construction", objectif[1]]
+		if objectif[0] == "machine" and atelier.peut_construire_machine(objectif[1]):
+			return ["machines", objectif[1]]
 		var ingredients := _ingredients_objectif(objectif)
 		for id: String in ingredients:
 			if atelier.composants().has(id) and _game.inventaire.quantite(id) < int(ingredients[id]) \
@@ -619,37 +652,42 @@ func _pousser(distance: float, vitesse: float) -> bool:
 ## deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2).
 func _preparer_sauvegarde_video() -> void:
 	Sauvegarde.ecrire({
-		"inventaire": {"vent": 3, "nuage": 4, "cristal_solaire": 2, "cristal_lagon": 3, "corail": 2,
-			"lentille": 2, "pierre_braise": 2},
-		"ameliorations": {"cable": 2, "lanterne": 1, "reservoir": 1},
+		"inventaire": {"vent": 2, "nuage": 3, "cristal_solaire": 2, "cristal_lagon": 2, "fil_nuage": 3},
+		"ameliorations": {"cable": 1, "lanterne": 1, "reservoir": 1},
 		"ilots": ["ilot_est"],
-		"ile": {},
+		"machines": {"ile_centre": "moulin", "ilot_est": "filet"},
+		"ile": {"machines": {"ile_centre": {"stock": 5, "recharge": 0.0}, "ilot_est": {"stock": 7, "recharge": 0.0}}},
 	})
 
 
-## Séquence vidéo (avec le son) : île (nuage, éolienne), descente, plongée à travers le Lagon, la Forêt de
-## coraux et la Faille volcanique, minage de pierres de braise jusqu'à ce que l'air impose de remonter
-## (bips d'oxygène bas pendant la remontée), atelier (lanterne de niveau 2). Les trajets verticaux sont
-## repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh).
+## Séquence vidéo (avec le son) : les machines du palier 1. Sur l'île, le moulin tourne et le filet ondule ;
+## un clic vide chacune ; clic sur l'emplacement libre de l'ouest, atelier (onglet Machines) : un second
+## filet à nuages ; plongée dans le Lagon de lumière ; au retour, le moulin et les filets ont produit
+## pendant la plongée. Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage
+## (tests/playtest.sh).
 func _sequence_video() -> void:
-	await _attendre(2.5)
-	var nuage := _nuage_visible()
-	if nuage != null:
-		await _cliquer(nuage.position)
-	await _attendre(0.8)
-	await _cliquer(_ile._eolienne.position)
+	await _attendre(3.0)
+	await _cliquer(_ile.machine("ile_centre").position)
+	await _attendre(1.2)
+	await _cliquer(_ile.machine("ilot_est").position)
 	await _attendre(1.5)
-	await _plonger({"pierre_braise": 8})
-	await _touche(KEY_C)
+	await _deplacer_souris(_ile.centre_emplacement("ile_ouest"))
+	await _attendre(1.2)
+	await _cliquer(_ile.centre_emplacement("ile_ouest"))
 	await _attendre(1.0)
-	await _cliquer(_centre(_atelier_ui._onglets["ameliorations"]))
 	for bouton in _atelier_ui._liste.get_children():
-		if bouton.get_meta("id") == "lanterne":
+		if bouton.get_meta("id") == "filet":
 			await _cliquer(_centre(bouton))
-	await _attendre(1.5)
-	await _cliquer(_centre(_atelier_ui._bouton))
 	await _attendre(2.0)
+	await _cliquer(_centre(_atelier_ui._bouton))
+	await _attendre(1.0)
 	await _touche(KEY_C)
+	await _attendre(3.5)
+	await _plonger({"cristal_lagon": 4})
+	await _attendre(2.0)
+	await _cliquer(_ile.machine("ile_centre").position)
+	await _attendre(1.0)
+	await _cliquer(_ile.machine("ile_ouest").position)
 	await _attendre(2.5)
 
 
@@ -702,6 +740,8 @@ func _ecrire_mesures() -> void:
 		"ameliorations": _game.atelier.niveaux,
 		"ilots": _game.atelier.ilots_relies,
 		"bassin_recolte": _bassin_recolte,
+		"machines_construites": _machines_construites,
+		"machines_recolte": _machines_recolte,
 		"evenements": _evenements,
 		"termine": _objectifs_restants().is_empty(),
 	}

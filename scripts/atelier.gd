@@ -4,7 +4,8 @@ extends RefCounted
 ## et installe les améliorations de la cloche, niveau par niveau.
 ## Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json.
 ## Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux).
-## Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié).
+## Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié)
+## et les machines de l'île (data/machines.json), chacune sur un emplacement libre.
 
 const AMELIORATIONS := ["cable", "lanterne", "reservoir"]
 const CONSTRUCTIONS := ["passerelle"]
@@ -14,15 +15,19 @@ var inventaire: Inventaire
 var niveaux: Dictionary = {}
 ## Îlots reliés à l'île par une construction : [ "ilot_est", ... ]
 var ilots_relies: Array = []
+## Machines construites : { emplacement: machine }, ex. { "ile_ouest": "moulin" }.
+var machines: Dictionary = {}
 
 var _recettes: Dictionary = {}
 var _effets: Dictionary = {}
+var _machines: Dictionary = {}
 
 
 func _init(inventaire_joueur: Inventaire) -> void:
 	inventaire = inventaire_joueur
 	_recettes = Donnees.charger_json("res://data/recettes.json")
 	_effets = Donnees.charger_json("res://data/ameliorations.json")
+	_machines = Donnees.charger_json("res://data/machines.json")
 	for id: String in AMELIORATIONS:
 		niveaux[id] = 0
 
@@ -148,6 +153,86 @@ func charger_ilots(donnees: Array) -> void:
 		var ilot := ilot_de(id)
 		if donnees.has(ilot) and not ilots_relies.has(ilot):
 			ilots_relies.append(ilot)
+
+
+# --- Machines et emplacements -------------------------------------------------------------
+
+## Identifiants des machines, dans l'ordre du fichier de données.
+func liste_machines() -> Array:
+	return (_machines["machines"] as Dictionary).keys()
+
+
+## Réglages d'une machine : nom, ressource, recharge_s, plafond, ingredients, effet.
+func machine(id: String) -> Dictionary:
+	return _machines["machines"][id]
+
+
+func nom_machine(id: String) -> String:
+	return str(machine(id)["nom"])
+
+
+## Emplacements : [{ id, nom, position, ilot }], dans l'ordre du fichier de données.
+func emplacements() -> Array:
+	return _machines["emplacements"]
+
+
+func emplacement(id: String) -> Dictionary:
+	for donnees: Dictionary in emplacements():
+		if str(donnees["id"]) == id:
+			return donnees
+	return {}
+
+
+## Un emplacement est utilisable s'il est sur l'île ou sur un îlot relié.
+func emplacement_accessible(id: String) -> bool:
+	var donnees := emplacement(id)
+	if donnees.is_empty():
+		return false
+	var ilot := str(donnees["ilot"])
+	return ilot == "" or est_relie(ilot)
+
+
+func emplacement_libre(id: String) -> bool:
+	return emplacement_accessible(id) and not machines.has(id)
+
+
+## Emplacements accessibles et libres, dans l'ordre du fichier de données.
+func emplacements_libres() -> Array:
+	var resultat: Array = []
+	for donnees: Dictionary in emplacements():
+		if emplacement_libre(str(donnees["id"])):
+			resultat.append(str(donnees["id"]))
+	return resultat
+
+
+## Nombre de machines « id » construites.
+func nombre_machines(id: String) -> int:
+	return machines.values().count(id)
+
+
+func peut_construire_machine(id: String) -> bool:
+	return not emplacements_libres().is_empty() and manquants(machine(id)["ingredients"]).is_empty()
+
+
+## Construit la machine sur « cible » si cet emplacement est libre, sinon sur le premier libre.
+## Renvoie l'emplacement choisi (vide si la construction est impossible).
+func construire_machine(id: String, cible: String = "") -> String:
+	if not peut_construire_machine(id):
+		return ""
+	var lieu := cible if emplacement_libre(cible) else str(emplacements_libres()[0])
+	_payer(machine(id)["ingredients"])
+	machines[lieu] = id
+	return lieu
+
+
+## Machines lues depuis une sauvegarde : emplacements et machines inconnus ignorés.
+## À appeler après charger_ilots (un emplacement d'îlot n'existe que si l'îlot est relié).
+func charger_machines(donnees: Dictionary) -> void:
+	machines.clear()
+	for lieu: String in donnees:
+		var id = donnees[lieu]
+		if id is String and _machines["machines"].has(id) and emplacement_libre(lieu):
+			machines[lieu] = id
 
 
 # --- Effets des niveaux installés -------------------------------------------------------------

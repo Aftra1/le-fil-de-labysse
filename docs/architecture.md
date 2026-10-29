@@ -30,7 +30,7 @@
 | `scripts/pixel.gd` | Pixel | RefCounted | Outils de dessin « pixel art » : tout est dessiné au pixel entier, sans antialiasing. |
 | `scripts/sac.gd` | Sac | RefCounted | Le sac de la cloche : une unité de minerai = un emplacement. |
 | `scripts/sauvegarde.gd` | Sauvegarde | RefCounted | Sauvegarde locale de la partie : un fichier JSON dans user:// (dossier « Le Fil de l'Abysse », voir project.godot : %APPDATA%\Le Fil de l'Abysse sous Windows). |
-| `scripts/source_ressource.gd` | SourceRessource | Node2D | Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot). |
+| `scripts/source_ressource.gd` | SourceRessource | Node2D | Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot) ou machine construite sur un emplacement (moulin à vent, filet à nuages). |
 | `scripts/synthe.gd` | Synthe | RefCounted | Sons du jeu, synthétisés en code au démarrage (aucun fichier audio) : chaque son est calculé une fois en échantillons, puis rangé dans un AudioStreamWAV (mono, 16 bits). |
 | `scripts/transition.gd` | Transition | Node2D | Transition entre l'île et la plongée : la cloche descend du ciel jusqu'à l'océan (ou remonte), la caméra la suit à travers 3 calques de nuages en parallaxe. |
 | `scripts/vue_monde.gd` | VueMonde | Node2D | Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360). |
@@ -132,16 +132,16 @@ Pixel art du monde du haut (île, ciel, nuages, cloche, interface), généré en
   - `cabane(allumee)` : Cabane de l'atelier (monde 320x180) ; fenêtre allumée quand une fabrication est possible.
   - `ilot(relie)`
   - `icone_construction(_id)` : Icône d'une construction (atelier).
+  - `icone_machine(id)` : Icône d'une machine de l'île (atelier, onglet Machines).
   - `icone_amelioration(id)` : Icône d'une amélioration de la cloche (atelier).
   - `icone(id, k)` : Icône d'une ressource (inventaire, barre de ressources).
-  - `cadre(k, fond, bord)` : fond : ton de crème du centre (« interface.4 » normal, « .5 » survol, « .3 » appui).
-  - … et 3 autres
+  - … et 4 autres
 - **Dépend de** : ArtAbysse, Palette, Pixel
 - **Utilisé par** : ArtAbysse, Dive, Game, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauInventaire, SourceRessource, Transition
 
 ### `scripts/atelier.gd` : Atelier
 
-Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json) et installe les améliorations de la cloche, niveau par niveau. Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json. Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux). Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié).
+Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json) et installe les améliorations de la cloche, niveau par niveau. Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json. Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux). Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié) et les machines de l'île (data/machines.json), chacune sur un emplacement libre.
 
 - **Hérite de** : RefCounted
 - **Fonctions principales** :
@@ -165,19 +165,20 @@ Atelier de l'île : fabrique des composants à partir des ressources (data/recet
   - `est_construite(id)`
   - `est_relie(ilot)`
   - `peut_construire(id)`
-  - … et 7 autres
+  - … et 19 autres
 - **Dépend de** : Donnees, Inventaire
 - **Utilisé par** : Captures, Dive, Game, Ile, Jeu, PanneauAtelier, Playtest, RunTests
 
 ### `scripts/atelier_ui.gd` : PanneauAtelier
 
-Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. En haut, trois onglets (composants, améliorations, construction) ; à gauche, la liste des recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton Fabriquer, Installer ou Construire. S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
+Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. En haut, quatre onglets (composants, améliorations, construction, machines) ; à gauche, la liste des recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton Fabriquer, Installer ou Construire. Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible), ou à défaut sur le premier emplacement libre. S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 
 - **Hérite de** : CanvasLayer
 - **Signaux** : `fabrique(id: String, genre: String)`
 - **Fonctions principales** :
   - `est_ouvert()`
   - `ouvrir()`
+  - `ouvrir_machines(emplacement)` : Ouvre l'onglet Machines pour construire sur cet emplacement (clic sur un emplacement libre).
   - `fermer()`
   - `basculer()`
   - `choisir_onglet(nom)`
@@ -283,12 +284,15 @@ Interface de l'île (640x360) : bouton d'inventaire, barre des ressources, annon
 
 ### `scripts/ile.gd` : Ile
 
-L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire, atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace). À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île, et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons). Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()). Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause). Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
+L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire, atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace). À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île, et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons). Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ; une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne). Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()). Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause). Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
 - **Hérite de** : Node2D
 - **Signaux** : `plongee_demandee`, `partie_modifiee`
 - **Fonctions principales** :
   - `panneau_ouvert()` : Un seul panneau ouvert à la fois (inventaire ou atelier).
+  - `actualiser_machines()` : Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie).
+  - `machine(lieu)` : Machine posée sur un emplacement (null s'il est libre).
+  - `centre_emplacement(lieu)` : Centre de la zone cliquable d'un emplacement (640x360), au-dessus du sol.
   - `ilot_relie()`
   - `actualiser_ilot()` : Le bassin n'existe sur l'île (récolte, recharge, dessin) que si l'îlot est relié.
   - `bassin()`
@@ -456,7 +460,7 @@ Sauvegarde locale de la partie : un fichier JSON dans user:// (dossier « Le Fil
 
 ### `scripts/source_ressource.gd` : SourceRessource
 
-Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot). Trois façons de récolter : - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ; - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ; - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne). Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
+Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot) ou machine construite sur un emplacement (moulin à vent, filet à nuages). Trois façons de récolter : - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ; - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ; - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne, machines). Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 
 - **Hérite de** : Node2D
 - **Fonctions principales** :
@@ -521,10 +525,10 @@ Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360).
 
 ### `tests/captures.gd` : Captures
 
-Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée. Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
+Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 - **Hérite de** : SceneTree
-- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`, `_gisement_proche`, `_placer_pres_de`, `_vers_fenetre`, `_souris`
+- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`, `_gisement_proche`, `_placer_pres_de`, `_vers_fenetre`
 - **Dépend de** : ArtAbysse, Atelier, Dive, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, VueMonde
 
 ### `tests/playtest.gd` : Playtest

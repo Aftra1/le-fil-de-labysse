@@ -1,0 +1,27 @@
+{
+	"emplacements": [
+		{ "id": "ile_ouest", "nom": "île, ouest", "position": [166, 198], "ilot": "" },
+		{ "id": "ile_centre", "nom": "île, centre", "position": [250, 198], "ilot": "" },
+		{ "id": "ilot_est", "nom": "îlot de l'est", "position": [566, 196], "ilot": "ilot_est" }
+	],
+	"machines": {
+		"moulin": {
+			"nom": "Moulin à vent",
+			"palier": 1,
+			"ressource": "vent",
+			"recharge_s": 10.0,
+			"plafond": 8,
+			"ingredients": { "fil_nuage": 2, "cristal_lagon": 3, "cristal_solaire": 2 },
+			"effet": "1 vent toutes les 10 s, 8 au plus. Produit en plongée et jeu fermé."
+		},
+		"filet": {
+			"nom": "Filet à nuages",
+			"palier": 1,
+			"ressource": "nuage",
+			"recharge_s": 6.0,
+			"plafond": 10,
+			"ingredients": { "fil_nuage": 3, "cristal_lagon": 2 },
+			"effet": "1 ouate toutes les 6 s, 10 au plus. Produit en plongée et jeu fermé."
+		}
+	}
+}

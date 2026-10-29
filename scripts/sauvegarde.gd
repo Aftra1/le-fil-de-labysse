@@ -4,7 +4,8 @@ extends RefCounted
 ## voir project.godot : %APPDATA%\Le Fil de l'Abysse sous Windows).
 ##
 ## Contenu : { "version", "horodatage" (secondes Unix), "inventaire" { id: nombre },
-## "ameliorations" { id: niveau }, "ilots" [ids reliés], "ile" { état des sources },
+## "ameliorations" { id: niveau }, "ilots" [ids reliés], "machines" { emplacement: machine },
+## "ile" { état des sources, machines comprises },
 ## "reglages" { "musique", "effets" : volumes de 0 à 1 } }.
 ## Ce module ne connaît que le fichier : la validation des identifiants et des valeurs est faite
 ## par ceux qui chargent (Inventaire, Atelier, Ile, Son), qui ignorent ou bornent ce qui est faux.
@@ -105,7 +106,8 @@ static func migrer(donnees: Dictionary) -> Dictionary:
 		version = 1
 	resultat["version"] = version
 	# Types attendus : tout champ d'un mauvais type est remplacé par une valeur vide.
-	for cle: String in ["inventaire", "ameliorations", "ile", "reglages"]:
+	# « machines » est apparu sans changer de version : absent, il vaut une liste vide.
+	for cle: String in ["inventaire", "ameliorations", "ile", "reglages", "machines"]:
 		if not resultat.get(cle) is Dictionary:
 			resultat[cle] = {}
 	if not resultat.get("ilots") is Array:

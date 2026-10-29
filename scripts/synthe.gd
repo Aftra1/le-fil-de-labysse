@@ -12,7 +12,7 @@ const DUREE_BOUCLE := 8.0    # secondes
 const CRETE := 0.9           # niveau maximal d'un son (marge avant saturation)
 
 const EFFETS := ["clic", "nuage", "vent", "cristal", "bassin", "minage", "unite", "sac_plein",
-	"oxygene_bas", "craquement", "remontee_auto", "fabrication", "installation", "construction", "souffle"]
+	"oxygene_bas", "craquement", "remontee_auto", "fabrication", "installation", "construction", "souffle", "machine"]
 const AMBIANCES := ["ile", "lagon", "coraux", "faille"]
 
 static var _hasard := RandomNumberGenerator.new()
@@ -65,6 +65,11 @@ static func effet(id: String) -> AudioStreamWAV:
 			return _wav(_construction(), FREQ)
 		"souffle":
 			return _wav(_bruit_filtre(2.2, 500.0, 0.9, 1.1, 0.35), FREQ)
+		"machine":
+			# Récolte d'une machine : petit claquement de bois, puis deux notes douces qui montent.
+			var son := _coup(0.05, 190.0, 0.3)
+			son.append_array(_arpege([587.3, 880.0], 0.08, 0.32, 0.4))
+			return _wav(son, FREQ)
 	push_warning("Son inconnu : %s" % id)
 	return _wav(PackedFloat32Array([0.0]), FREQ)
 

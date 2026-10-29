@@ -128,6 +128,11 @@ func _lancer() -> void:
 	await _test_ilot_ile()
 	await _test_ilot_sauvegarde()
 
+	_titre("Machines (palier 1) : emplacements, moulin à vent, filet à nuages")
+	_test_machines_logique()
+	await _test_machines_ile()
+	await _test_machines_sauvegarde()
+
 	_titre("Audio : synthèse, bus, volumes, sauvegarde")
 	_test_synthese()
 	_test_bus_et_volumes()
@@ -1739,6 +1744,178 @@ func _test_ilot_sauvegarde() -> void:
 	await _images(2)
 	ile = jeu.get_node("Ile")
 	_verifier(ile.ilot_relie() and ile.bassin().stock == 1, "sauvegarde sans état du bassin : stock de départ (1)")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+# --- Machines (palier 1) -------------------------------------------------------------------
+
+func _ingredients_moulin(inventaire: Inventaire) -> void:
+	inventaire.ajouter("fil_nuage", 2)
+	inventaire.ajouter("cristal_lagon", 3)
+	inventaire.ajouter("cristal_solaire", 2)
+
+
+func _ingredients_filet(inventaire: Inventaire) -> void:
+	inventaire.ajouter("fil_nuage", 3)
+	inventaire.ajouter("cristal_lagon", 2)
+
+
+func _test_machines_logique() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	_verifier(atelier.liste_machines() == ["moulin", "filet"], "palier 1 : moulin à vent et filet à nuages")
+	_verifier(atelier.emplacements().size() == 3 and atelier.emplacements_libres() == ["ile_ouest", "ile_centre"],
+		"3 emplacements ; celui de l'îlot n'est libre qu'une fois l'îlot relié", str(atelier.emplacements_libres()))
+	_verifier(atelier.construire_machine("moulin") == "" and atelier.machines.is_empty(), "moulin refusé sans ingrédients")
+	_ingredients_moulin(inventaire)
+	_verifier(atelier.construire_machine("moulin", "ile_centre") == "ile_centre" and inventaire.total() == 0,
+		"moulin : 2 fils de nuage, 3 cristaux de lagon, 2 cristaux solaires ; posé sur l'emplacement choisi")
+	_ingredients_moulin(inventaire)
+	_verifier(atelier.construire_machine("moulin", "ile_centre") == "ile_ouest" and atelier.nombre_machines("moulin") == 2,
+		"emplacement déjà pris : deuxième moulin sur le premier emplacement libre")
+	_ingredients_filet(inventaire)
+	_verifier(not atelier.peut_construire_machine("filet") and atelier.construire_machine("filet") == "",
+		"plus d'emplacement libre : construction refusée, ingrédients gardés")
+	_verifier(inventaire.quantite("fil_nuage") == 3, "ingrédients non dépensés")
+	atelier.ilots_relies.append("ilot_est")
+	_verifier(atelier.construire_machine("filet") == "ilot_est" and inventaire.total() == 0,
+		"îlot relié : son emplacement reçoit le filet (3 fils de nuage, 2 cristaux de lagon)")
+	atelier.ilots_relies.clear()
+	atelier.charger_machines({"ile_ouest": "filet", "ilot_est": "moulin", "nulle_part": "moulin", "ile_centre": "fusee"})
+	_verifier(atelier.machines == {"ile_ouest": "filet"},
+		"machines lues d'une sauvegarde : machine ou emplacement inconnu, îlot non relié ignorés", str(atelier.machines))
+
+
+func _test_machines_ile() -> void:
+	var son := _son()
+	son.vider_historique()
+	var ile := await _ouvrir_ile()
+	var atelier: Node = ile.get_node("Atelier")
+	var lieu := "ile_centre"
+	var centre: Vector2 = ile.centre_emplacement(lieu)
+	_souris(centre)
+	await _images(2)
+	var aide: String = ile._texte_aide()
+	_verifier(aide.contains("Emplacement libre"), "survol d'un emplacement libre : l'aide le dit", aide)
+	await _cliquer(centre)
+	_verifier(atelier.est_ouvert() and atelier.onglet == "machines" and atelier.emplacement_cible == lieu,
+		"clic sur l'emplacement : l'atelier s'ouvre sur l'onglet Machines, pour cet emplacement")
+	_verifier(atelier._bouton.disabled and atelier._effet.text.contains("île, centre"),
+		"sans ingrédients : Construire inactif ; l'emplacement visé est indiqué", atelier._effet.text)
+	_ingredients_moulin(_jeu.inventaire)
+	atelier.rafraichir()
+	await _images(3)
+	await _cliquer(atelier._bouton.get_global_rect().get_center())
+	var moulin: SourceRessource = ile.machine(lieu)
+	var annonce: String = ile.get_node("HUD").texte_annonce()
+	_verifier(moulin != null and moulin.position == centre and moulin.forme == SourceRessource.Forme.MOULIN
+		and annonce.contains("Moulin à vent") and son.a_joue("construction"),
+		"Construire : le moulin apparaît sur l'emplacement cliqué, annonce et son", annonce)
+	_verifier(not _jeu.atelier.emplacement_libre(lieu) and atelier._libelle("moulin").contains("×1"),
+		"l'emplacement est pris ; l'atelier compte les moulins construits")
+	atelier.fermer()
+	await _images(2)
+
+	_verifier(moulin.stock == 0, "un moulin neuf est vide")
+	ile.rattraper(10.0)
+	var apres_10 := moulin.stock
+	ile.rattraper(10000.0)
+	_verifier(apres_10 == 1 and moulin.stock == 8, "moulin : 1 vent toutes les 10 s, réserve de 8", "%d puis %d" % [apres_10, moulin.stock])
+	# Deux mouvements : le premier, juste après le clic dans l'atelier refermé, n'arrive pas à l'île.
+	_souris(moulin.position)
+	await _images(2)
+	_souris(moulin.position + Vector2(2, 0))
+	await _images(2)
+	aide = ile._texte_aide()
+	_verifier(aide.contains("Moulin à vent") and aide.contains("(8)"), "survol du moulin : nom et réserve", aide)
+	var vent_avant: int = _jeu.inventaire.quantite("vent")
+	await _cliquer(moulin.position)
+	_verifier(_jeu.inventaire.quantite("vent") == vent_avant + 8 and moulin.stock == 0 and son.a_joue("machine"),
+		"un clic sur le moulin : toute la réserve (8 vents) passe dans l'inventaire, avec son")
+
+	_ingredients_filet(_jeu.inventaire)
+	atelier.ouvrir()
+	atelier.choisir_onglet("machines")
+	atelier.selectionner("filet")
+	_verifier(atelier.fabriquer_selection() and atelier.dernier_emplacement == "ile_ouest",
+		"atelier ouvert par la cabane : le filet va sur le premier emplacement libre")
+	atelier.fermer()
+	await _images(2)
+	var filet: SourceRessource = ile.machine("ile_ouest")
+	ile.rattraper(6.0)
+	var apres_6 := filet.stock
+	ile.rattraper(10000.0)
+	_verifier(filet != null and filet.forme == SourceRessource.Forme.FILET and apres_6 == 1 and filet.stock == 10,
+		"filet : 1 ouate toutes les 6 s, réserve de 10", "%d puis %d" % [apres_6, filet.stock])
+	await _cliquer(filet.position)
+	_verifier(_jeu.inventaire.quantite("nuage") == 10 and filet.stock == 0, "un clic sur le filet : 10 ouates")
+	_verifier(_jeu.atelier.emplacements_libres().is_empty() and ile._emplacement_sous_souris() == "",
+		"plus d'emplacement libre sur l'île tant que l'îlot n'est pas relié")
+	await _fermer_ile(ile)
+
+
+## Machines : sauvegarde, production pendant la plongée et jeu fermé (dans la limite de la réserve).
+func _test_machines_sauvegarde() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var ile: Node = jeu.get_node("Ile")
+	_ingredients_moulin(_jeu.inventaire)
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.ouvrir_machines("ile_ouest")
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	await _images(2)
+	var sauvee: Dictionary = Sauvegarde.lire()["partie"]
+	_verifier(sauvee["machines"] == {"ile_ouest": "moulin"}, "construction d'une machine : sauvegardée tout de suite",
+		str(sauvee["machines"]))
+	ile.machine("ile_ouest").stock = 3
+	var partie: Dictionary = jeu.donnees_partie()
+	_verifier(int(partie["ile"]["machines"]["ile_ouest"]["stock"]) == 3, "la réserve de la machine est sauvegardée")
+	# Partie enregistrée il y a 40 s : le moulin a produit 4 vents de plus, jeu fermé.
+	Sauvegarde.ecrire(partie, Time.get_unix_time_from_system() - 40.0)
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_continuer))
+	ile = jeu.get_node("Ile")
+	var moulin: SourceRessource = ile.machine("ile_ouest")
+	_verifier(moulin != null and moulin.stock == 7, "Continuer : moulin retrouvé, 3 + 4 vents produits jeu fermé",
+		"stock %d" % (moulin.stock if moulin else -1))
+	jeu.sauvegarder()
+	Sauvegarde.ecrire(jeu.donnees_partie(), Time.get_unix_time_from_system() - 100000.0)
+	await _fermer_jeu(jeu)
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	_verifier(jeu.get_node("Ile").machine("ile_ouest").stock == 8, "jeu fermé longtemps : la réserve s'arrête à 8")
+	await _fermer_jeu(jeu)
+
+	# Pendant une plongée : l'île rattrape le temps passé sous l'eau, machines comprises.
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	moulin = ile.machine("ile_ouest")
+	moulin.stock = 0
+	ile.arriver(25.0, {}, {}, false)
+	_verifier(moulin.stock == 2, "retour de plongée (25 s) : le moulin a produit 2 vents", "stock %d" % moulin.stock)
+	await _fermer_jeu(jeu)
+
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_nouvelle))
+	await _cliquer(_centre(jeu._titre.bouton_remplacer))
+	ile = jeu.get_node("Ile")
+	_verifier(ile.machine("ile_ouest") == null and (Sauvegarde.lire()["partie"]["machines"] as Dictionary).is_empty(),
+		"Nouvelle partie : plus de machine")
+	await _fermer_jeu(jeu)
+
+	Sauvegarde.ecrire({"inventaire": {}, "ameliorations": {}, "ilots": [], "ile": {}})
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	_verifier(_jeu.atelier.machines.is_empty() and jeu.donnees_partie()["machines"] == {},
+		"sauvegarde d'avant les machines : aucune machine, rien de cassé")
 	await _fermer_jeu(jeu)
 	_effacer_sauvegarde()
 
