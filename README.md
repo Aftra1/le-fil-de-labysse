@@ -32,6 +32,7 @@ Sur l'île (à la souris) :
 | Vider une machine | Clic sur la machine (toute sa réserve passe dans l'inventaire) |
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
+| Carnet de collection | K ou le bouton « Carnet » (Échap pour fermer) |
 | Atelier | C ou un clic sur la cabane (Échap pour fermer) |
 | Passer la transition | N'importe quelle touche ou un clic (sauf Échap, ignoré) |
 | Menu pause | Échap (si aucun panneau n'est ouvert) |
@@ -42,6 +43,7 @@ En plongée :
 |---|---|
 | Se déplacer | ZQSD (AZERTY) / WASD / flèches |
 | Miner (maintenir près d'un gisement) | E ou Espace |
+| Ramasser une trouvaille (éclat scintillant) | Maintenir E près de l'éclat (2 s) |
 | Menu pause | Échap (le jeu est figé ; quitter la plongée abandonne son butin) |
 
 Les touches sont physiques : ZQSD fonctionne sur un clavier AZERTY.
@@ -50,6 +52,23 @@ La plongée se termine quand la cloche revient en surface après être descendue
 Zones de plongée : Lagon de lumière (0 à 150 m, cristal de lagon), Forêt de coraux (150 à 300 m, corail
 luisant), Faille volcanique (300 à 450 m, pierre de braise). Le câble tressé ouvre les zones une à une
 (150 m → 300 m → 450 m) ; le réservoir d'air de niveau 2 (200) est nécessaire pour revenir du fond de la Faille.
+
+## Trouvailles et carnet
+
+À chaque plongée, chaque zone peut cacher **une trouvaille rare** (3 chances sur 4, tant que sa page n'est pas
+complète), dans sa moitié basse : un éclat scintillant de la couleur lumineuse de la zone, visible même dans le
+noir. Elle se ramasse en 2 s, ne prend pas de place dans le sac et n'est jamais perdue. Le **carnet** (K) les
+range en pages, chacune avec son nom et un bout de l'histoire d'Ilume, la cité engloutie :
+
+| Page | Contenu | Bonus de la page complète |
+|---|---|---|
+| Perles du Lagon | 6 perles | le Lagon de lumière se mine 25 % plus vite |
+| Fossiles des Coraux | 6 fossiles | la Forêt de coraux se mine 25 % plus vite |
+| Reliques de la Faille | 6 reliques | la Faille consomme 20 % d'air en moins |
+| Machines | les 6 machines, dès leur première construction | toutes les machines produisent 10 % plus vite |
+
+Le carnet affiche son pourcentage (24 cases) ; les trouvailles sont dans `data/trouvailles.json`, leur pixel
+art dans `scripts/art_trouvailles.gd`.
 
 ## Machines
 
@@ -94,7 +113,7 @@ rattrapent le temps passé jeu fermé, sans dépasser leurs plafonds.
 
 Le fichier contient : version du format, date, inventaire, niveaux des améliorations, îlots reliés,
 machines construites (emplacement et type), améliorations des machines, palier atteint, recette de chaque
-fourneau, état des sources de
+fourneau, carnet (trouvailles et machines vues), état des sources de
 l'île et des machines (réserve). À côté : `sauvegarde.bak` (sauvegarde précédente, reprise si le fichier est
 abîmé) et, au besoin, `sauvegarde.corrompue.json` (fichier illisible mis de côté, jamais supprimé).
 Une sauvegarde d'une version plus récente du jeu n'est jamais écrasée.
@@ -107,7 +126,7 @@ fichier audio, et joué par l'autoload `Son` (`scripts/autoload/son.gd`) :
 - **Ambiances** en boucles de 8 s sans couture : nappe lumineuse sur l'île ; drones graves et étouffés en
   plongée, de plus en plus sombres (Lagon, Forêt de coraux, Faille volcanique avec un lent battement) ;
   fondu enchaîné de 2,5 s pendant les transitions et de 3 s au changement de zone.
-- **Effets** : récolte (nuage, vent, cristal, bassin, machine, foreuse, fourneau, sonde), coups de minage et unité gagnée, sac plein, bips
+- **Effets** : récolte (nuage, vent, cristal, bassin, machine, foreuse, fourneau, sonde), trouvaille, coups de minage et unité gagnée, sac plein, bips
   d'oxygène bas, craquements de la coque au bout du câble, remontée automatique, fabrication, installation,
   construction, clics d'interface, souffle des transitions.
 - **Mixage** : bus « Musique » et « Effets » (limiteur sur le bus principal), niveau propre à chaque effet,

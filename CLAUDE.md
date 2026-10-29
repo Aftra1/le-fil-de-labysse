@@ -53,5 +53,6 @@ Gardien d'une île flottante au-dessus d'un océan sans fond.
 - [ ] 7. Machines et nouveau contenu (+45 à 60 min), en cinq PR :
   - [x] PR A (PR #13) : base des machines, emplacements, palier 1 (moulin à vent, filet à nuages)
   - [x] PR B (PR #14) : palier 2 (îlot du nord, foreuse solaire, entrepôt, sac à 12 places, améliorations de niveau 1 des machines)
-  - [ ] PR C : palier 3 (îlot du couchant, fourneau qui fabrique en boucle la recette choisie d'un clic sur le fourneau, 3 raffinés, sonde, sac à 16, niveaux 2)
-  - [ ] PR D : trouvailles et carnet ; PR E : équilibrage
+  - [x] PR C (PR #15) : palier 3 (îlot du couchant, fourneau qui fabrique en boucle la recette choisie d'un clic sur le fourneau, 3 raffinés, sonde, sac à 16, niveaux 2)
+  - [ ] PR D : trouvailles rares (18, histoire d'Ilume) et carnet de collection (pourcentage, bonus par page)
+  - [ ] PR E : équilibrage (dont le surplus d'ouates du filet)
