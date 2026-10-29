@@ -231,8 +231,8 @@ class Playtest(SceneTree):
         self._touche(...)
         self._attendre(...)
         self._centre(...)
-        self._secondes(...)
         self._noter(...)
+        self._secondes(...)
 
     def _prochaine_fabrication(self) -> 'Array':
         """[onglet, id] de la prochaine fabrication utile, ou [] s'il n'y a rien à faire.

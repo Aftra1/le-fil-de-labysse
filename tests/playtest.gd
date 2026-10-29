@@ -279,6 +279,8 @@ func _gerer_fourneaux() -> bool:
 		if actuel != "":
 			_fourneau_recolte[actuel] = int(_fourneau_recolte.get(actuel, 0)) + _game.inventaire.quantite(actuel) - avant
 		await _attendre(_profil["reflexion"])
+		if not _atelier_ui.est_ouvert() or _atelier_ui.onglet != "fourneau":
+			continue    # un nuage passait devant le fourneau : on réessaiera au tour suivant
 		if voulu != actuel:
 			for bouton in _atelier_ui._liste.get_children():
 				if bouton.get_meta("id") == voulu:
@@ -477,10 +479,13 @@ func _fabriquer_tout() -> void:
 		var libre: String = _game.atelier.emplacements_libres()[0]
 		await _deplacer_souris(_ile.centre_emplacement(libre))
 		await _cliquer(_ile.centre_emplacement(libre))
-	else:
+	# Un nuage devant l'emplacement prend le clic (récolté à la place) : on ouvre alors l'atelier avec C.
+	if not _atelier_ui.est_ouvert() or _atelier_ui.onglet == "fourneau":
+		if _atelier_ui.est_ouvert():
+			await _touche(KEY_ESCAPE)
 		await _touche(KEY_C)
 	await _attendre(_profil["reflexion"])
-	while not plan.is_empty():
+	while not plan.is_empty() and _atelier_ui.est_ouvert():
 		var onglet: String = plan[0]
 		var id: String = plan[1]
 		if _atelier_ui.onglet != onglet:
@@ -492,13 +497,18 @@ func _fabriquer_tout() -> void:
 		if onglet == "machines" and _atelier_ui.mode != mode:
 			await _cliquer(_centre(_atelier_ui._boutons_modes[mode]))
 		await _attendre(_profil["reflexion"])
+		var avant := str(_game.inventaire.vers_dictionnaire())
 		await _cliquer(_centre(_atelier_ui._bouton))
+		if str(_game.inventaire.vers_dictionnaire()) == avant:
+			_noter("Atelier : %s n'a pas pu se faire" % id)   # clic manqué : on n'insiste pas
+			break
 		_fabrications[id] = int(_fabrications.get(id, 0)) + 1
 		if onglet == "machines" and mode == "construire":
 			_machines_construites.append([_secondes(), id, _atelier_ui.dernier_emplacement])
 		_noter("Atelier : %s" % id)
 		plan = _prochaine_fabrication()
-	await _touche(KEY_C)
+	if _atelier_ui.est_ouvert():
+		await _touche(KEY_ESCAPE)
 	await _attendre(_profil["geste"])
 
 
