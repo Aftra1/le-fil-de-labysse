@@ -666,11 +666,23 @@ func _fermer_ile(ile: Node) -> void:
 	await _images(2)
 
 
+## Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 34 et 112 :
+## l'un d'eux peut se trouver sous le bouton « Inventaire » (en haut à gauche), et un clic ouvrirait alors
+## l'inventaire, qui bloque tous les clics suivants. On le déplace dans ce cas (c'est le premier des
+## nuages parcourus au survol : un autre nuage au même endroit ne gêne pas).
+func _nuage_degage(ile: Node) -> SourceRessource:
+	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
+	nuage.derive = 0.0
+	var bouton: Control = ile.get_node("HUD").bouton_inventaire
+	if bouton.get_global_rect().grow(4.0).has_point(nuage.position):
+		nuage.position = Vector2(320.0, 90.0)
+	return nuage
+
+
 func _test_recolte() -> void:
 	var ile := await _ouvrir_ile()
 
-	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
-	nuage.derive = 0.0
+	var nuage := _nuage_degage(ile)
 	var prises: int = nuage.stock
 	await _cliquer(nuage.position)
 	_verifier(_jeu.inventaire.quantite("nuage") == 2 and nuage.stock == prises - 1,
@@ -2069,8 +2081,7 @@ func _test_sons_ile() -> void:
 	var son := _son()
 	son.vider_historique()
 	var ile := await _ouvrir_ile()
-	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
-	nuage.derive = 0.0
+	var nuage := _nuage_degage(ile)
 	await _cliquer(nuage.position)
 	_verifier(son.a_joue("nuage"), "son : récolte d'un nuage")
 	await _cliquer(ile._eolienne.position)

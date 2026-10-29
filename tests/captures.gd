@@ -141,6 +141,9 @@ func _scenario_jeu() -> void:
 	var eolienne: Node2D = ile._eolienne
 	await _cliquer(eolienne.position)
 	var nuage: Node2D = ile.get_node("Nuages").get_child(0)
+	# Un nuage né sous le bouton « Inventaire » ouvrirait l'inventaire au lieu d'être récolté.
+	if (ile.get_node("HUD").bouton_inventaire as Control).get_global_rect().grow(4.0).has_point(nuage.position):
+		nuage.position = Vector2(320.0, 90.0)
 	await _cliquer(nuage.position)
 	var filon: Node2D = ile._filons[1]
 	_souris(filon.position)

@@ -293,6 +293,9 @@ func _nuage_visible() -> SourceRessource:
 			continue
 		if nuage.position.x < 40.0 or nuage.position.x > 600.0:
 			continue
+		# Caché sous le bouton « Inventaire » : un clic ouvrirait l'inventaire (un joueur attend qu'il passe).
+		if (_ile.get_node("HUD").bouton_inventaire as Control).get_global_rect().grow(4.0).has_point(nuage.position):
+			continue
 		if meilleur == null or nuage.position.x > meilleur.position.x:
 			meilleur = nuage
 	return meilleur

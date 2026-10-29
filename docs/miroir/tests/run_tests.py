@@ -269,8 +269,16 @@ class RunTests(SceneTree):
         self._bouton(...)
         self._images(...)
 
+    def _nuage_degage(self, ile: 'Node') -> SourceRessource:
+        """Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 34 et 112 :
+        l'un d'eux peut se trouver sous le bouton « Inventaire » (en haut à gauche), et un clic ouvrirait alors
+        l'inventaire, qui bloque tous les clics suivants. On le déplace dans ce cas (c'est le premier des
+        nuages parcourus au survol : un autre nuage au même endroit ne gêne pas)."""
+        ...
+
     def _test_recolte(self) -> 'void':
         self._ouvrir_ile(...)
+        self._nuage_degage(...)
         self._cliquer(...)
         self._verifier(...)
         self._souris(...)
@@ -674,6 +682,7 @@ class RunTests(SceneTree):
     def _test_sons_ile(self) -> 'void':
         self._son(...)
         self._ouvrir_ile(...)
+        self._nuage_degage(...)
         self._cliquer(...)
         self._verifier(...)
         self._souris(...)
