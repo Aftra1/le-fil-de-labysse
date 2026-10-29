@@ -27,6 +27,8 @@ Sur l'île (à la souris) :
 | Relier l'îlot du nord | Construire le pont suspendu (onglet Construction ; un clic sur l'îlot l'ouvre) |
 | Construire une machine | Clic sur un emplacement libre (pointillés or) : l'atelier s'ouvre sur l'onglet Machines |
 | Améliorer une sorte de machine | Atelier, onglet Machines, boutons Vitesse ou Réserve (dès le palier 2) |
+| Régler un fourneau | Clic sur le fourneau : récupère sa réserve et ouvre le choix du raffiné fabriqué en boucle |
+| Relier l'îlot du couchant | Construire l'arche de braise (onglet Construction ; un clic sur l'îlot l'ouvre) |
 | Vider une machine | Clic sur la machine (toute sa réserve passe dans l'inventaire) |
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
@@ -53,20 +55,29 @@ luisant), Faille volcanique (300 à 450 m, pierre de braise). Le câble tressé 
 
 Les machines (`data/machines.json`) produisent seules, jusqu'à leur réserve, y compris pendant les plongées
 et jeu fermé ; un clic vide la réserve. Chacune se pose sur un emplacement : 2 sur l'île, 1 sur l'îlot de
-l'est (passerelle de nuage), 2 sur l'îlot du nord (pont suspendu) ; la foreuse se pose sur un des 3 filons,
+l'est (passerelle de nuage), 2 sur l'îlot du nord (pont suspendu), 2 sur l'îlot du couchant (arche de braise :
+3 pierres de braise, 4 lingots solaires, 100 vents, donc un entrepôt) ; la foreuse se pose sur un des 3 filons,
 qui ne se récolte alors plus à la main. Une même machine peut être construite plusieurs fois.
 
-Les machines sont rangées par paliers : le palier 2 s'ouvre au premier corail rapporté d'une plongée.
+Les machines sont rangées par paliers : le palier 2 s'ouvre au premier corail rapporté d'une plongée, le
+palier 3 à la première pierre de braise.
 
 | Machine | Palier | Production | Coût |
 |---|---|---|---|
 | Moulin à vent | 1 | 1 vent toutes les 10 s, réserve de 8 | 2 fils de nuage, 3 cristaux de lagon, 2 cristaux solaires |
 | Filet à nuages | 1 | 1 ouate toutes les 6 s, réserve de 10 | 3 fils de nuage, 2 cristaux de lagon |
 | Foreuse solaire | 2 | sur un filon : 1 cristal solaire toutes les 15 s, réserve de 6 | 1 lentille, 4 coraux, 4 cristaux solaires |
-| Entrepôt | 2 | l'inventaire garde jusqu'à 199 de chaque ressource (au lieu de 99) | 5 coraux, 4 fils de nuage, 4 cristaux de lagon |
+| Entrepôt | 2 | l'inventaire garde jusqu'à 199 de chaque ressource (au lieu de 99) ; 499 une fois amélioré (3 lingots, 3 verres) | 5 coraux, 4 fils de nuage, 4 cristaux de lagon |
+| Fourneau | 3 | fabrique en boucle le raffiné choisi, 1 toutes les 20 s, avec les ingrédients de l'inventaire (réserve de 5) | 3 pierres de braise, 3 coraux, 6 cristaux solaires |
+| Sonde de plongée | 3 | pendant les plongées seulement : 1 cristal de lagon toutes les 12 s, réserve de 8 | 2 pierres de braise, 2 poches d'air, 1 lentille |
 
-Améliorations (palier 2, pour toutes les machines d'une même sorte) : **Vitesse** (production ×1,5) et
-**Réserve** (×2), payées en ressources du palier de la machine. Le sac de plongée passe de 8 à 12 places
+Raffinés du fourneau (tous attisés au vent) : **verre de lagon** (2 cristaux de lagon, 6 vents), **nacre**
+(1 corail, 8 ouates, 2 vents), **lingot solaire** (5 cristaux solaires, 5 vents). Ils servent à l'arche de braise,
+au sac à 16 places (3 nacres, 3 verres), à l'entrepôt à 499 et aux améliorations de niveau 2.
+
+Améliorations (dès le palier 2, pour toutes les machines d'une même sorte) : **Vitesse** (production ×1,5,
+puis ×2) et **Réserve** (×2, puis ×3) ; le niveau 1 se paie en ressources du palier de la machine, le niveau 2
+en raffinés. Le sac de plongée passe de 8 à 12 places
 (atelier, onglet Améliorations : 4 coraux, 2 poches d'air).
 
 ## Sauvegarde
@@ -82,7 +93,8 @@ garde l'état du départ (le butin en cours est perdu, rien d'autre). Au chargem
 rattrapent le temps passé jeu fermé, sans dépasser leurs plafonds.
 
 Le fichier contient : version du format, date, inventaire, niveaux des améliorations, îlots reliés,
-machines construites (emplacement et type), améliorations des machines, palier atteint, état des sources de
+machines construites (emplacement et type), améliorations des machines, palier atteint, recette de chaque
+fourneau, état des sources de
 l'île et des machines (réserve). À côté : `sauvegarde.bak` (sauvegarde précédente, reprise si le fichier est
 abîmé) et, au besoin, `sauvegarde.corrompue.json` (fichier illisible mis de côté, jamais supprimé).
 Une sauvegarde d'une version plus récente du jeu n'est jamais écrasée.
@@ -95,7 +107,7 @@ fichier audio, et joué par l'autoload `Son` (`scripts/autoload/son.gd`) :
 - **Ambiances** en boucles de 8 s sans couture : nappe lumineuse sur l'île ; drones graves et étouffés en
   plongée, de plus en plus sombres (Lagon, Forêt de coraux, Faille volcanique avec un lent battement) ;
   fondu enchaîné de 2,5 s pendant les transitions et de 3 s au changement de zone.
-- **Effets** : récolte (nuage, vent, cristal, bassin, machine, foreuse), coups de minage et unité gagnée, sac plein, bips
+- **Effets** : récolte (nuage, vent, cristal, bassin, machine, foreuse, fourneau, sonde), coups de minage et unité gagnée, sac plein, bips
   d'oxygène bas, craquements de la coque au bout du câble, remontée automatique, fabrication, installation,
   construction, clics d'interface, souffle des transitions.
 - **Mixage** : bus « Musique » et « Effets » (limiteur sur le bus principal), niveau propre à chaque effet,
