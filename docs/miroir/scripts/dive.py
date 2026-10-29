@@ -176,7 +176,6 @@ class Dive(Node2D):
         Carnet.page_complete(...)
         Interface.annoncer(...)
         Carnet.page(...)
-        Carnet.pourcentage(...)
 
     def _rafraichir_sac(self) -> 'void':
         Interface.definir_sac(...)

@@ -11,6 +11,8 @@ pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle �
 palier 3 : fourneau (le robot règle sa recette d'un clic sur le fourneau selon le raffiné qui manque, et
 l'arrête quand rien ne manque) → sonde → arche de braise (100 vents : entrepôt) → sac à 16 places →
 niveaux 2 du moulin, de la foreuse et du filet → entrepôt à 499.
+Trouvailles : en plongée, le robot ramasse les éclats rares qu'il connaît (parfait) ou qu'il a aperçus
+(humain) et qui sont à portée du câble ; il ne plonge pas exprès pour eux (le carnet reste facultatif).
 Mesures d'économie : origine de chaque ressource (machines, sources de l'île, plongées, fourneau) et où elle
 est dépensée (atelier, fourneau).
 passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
@@ -276,6 +278,7 @@ class Playtest(SceneTree):
         self._secondes(...)
         self._image(...)
         self._voulus(...)
+        self._trouvaille_connue(...)
         self._oxygene_pour_remonter(...)
         self._temps_vers(...)
         self._conso_a(...)
@@ -297,6 +300,10 @@ class Playtest(SceneTree):
 
     def _voulus(self, besoins: 'Dictionary', sac: 'Dictionary') -> 'Dictionary':
         """Minerais encore voulus pendant cette plongée : { id: nombre }."""
+        ...
+
+    def _trouvaille_connue(self, plongee: 'Node', vus: 'Array') -> 'bool':
+        """Vrai si un éclat de trouvaille connu (ou aperçu) est à portée du câble."""
         ...
 
     def _choisir_gisement(self, plongee: 'Node', cloche: 'Node2D', voulus: 'Dictionary', abandonnees: 'Array', vus: 'Array') -> 'Node2D':
@@ -331,16 +338,14 @@ class Playtest(SceneTree):
         Sauvegarde.ecrire(...)
 
     def _sequence_video(self) -> 'void':
-        """Séquence vidéo (avec le son) : le palier 3. Un clic sur le fourneau ouvre son panneau : lingot solaire en
-        boucle ; il rougeoie et fume en prenant cristaux et vent dans l'inventaire ; atelier : l'arche de braise
-        (100 vents, grâce à l'entrepôt) relie l'îlot du couchant, puis le sac de plongée à 16 places ; plongée dans
-        le Lagon de lumière ; au retour, la sonde a pêché du cristal de lagon et le fourneau a produit des lingots.
+        """Séquence vidéo (avec le son) : les trouvailles. Le carnet (K) : perles, fossiles, reliques, avec leur
+        histoire et le bonus de chaque page ; plongée jusqu'à la Faille, où un éclat doré brille dans le noir :
+        la cloche le ramasse (une relique : son et annonce) ; au retour, la relique est dans le carnet.
         Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh)."""
         self._attendre(...)
-        self._deplacer_souris(...)
+        self._touche(...)
         self._cliquer(...)
         self._centre(...)
-        self._touche(...)
         self._plonger(...)
 
     def _marque_video(self, nom: 'String') -> 'void':

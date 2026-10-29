@@ -241,7 +241,7 @@ Carnet de collection : les trouvailles rares de l'abysse (data/trouvailles.json)
   - `vers_dictionnaire()`
   - `charger(donnees)` : Carnet lu depuis une sauvegarde : identifiants inconnus et doublons ignorés.
 - **Dépend de** : Donnees
-- **Utilisé par** : Atelier, Dive, Jeu, PanneauCarnet, RunTests
+- **Utilisé par** : Atelier, Captures, Dive, Jeu, PanneauCarnet, RunTests
 
 ### `scripts/carnet_ui.gd` : PanneauCarnet
 
@@ -589,11 +589,11 @@ Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360).
 
 ### `tests/captures.gd` : Captures
 
-Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ; 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ; 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
+Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ; 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ; 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ; 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 - **Hérite de** : SceneTree
-- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_palier2`, `_scenario_palier3`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`, `_gisement_proche`
-- **Dépend de** : ArtAbysse, Atelier, Dive, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, VueMonde
+- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_palier2`, `_scenario_palier3`, `_scenario_trouvailles`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`
+- **Dépend de** : ArtAbysse, Atelier, Carnet, Dive, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, VueMonde
 
 ### `tests/playtest.gd` : Playtest
 

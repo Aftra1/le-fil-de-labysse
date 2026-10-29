@@ -293,7 +293,7 @@ func _ramasser_trouvaille(id: String) -> void:
 	if carnet.page_complete(page):
 		_interface.annoncer("Page complète : %s" % str(carnet.page(page)["bonus"]), 6.0)
 	else:
-		_interface.annoncer("Trouvaille : %s ! (carnet %d %%)" % [str(donnees["nom"]), carnet.pourcentage()], 5.0)
+		_interface.annoncer("Trouvaille : %s !" % str(donnees["nom"]), 5.0)
 
 
 func _rafraichir_sac() -> void:
