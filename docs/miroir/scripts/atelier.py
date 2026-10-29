@@ -6,7 +6,10 @@ et installe les améliorations de la cloche, niveau par niveau.
 Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json.
 Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux).
 Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié)
-et les machines de l'île (data/machines.json), chacune sur un emplacement libre.
+et les machines de l'île (data/machines.json), chacune sur un emplacement libre (la foreuse sur un
+filon). Les machines sont rangées par paliers : le palier 2 s'ouvre au premier corail rapporté,
+le palier 3 à la première pierre de braise (voir decouvrir). À partir du palier 2, chaque sorte de
+machine s'améliore : vitesse (production plus rapide) et capacité (réserve plus grande).
 """
 
 from __future__ import annotations
@@ -19,10 +22,14 @@ from ..scripts.inventaire import Inventaire
 class Atelier(RefCounted):
     AMELIORATIONS = ...
     CONSTRUCTIONS = ...
+    PALIERS = ...
+    GENRES_AMELIORATION = ...
     inventaire: Inventaire
     niveaux: 'Dictionary'
     ilots_relies: 'Array'
     machines: 'Dictionary'
+    palier: 'int'
+    niveaux_machines: 'Dictionary'
     _recettes: 'Dictionary'
     _effets: 'Dictionary'
     _machines: 'Dictionary'
@@ -93,6 +100,10 @@ class Atelier(RefCounted):
     def effet_construction(self, id: 'String') -> 'String':
         ...
 
+    def annonce_construction(self, id: 'String') -> 'String':
+        """Message affiché sur l'île une fois la construction faite."""
+        self.nom_construction(...)
+
     def ilot_de(self, id: 'String') -> 'String':
         """Îlot relié par cette construction."""
         ...
@@ -123,19 +134,43 @@ class Atelier(RefCounted):
         """Identifiants des machines, dans l'ordre du fichier de données."""
         ...
 
+    def machines_disponibles(self) -> 'Array':
+        """Machines des paliers atteints (celles que l'atelier propose)."""
+        self.liste_machines(...)
+        self.machine(...)
+
     def machine(self, id: 'String') -> 'Dictionary':
-        """Réglages d'une machine : nom, ressource, recharge_s, plafond, ingredients, effet."""
+        """Réglages d'une machine : nom, palier, ressource, recharge_s, plafond, ingredients, effet, ameliorations."""
         ...
 
     def nom_machine(self, id: 'String') -> 'String':
         self.machine(...)
 
+    def sur_filon(self, id: 'String') -> 'bool':
+        self.machine(...)
+
+    def decouvrir(self, ids: 'Array') -> 'bool':
+        """Note les ressources rapportées d'une plongée ; renvoie vrai si un nouveau palier s'ouvre."""
+        ...
+
+    def charger_palier(self, valeur) -> 'void':
+        """Palier lu depuis une sauvegarde. Une sauvegarde d'avant les paliers n'en a pas : on le déduit de ce
+        qui a déjà coûté du corail ou de la pierre de braise (lanterne, réservoir, passerelle) et de l'inventaire."""
+        self.niveau(...)
+        self.est_relie(...)
+        Inventaire.quantite(...)
+        self.decouvrir(...)
+
     def emplacements(self) -> 'Array':
-        """Emplacements : [{ id, nom, position, ilot }], dans l'ordre du fichier de données."""
+        """Emplacements : [{ id, nom, position, ilot, filon? }], dans l'ordre du fichier de données."""
         ...
 
     def emplacement(self, id: 'String') -> 'Dictionary':
         self.emplacements(...)
+
+    def est_filon(self, id: 'String') -> 'bool':
+        """Vrai pour un emplacement de foreuse (un filon de cristal solaire)."""
+        self.emplacement(...)
 
     def emplacement_accessible(self, id: 'String') -> 'bool':
         """Un emplacement est utilisable s'il est sur l'île ou sur un îlot relié."""
@@ -145,33 +180,88 @@ class Atelier(RefCounted):
     def emplacement_libre(self, id: 'String') -> 'bool':
         self.emplacement_accessible(...)
 
-    def emplacements_libres(self) -> 'Array':
-        """Emplacements accessibles et libres, dans l'ordre du fichier de données."""
+    def emplacements_libres(self, id: 'String') -> 'Array':
+        """Emplacements accessibles et libres pour cette machine (sans machine : les emplacements au sol),
+        dans l'ordre du fichier de données."""
+        self.sur_filon(...)
         self.emplacements(...)
         self.emplacement_libre(...)
+        self.est_filon(...)
 
     def nombre_machines(self, id: 'String') -> 'int':
         """Nombre de machines « id » construites."""
         ...
 
     def peut_construire_machine(self, id: 'String') -> 'bool':
+        self.machine(...)
         self.emplacements_libres(...)
         self.manquants(...)
-        self.machine(...)
 
     def construire_machine(self, id: 'String', cible: 'String') -> 'String':
-        """Construit la machine sur « cible » si cet emplacement est libre, sinon sur le premier libre.
-        Renvoie l'emplacement choisi (vide si la construction est impossible)."""
+        """Construit la machine sur « cible » si cet emplacement lui convient et est libre, sinon sur le
+        premier qui convient. Renvoie l'emplacement choisi (vide si la construction est impossible)."""
         self.peut_construire_machine(...)
-        self.emplacement_libre(...)
         self.emplacements_libres(...)
         self._payer(...)
         self.machine(...)
+        self._appliquer_entrepot(...)
 
     def charger_machines(self, donnees: 'Dictionary') -> 'void':
         """Machines lues depuis une sauvegarde : emplacements et machines inconnus ignorés.
         À appeler après charger_ilots (un emplacement d'îlot n'existe que si l'îlot est relié)."""
         self.emplacement_libre(...)
+        self.est_filon(...)
+        self.sur_filon(...)
+        self._appliquer_entrepot(...)
+
+    def _appliquer_entrepot(self) -> 'void':
+        """Un entrepôt construit relève le plafond de l'inventaire (plusieurs entrepôts ne s'additionnent pas)."""
+        self.machine(...)
+        Inventaire.borner(...)
+
+    def machines_ameliorables(self) -> 'Array':
+        """Sortes de machines qui s'améliorent (l'entrepôt n'a ni production ni réserve)."""
+        self.liste_machines(...)
+        self.machine(...)
+
+    def niveau_machine(self, id: 'String', genre: 'String') -> 'int':
+        ...
+
+    def niveau_machine_max(self, id: 'String', genre: 'String') -> 'int':
+        self.machine(...)
+
+    def prochaine_amelioration_machine(self, id: 'String', genre: 'String') -> 'Dictionary':
+        """Ingrédients du prochain niveau (vide au niveau maximal)."""
+        self.niveau_machine(...)
+        self.niveau_machine_max(...)
+        self.machine(...)
+
+    def peut_ameliorer_machine(self, id: 'String', genre: 'String') -> 'bool':
+        """Possible dès le palier 2, si au moins une machine de cette sorte est construite."""
+        self.prochaine_amelioration_machine(...)
+        self.nombre_machines(...)
+        self.manquants(...)
+
+    def ameliorer_machine(self, id: 'String', genre: 'String') -> 'bool':
+        self.peut_ameliorer_machine(...)
+        self._payer(...)
+        self.prochaine_amelioration_machine(...)
+        self.niveau_machine(...)
+
+    def recharge_machine(self, id: 'String') -> 'float':
+        """Secondes par unité produite, vitesse comprise."""
+        self.machine(...)
+        self.niveau_machine(...)
+
+    def plafond_machine(self, id: 'String') -> 'int':
+        """Réserve d'une machine, capacité comprise."""
+        self.machine(...)
+        self.niveau_machine(...)
+
+    def charger_niveaux_machines(self, donnees: 'Dictionary') -> 'void':
+        """Améliorations lues depuis une sauvegarde : sortes et genres inconnus ignorés, niveaux bornés."""
+        self.machines_ameliorables(...)
+        self.niveau_machine_max(...)
 
     def longueur_cable_m(self) -> 'float':
         self._effet(...)
@@ -183,6 +273,9 @@ class Atelier(RefCounted):
         self._effet(...)
 
     def oxygene_max(self) -> 'float':
+        self._effet(...)
+
+    def places_sac(self) -> 'int':
         self._effet(...)
 
     def manquants(self, ingredients: 'Dictionary') -> 'Dictionary':

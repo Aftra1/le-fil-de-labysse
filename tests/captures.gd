@@ -4,7 +4,8 @@ extends SceneTree
 ## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ;
 ## 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ;
 ## 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
-## sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet).
+## sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ;
+## 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -41,6 +42,7 @@ func _scenarios() -> void:
 	await _scenario_ameliorations()
 	await _scenario_ilot()
 	await _scenario_machines()
+	await _scenario_palier2()
 	await _scenario_menus()
 	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
@@ -372,6 +374,53 @@ func _scenario_machines() -> void:
 	_souris(ile.machine("ile_centre").position)
 	await _images(40)
 	await _capturer("32-machines")
+	await _verifier_grille_monde(ile)
+	await _fermer_jeu(jeu)
+	root.get_node("Game").inventaire = Inventaire.new()
+
+
+# --- 33-35 : palier 2 ------------------------------------------------------------------------
+
+func _scenario_palier2() -> void:
+	root.get_node("Game").inventaire = Inventaire.new()
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	jeu.avec_titre = false
+	root.add_child(jeu)
+	var ile: Node = jeu.get_node("Ile")
+	await _images(20)
+	_souris(ile.centre_ilot("ilot_nord"))
+	await _images(5)
+	await _capturer("33-ilot-nord-isole")
+
+	var atelier_logique := _atelier()
+	var inventaire: Inventaire = root.get_node("Game").inventaire
+	atelier_logique.palier = 2
+	for id: String in ["moulin", "foreuse", "entrepot"]:
+		for ingredient: String in atelier_logique.machine(id)["ingredients"]:
+			inventaire.ajouter(ingredient, int(atelier_logique.machine(id)["ingredients"][ingredient]))
+	inventaire.ajouter("corail", 4)
+	inventaire.ajouter("fil_nuage", 4)
+	atelier_logique.construire("pont")
+	atelier_logique.construire_machine("moulin", "ile_centre")
+	atelier_logique.construire_machine("foreuse", "filon_2")
+	atelier_logique.construire_machine("entrepot", "nord_est")
+	ile.actualiser_ilot()
+	ile.actualiser_machines()
+	inventaire.ajouter("fil_nuage", 2)
+	inventaire.ajouter("cristal_lagon", 3)
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.ouvrir()
+	atelier.choisir_onglet("machines")
+	atelier.selectionner("moulin")
+	atelier.choisir_mode("vitesse")
+	await _images(3)
+	await _capturer("34-atelier-amelioration")
+	atelier.fermer()
+	ile.machine("ile_centre").stock = 4
+	ile.machine("filon_2").stock = 3
+	_souris(ile.machine("filon_2").position)
+	await _images(40)
+	await _capturer("35-palier2")
 	await _verifier_grille_monde(ile)
 	await _fermer_jeu(jeu)
 	root.get_node("Game").inventaire = Inventaire.new()

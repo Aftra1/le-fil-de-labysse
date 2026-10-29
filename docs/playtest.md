@@ -1,8 +1,64 @@
-# Playtest automatique : boucle complète avec les machines du palier 1
+# Playtest automatique : boucle complète avec les machines des paliers 1 et 2
 
-Date : 29 octobre 2026, branche `etape-7-machines-a` (étape 7, PR A).
+Date : 29 octobre 2026, branche `etape-7-machines-b` (étape 7, PR B).
 
-## Machines du palier 1 (étape 7, PR A)
+## Palier 2 (étape 7, PR B)
+
+Objectifs du robot, dans l'ordre : câble 1 → moulin à vent → lanterne 1 → filet à nuages → réservoir 1 →
+**sac à 12 places → pont suspendu (îlot du nord) → foreuse solaire** → passerelle → **entrepôt** → réservoir 2 →
+câble 2 → **vitesse du moulin → réserve de la foreuse** → lanterne 2. Le palier 2 s'ouvre au premier corail
+rapporté. Les améliorations se font à l'atelier, onglet Machines, avec les boutons Vitesse et Réserve.
+Nouveauté de prudence (comme un joueur) : le robot n'entre pas dans la Faille sans le réservoir de 200.
+
+| | Foreuse solaire | Entrepôt |
+|---|---|---|
+| Effet | sur un filon : 1 cristal solaire / 15 s, réserve 6 | inventaire jusqu'à 199 par ressource |
+| Coût | 1 lentille, 4 coraux, 4 cristaux solaires | 5 coraux, 4 fils de nuage, 4 cristaux de lagon |
+
+Autres coûts : pont suspendu 4 coraux et 4 fils de nuage ; sac à 12 places 4 coraux et 2 poches d'air.
+Améliorations de niveau 1 (×1,5 en vitesse, ×2 en réserve) : moulin 2 fils de nuage et 3 cristaux de lagon
+(vitesse) ; foreuse 3 coraux et 3 cristaux solaires (réserve).
+
+### Résultats (quatre parties par profil)
+
+| | Robot parfait | **Joueur humain** |
+|---|---|---|
+| Durée totale | 417 à 463 s (PR A : 293 à 310 s) | **694 à 756 s** (PR A : 398 à 611 s) |
+| Durée moyenne | 7 min 20 (PR A : 5 min 03) | **12 min 04** (PR A : 8 min 16) |
+| Plongées par partie | 7 | 8 à 9 |
+| Palier 2 ouvert à | 147 à 160 s | 198 à 341 s |
+| Foreuse construite à | 221 à 307 s | 480 à 539 s |
+| Entrepôt construit à | 387 à 454 s | 498 à 637 s |
+| Vent récolté sur le moulin | 19 à 25 | 23 à 28 |
+| Remontées automatiques | 0 | **0** |
+| Attentes de plus de 10 s | 0 | **0** |
+
+- **+4 minutes pour le joueur humain** : 12 min 04 en moyenne au lieu de 8 min 16, avec 2 à 3 plongées de plus
+  dans la Forêt de coraux (le palier 2 coûte 21 coraux de plus). C'est la moitié basse des +15 minutes prévues
+  pour ce palier : le palier 3 et les trouvailles (PR C et D) feront le reste.
+- **Le moulin compte** : 19 à 28 vents par partie, le quart à la moitié du vent nécessaire.
+- **La foreuse et le filet servent peu** dans cette boucle : quand ils sont construits, il ne reste presque plus de
+  cristal solaire ni d'ouates à réunir (le robot n'en vide la réserve que si la ressource manque). Ils prendront
+  leur rôle avec les recettes du palier 3 (fourneau : lingots solaires, nacre).
+- **L'entrepôt** est construit mais jamais nécessaire : aucune ressource ne dépasse 99 dans cette boucle.
+- **Air au retour** (joueur humain) : 22 à 78 / 100 à 150 dans le Lagon et les Coraux, 32 à 67 / 200 dans la Faille.
+
+### Vidéo
+
+Séquence de 65 s avec le son (Movie Maker, Xvfb), à partir d'une partie préparée au palier 2 (îlot du nord
+relié avec son entrepôt, foreuse sur le filon du milieu, moulin et filet) : animations des machines → un clic vide
+la foreuse (son « foreuse ») → survol de l'entrepôt (« jusqu'à 199 ») → un clic vide le moulin → atelier, onglet
+Machines, **Vitesse du moulin** → onglet Améliorations, **sac de plongée** → plongée dans la Forêt de coraux
+jusqu'à remplir le sac (**12 coraux**, descente et remontée accélérées ×2) → au retour, un clic vide la foreuse
+et le moulin.
+
+- MP4 (4,5 Mo, 1280x720, son AAC, moyenne −18 dB, crête −4 dB) : `docs/playtest/sequence.mp4`
+- GIF (6,0 Mo, sans son) : `docs/playtest/sequence.gif`
+
+---
+
+# Rapport précédent : machines du palier 1 (étape 7, PR A)
+
 
 Le robot poursuit maintenant deux objectifs de plus, dans l'ordre où un joueur les rencontre :
 **câble 1 → moulin à vent → lanterne 1 → filet à nuages → réservoir 1 → passerelle → réservoir 2 → câble 2 →
@@ -39,7 +95,7 @@ d'abord les machines d'un clic, avant l'éolienne et les nuages.
 - **Air au retour** (joueur humain) : 22 à 80 / 100 à 150 dans le Lagon et les Coraux, 45 à 68 / 200 dans la
   Faille ; aucune remontée automatique en 23 plongées.
 
-### Vidéo
+### Vidéo (à l'époque)
 
 Séquence de 40 s avec le son (Movie Maker, Xvfb, 640x360 à 30 images/s), à partir d'une partie préparée
 (îlot relié, moulin au centre de l'île, filet sur l'îlot) : le moulin tourne et le filet ondule → un clic vide
@@ -47,8 +103,7 @@ chacun (son « machine ») → survol de l'emplacement libre de l'ouest (pointil
 Machines → **un second filet à nuages** → plongée dans le Lagon de lumière (descente et remontée accélérées ×2)
 → au retour, le moulin et les filets ont produit pendant la plongée → un clic les vide.
 
-- MP4 (2,4 Mo, 1280x720, son AAC) : `docs/playtest/sequence.mp4`
-- GIF (2,5 Mo, 640x360, 12 images/s, sans son) : `docs/playtest/sequence.gif`
+Elle est remplacée par la séquence du palier 2 (voir plus haut).
 
 ---
 

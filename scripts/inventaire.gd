@@ -1,9 +1,13 @@
 class_name Inventaire
 extends RefCounted
 ## Inventaire unique : ressources du ciel et minerais de plongée.
+## Le plafond par ressource est de 99 ; un entrepôt (machine du palier 2) le porte à 199.
 
 const PLAFOND := 99
+## Plafond le plus haut possible (entrepôt amélioré) : borne des quantités lues d'une sauvegarde.
+const PLAFOND_MAX := 499
 
+var plafond := PLAFOND
 var _quantites: Dictionary = {}
 
 
@@ -13,7 +17,7 @@ func quantite(id: String) -> int:
 
 ## Place restante avant le plafond pour cette ressource.
 func place(id: String) -> int:
-	return PLAFOND - quantite(id)
+	return maxi(plafond - quantite(id), 0)
 
 
 ## Ajoute dans la limite du plafond ; renvoie la quantité réellement ajoutée.
@@ -32,6 +36,12 @@ func ajouter_tout(butin: Dictionary) -> Dictionary:
 		if reste > 0:
 			refuse[id] = reste
 	return refuse
+
+
+## Ramène chaque quantité sous le plafond (chargement d'une partie sans entrepôt).
+func borner() -> void:
+	for id: String in _quantites:
+		_quantites[id] = mini(int(_quantites[id]), plafond)
 
 
 func retirer(id: String, nombre: int = 1) -> bool:
@@ -59,11 +69,14 @@ func vers_dictionnaire() -> Dictionary:
 	return resultat
 
 
-## Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND.
+## Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND_MAX
+## (l'entrepôt, chargé ensuite avec les machines, fixe le vrai plafond).
 static func depuis_dictionnaire(donnees: Dictionary, ids_connus: Array) -> Inventaire:
 	var inventaire := Inventaire.new()
+	inventaire.plafond = PLAFOND_MAX
 	for id in donnees:
 		var valeur = donnees[id]
 		if ids_connus.has(str(id)) and (valeur is float or valeur is int):
 			inventaire.ajouter(str(id), int(valeur))
+	inventaire.plafond = PLAFOND
 	return inventaire

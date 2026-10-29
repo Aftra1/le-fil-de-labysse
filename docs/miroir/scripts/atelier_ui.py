@@ -6,7 +6,8 @@ En haut, quatre onglets (composants, améliorations, construction, machines) ; �
 recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton
 Fabriquer, Installer ou Construire.
 Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible),
-ou à défaut sur le premier emplacement libre.
+ou à défaut sur le premier emplacement libre. À partir du palier 2, trois boutons en haut du détail
+choisissent entre Construire et les améliorations de cette sorte de machine (Vitesse, Réserve).
 S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 """
 
@@ -27,15 +28,19 @@ class PanneauAtelier(CanvasLayer):
     ECART = 4
     COULEUR_TEXTE = "contour_haut"
     COULEUR_MANQUE = "corail.2"
+    MODES = ...
     ONGLETS = ...
     fabrique = Signal('id: String, genre: String')
     onglet: 'String'
     selection: 'String'
     emplacement_cible: 'String'
     dernier_emplacement: 'String'
+    mode: 'String'
     _liste: 'VBoxContainer'
     _onglets: 'Dictionary'
     _titre: 'Label'
+    _modes: 'HBoxContainer'
+    _boutons_modes: 'Dictionary'
     _effet: 'Label'
     _ingredients: 'VBoxContainer'
     _bouton: 'Button'
@@ -47,6 +52,7 @@ class PanneauAtelier(CanvasLayer):
         self._etiquette(...)
         ArtIle.styler_bouton(...)
         self.choisir_onglet  # passée comme Callable
+        self.choisir_mode  # passée comme Callable
         self.fabriquer_selection  # passée comme Callable
         ArtIle.ancrer(...)
         self.choisir_onglet(...)
@@ -72,11 +78,15 @@ class PanneauAtelier(CanvasLayer):
 
     def choisir_onglet(self, nom: 'String') -> 'void':
         Atelier.composants(...)
-        Atelier.liste_machines(...)
+        Atelier.machines_disponibles(...)
         self._remplir_liste(...)
         self.rafraichir(...)
 
     def selectionner(self, id: 'String') -> 'void':
+        self.rafraichir(...)
+
+    def choisir_mode(self, nom: 'String') -> 'void':
+        """Onglet Machines : construire, ou améliorer la vitesse ou la réserve de cette sorte de machine."""
         self.rafraichir(...)
 
     def fabriquer_selection(self) -> 'bool':
@@ -84,6 +94,7 @@ class PanneauAtelier(CanvasLayer):
         Atelier.ameliorer(...)
         Atelier.construire(...)
         Atelier.construire_machine(...)
+        Atelier.ameliorer_machine(...)
         Atelier.fabriquer(...)
         self.fabrique.emit(...)
         self.rafraichir(...)
@@ -91,6 +102,7 @@ class PanneauAtelier(CanvasLayer):
     def peut_fabriquer_selection(self) -> 'bool':
         Atelier.peut_ameliorer(...)
         Atelier.peut_construire(...)
+        Atelier.peut_ameliorer_machine(...)
         Atelier.peut_construire_machine(...)
         Atelier.peut_fabriquer(...)
 
@@ -99,11 +111,14 @@ class PanneauAtelier(CanvasLayer):
         Atelier.prochain_niveau(...)
         Atelier.est_construite(...)
         Atelier.effet_construction(...)
+        self._texte_amelioration(...)
+        Atelier.prochaine_amelioration_machine(...)
         Atelier.machine(...)
         self._texte_emplacement(...)
         Atelier.ingredients_composant(...)
         self._ligne_ingredient(...)
         self.peut_fabriquer_selection(...)
+        Atelier.machines_ameliorables(...)
 
     def _remplir_liste(self, ids: 'Array') -> 'void':
         ArtIle.styler_bouton(...)
@@ -122,10 +137,26 @@ class PanneauAtelier(CanvasLayer):
         Atelier.nom_machine(...)
         Game.nom_ressource(...)
 
+    def _texte_amelioration(self) -> 'String':
+        """Effet de la prochaine amélioration de cette sorte de machine (toutes les machines de la sorte)."""
+        Atelier.machine(...)
+        Atelier.prochaine_amelioration_machine(...)
+        self._unite(...)
+        self._nombre(...)
+        Atelier.recharge_machine(...)
+        Atelier.plafond_machine(...)
+        Atelier.nombre_machines(...)
+
+    def _unite(self, ressource: 'String') -> 'String':
+        ...
+
+    def _nombre(self, valeur: 'float') -> 'String':
+        ...
+
     def _texte_emplacement(self) -> 'String':
         """Où ira la prochaine machine."""
         Atelier.emplacements_libres(...)
-        Atelier.emplacement_libre(...)
+        Atelier.sur_filon(...)
         Atelier.emplacement(...)
 
     def _ligne_ingredient(self, id: 'String', requis: 'int') -> 'HBoxContainer':

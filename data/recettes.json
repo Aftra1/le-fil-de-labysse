@@ -1,29 +1,95 @@
 {
 	"composants": {
-		"fil_nuage": { "ingredients": { "nuage": 3, "vent": 1 } },
-		"lentille": { "ingredients": { "cristal_solaire": 2, "cristal_lagon": 1 } },
-		"poche_air": { "ingredients": { "vent": 3, "nuage": 1 } }
+		"fil_nuage": {
+			"ingredients": {
+				"nuage": 3,
+				"vent": 1
+			}
+		},
+		"lentille": {
+			"ingredients": {
+				"cristal_solaire": 2,
+				"cristal_lagon": 1
+			}
+		},
+		"poche_air": {
+			"ingredients": {
+				"vent": 3,
+				"nuage": 1
+			}
+		}
 	},
 	"ameliorations": {
 		"cable": {
 			"nom": "Câble tressé",
 			"niveaux": [
-				{ "ingredients": { "fil_nuage": 3, "cristal_lagon": 4 }, "effet": "Câble : 150 m → 300 m" },
-				{ "ingredients": { "fil_nuage": 4, "corail": 2, "cristal_solaire": 3 }, "effet": "Câble : 300 m → 450 m (Faille volcanique)" }
+				{
+					"ingredients": {
+						"fil_nuage": 3,
+						"cristal_lagon": 4
+					},
+					"effet": "Câble : 150 m → 300 m"
+				},
+				{
+					"ingredients": {
+						"fil_nuage": 4,
+						"corail": 2,
+						"cristal_solaire": 3
+					},
+					"effet": "Câble : 300 m → 450 m (Faille volcanique)"
+				}
 			]
 		},
 		"lanterne": {
 			"nom": "Lanterne de cristal",
 			"niveaux": [
-				{ "ingredients": { "lentille": 1, "corail": 3 }, "effet": "Halo plus grand, abysse moins noir" },
-				{ "ingredients": { "lentille": 2, "pierre_braise": 4 }, "effet": "Halo encore plus grand, la Faille moins noire" }
+				{
+					"ingredients": {
+						"lentille": 1,
+						"corail": 3
+					},
+					"effet": "Halo plus grand, abysse moins noir"
+				},
+				{
+					"ingredients": {
+						"lentille": 2,
+						"pierre_braise": 4
+					},
+					"effet": "Halo encore plus grand, la Faille moins noire"
+				}
 			]
 		},
 		"reservoir": {
 			"nom": "Réservoir d'air",
 			"niveaux": [
-				{ "ingredients": { "poche_air": 2, "cristal_lagon": 3, "corail": 2 }, "effet": "Oxygène : 100 → 150" },
-				{ "ingredients": { "poche_air": 3, "corail": 2, "cristal_lagon": 3 }, "effet": "Oxygène : 150 → 200" }
+				{
+					"ingredients": {
+						"poche_air": 2,
+						"cristal_lagon": 3,
+						"corail": 2
+					},
+					"effet": "Oxygène : 100 → 150"
+				},
+				{
+					"ingredients": {
+						"poche_air": 3,
+						"corail": 2,
+						"cristal_lagon": 3
+					},
+					"effet": "Oxygène : 150 → 200"
+				}
+			]
+		},
+		"sac": {
+			"nom": "Sac de plongée",
+			"niveaux": [
+				{
+					"ingredients": {
+						"corail": 4,
+						"poche_air": 2
+					},
+					"effet": "Sac : 8 → 12 places"
+				}
 			]
 		}
 	},
@@ -31,8 +97,23 @@
 		"passerelle": {
 			"nom": "Passerelle de nuage",
 			"ilot": "ilot_est",
-			"ingredients": { "fil_nuage": 4, "cristal_solaire": 3, "corail": 2 },
-			"effet": "Relie l'îlot à l'île : son bassin de lumière donne du cristal de lagon."
+			"ingredients": {
+				"fil_nuage": 4,
+				"cristal_solaire": 3,
+				"corail": 2
+			},
+			"effet": "Relie l'îlot à l'île : son bassin de lumière donne du cristal de lagon.",
+			"annonce": "Îlot relié : le bassin de lumière donne du cristal de lagon."
+		},
+		"pont": {
+			"nom": "Pont suspendu",
+			"ilot": "ilot_nord",
+			"ingredients": {
+				"corail": 4,
+				"fil_nuage": 4
+			},
+			"effet": "Relie l'îlot du nord : deux emplacements de machine.",
+			"annonce": "Îlot du nord relié : deux emplacements de machine en plus."
 		}
 	}
 }

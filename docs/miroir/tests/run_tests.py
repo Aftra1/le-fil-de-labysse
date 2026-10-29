@@ -97,6 +97,10 @@ class RunTests(SceneTree):
         self._test_machines_logique(...)
         self._test_machines_ile(...)
         self._test_machines_sauvegarde(...)
+        self._test_palier2_logique(...)
+        self._test_palier2_ile(...)
+        self._test_palier2_sauvegarde(...)
+        self._test_sac_12(...)
         self._test_synthese(...)
         self._test_bus_et_volumes(...)
         self._test_ambiances(...)
@@ -472,6 +476,8 @@ class RunTests(SceneTree):
         Sauvegarde.migrer(...)
         self._verifier(...)
         Inventaire.depuis_dictionnaire(...)
+        Atelier()
+        Atelier.charger_machines(...)
         Inventaire.vers_dictionnaire(...)
         Atelier.charger_niveaux(...)
         Atelier.niveau(...)
@@ -602,8 +608,7 @@ class RunTests(SceneTree):
 
     def _test_machines_logique(self) -> 'void':
         self._verifier(...)
-        Atelier.liste_machines(...)
-        Atelier.emplacements(...)
+        Atelier.machines_disponibles(...)
         Atelier.emplacements_libres(...)
         Atelier.construire_machine(...)
         self._ingredients_moulin(...)
@@ -637,6 +642,65 @@ class RunTests(SceneTree):
         self._fermer_jeu(...)
         self._cliquer(...)
         self._centre(...)
+
+    def _ingredients(self, inventaire: Inventaire, ingredients: 'Dictionary') -> 'void':
+        Inventaire.ajouter(...)
+
+    def _test_palier2_logique(self) -> 'void':
+        self._verifier(...)
+        Atelier.decouvrir(...)
+        self._ingredients(...)
+        Atelier.machine(...)
+        Atelier.peut_construire_machine(...)
+        Atelier.machines_disponibles(...)
+        Atelier.construire_machine(...)
+        Inventaire.total(...)
+        Atelier.emplacements_libres(...)
+        Atelier.nombre_machines(...)
+        Inventaire.ajouter(...)
+        Atelier.construire(...)
+        Atelier.est_relie(...)
+        Atelier.peut_ameliorer_machine(...)
+        Atelier.prochaine_amelioration_machine(...)
+        Atelier.ameliorer_machine(...)
+        Atelier.recharge_machine(...)
+        Atelier.plafond_machine(...)
+        Atelier.machines_ameliorables(...)
+        Atelier.charger_niveaux_machines(...)
+        Atelier.places_sac(...)
+        Atelier.ameliorer(...)
+        Atelier.charger_palier(...)
+
+    def _test_palier2_ile(self) -> 'void':
+        self._son(...)
+        self._ouvrir_ile(...)
+        self._ingredients(...)
+        self._verifier(...)
+        self._images(...)
+        self._cliquer(...)
+        self._souris(...)
+        self._secondes(...)
+        self._fermer_ile(...)
+
+    def _test_palier2_sauvegarde(self) -> 'void':
+        self._effacer_sauvegarde(...)
+        self._ouvrir_jeu(...)
+        self._ingredients(...)
+        Atelier.machine(...)
+        Atelier.construire_machine(...)
+        Atelier.construire(...)
+        Atelier.prochaine_amelioration_machine(...)
+        Atelier.ameliorer_machine(...)
+        self._fermer_jeu(...)
+        self._images(...)
+        self._verifier(...)
+        self._cliquer(...)
+        self._centre(...)
+
+    def _test_sac_12(self) -> 'void':
+        self._demarrer(...)
+        self._verifier(...)
+        self._terminer(...)
 
     def _aller_retour(self, fond: 'float') -> 'Array':
         """Aller-retour à pleine vitesse jusqu'à « fond » px ; renvoie [oxygène à 300 m, au fond, en surface, remontée auto]."""

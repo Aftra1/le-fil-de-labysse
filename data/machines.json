@@ -1,8 +1,90 @@
 {
+	"facteurs": {
+		"vitesse": [
+			1.0,
+			1.5
+		],
+		"capacite": [
+			1,
+			2
+		]
+	},
 	"emplacements": [
-		{ "id": "ile_ouest", "nom": "île, ouest", "position": [166, 198], "ilot": "" },
-		{ "id": "ile_centre", "nom": "île, centre", "position": [250, 198], "ilot": "" },
-		{ "id": "ilot_est", "nom": "îlot de l'est", "position": [566, 196], "ilot": "ilot_est" }
+		{
+			"id": "ile_ouest",
+			"nom": "île, ouest",
+			"position": [
+				166,
+				198
+			],
+			"ilot": ""
+		},
+		{
+			"id": "ile_centre",
+			"nom": "île, centre",
+			"position": [
+				250,
+				198
+			],
+			"ilot": ""
+		},
+		{
+			"id": "ilot_est",
+			"nom": "îlot de l'est",
+			"position": [
+				566,
+				196
+			],
+			"ilot": "ilot_est"
+		},
+		{
+			"id": "nord_ouest",
+			"nom": "îlot du nord, ouest",
+			"position": [
+				52,
+				144
+			],
+			"ilot": "ilot_nord"
+		},
+		{
+			"id": "nord_est",
+			"nom": "îlot du nord, est",
+			"position": [
+				88,
+				144
+			],
+			"ilot": "ilot_nord"
+		},
+		{
+			"id": "filon_1",
+			"nom": "filon de gauche",
+			"position": [
+				292,
+				198
+			],
+			"ilot": "",
+			"filon": 0
+		},
+		{
+			"id": "filon_2",
+			"nom": "filon du milieu",
+			"position": [
+				356,
+				198
+			],
+			"ilot": "",
+			"filon": 1
+		},
+		{
+			"id": "filon_3",
+			"nom": "filon de droite",
+			"position": [
+				424,
+				198
+			],
+			"ilot": "",
+			"filon": 2
+		}
 	],
 	"machines": {
 		"moulin": {
@@ -11,8 +93,26 @@
 			"ressource": "vent",
 			"recharge_s": 10.0,
 			"plafond": 8,
-			"ingredients": { "fil_nuage": 2, "cristal_lagon": 3, "cristal_solaire": 2 },
-			"effet": "1 vent toutes les 10 s, 8 au plus. Produit en plongée et jeu fermé."
+			"ingredients": {
+				"fil_nuage": 2,
+				"cristal_lagon": 3,
+				"cristal_solaire": 2
+			},
+			"effet": "1 vent toutes les 10 s, 8 au plus. Produit en plongée et jeu fermé.",
+			"ameliorations": {
+				"vitesse": [
+					{
+						"fil_nuage": 2,
+						"cristal_lagon": 3
+					}
+				],
+				"capacite": [
+					{
+						"poche_air": 1,
+						"cristal_lagon": 3
+					}
+				]
+			}
 		},
 		"filet": {
 			"nom": "Filet à nuages",
@@ -20,8 +120,67 @@
 			"ressource": "nuage",
 			"recharge_s": 6.0,
 			"plafond": 10,
-			"ingredients": { "fil_nuage": 3, "cristal_lagon": 2 },
-			"effet": "1 ouate toutes les 6 s, 10 au plus. Produit en plongée et jeu fermé."
+			"ingredients": {
+				"fil_nuage": 3,
+				"cristal_lagon": 2
+			},
+			"effet": "1 ouate toutes les 6 s, 10 au plus. Produit en plongée et jeu fermé.",
+			"ameliorations": {
+				"vitesse": [
+					{
+						"fil_nuage": 2,
+						"cristal_lagon": 2
+					}
+				],
+				"capacite": [
+					{
+						"cristal_solaire": 2,
+						"cristal_lagon": 2
+					}
+				]
+			}
+		},
+		"foreuse": {
+			"nom": "Foreuse solaire",
+			"palier": 2,
+			"ressource": "cristal_solaire",
+			"recharge_s": 15.0,
+			"plafond": 6,
+			"sur_filon": true,
+			"ingredients": {
+				"lentille": 1,
+				"corail": 4,
+				"cristal_solaire": 4
+			},
+			"effet": "Posée sur un filon : 1 cristal solaire toutes les 15 s, 6 au plus.",
+			"ameliorations": {
+				"vitesse": [
+					{
+						"lentille": 1,
+						"corail": 3
+					}
+				],
+				"capacite": [
+					{
+						"corail": 3,
+						"cristal_solaire": 3
+					}
+				]
+			}
+		},
+		"entrepot": {
+			"nom": "Entrepôt",
+			"palier": 2,
+			"ressource": "",
+			"recharge_s": 0.0,
+			"plafond": 0,
+			"plafond_inventaire": 199,
+			"ingredients": {
+				"corail": 5,
+				"fil_nuage": 4,
+				"cristal_lagon": 4
+			},
+			"effet": "L'inventaire garde jusqu'à 199 de chaque ressource au lieu de 99."
 		}
 	}
 }

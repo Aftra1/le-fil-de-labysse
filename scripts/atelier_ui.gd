@@ -5,11 +5,12 @@ extends CanvasLayer
 ## recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton
 ## Fabriquer, Installer ou Construire.
 ## Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible),
-## ou à défaut sur le premier emplacement libre.
+## ou à défaut sur le premier emplacement libre. À partir du palier 2, trois boutons en haut du détail
+## choisissent entre Construire et les améliorations de cette sorte de machine (Vitesse, Réserve).
 ## S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 
 ## genre : « composant » (fabriqué), « amelioration » (installée), « construction » (construite)
-## ou « machine » (construite sur un emplacement).
+## « machine » (construite sur un emplacement) ou « machine_amelioration » (vitesse ou réserve).
 signal fabrique(id: String, genre: String)
 
 const LARGEUR_LISTE := 196.0
@@ -19,6 +20,7 @@ const ECART := 4
 const COULEUR_TEXTE := "contour_haut"
 const COULEUR_MANQUE := "corail.2"
 
+const MODES := {"construire": "Construire", "vitesse": "Vitesse", "capacite": "Réserve"}
 const ONGLETS := {
 	"composants": "Composants", "ameliorations": "Améliorations", "construction": "Construction", "machines": "Machines",
 }
@@ -29,10 +31,14 @@ var selection := ""
 var emplacement_cible := ""
 ## Emplacement de la dernière machine construite.
 var dernier_emplacement := ""
+## Onglet Machines : « construire », « vitesse » ou « capacite ».
+var mode := "construire"
 
 var _liste: VBoxContainer
 var _onglets: Dictionary = {}     # onglet -> Button
 var _titre: Label
+var _modes: HBoxContainer
+var _boutons_modes: Dictionary = {}   # mode -> Button
 var _effet: Label
 var _ingredients: VBoxContainer
 var _bouton: Button
@@ -83,6 +89,17 @@ func _ready() -> void:
 	contenu.add_theme_constant_override("separation", ECART)
 	_titre = _etiquette("")
 	contenu.add_child(_titre)
+	_modes = HBoxContainer.new()
+	_modes.add_theme_constant_override("separation", ECART)
+	for nom: String in MODES:
+		var bouton := Button.new()
+		bouton.text = MODES[nom]
+		ArtIle.styler_bouton(bouton)
+		bouton.toggle_mode = true
+		bouton.pressed.connect(choisir_mode.bind(nom))
+		_boutons_modes[nom] = bouton
+		_modes.add_child(bouton)
+	contenu.add_child(_modes)
 	_effet = _etiquette("")
 	_effet.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_effet.custom_minimum_size.x = LARGEUR_DETAIL - 24.0
@@ -147,7 +164,8 @@ func choisir_onglet(nom: String) -> void:
 	elif nom == "construction":
 		ids = Atelier.CONSTRUCTIONS
 	elif nom == "machines":
-		ids = Game.atelier.liste_machines()
+		ids = Game.atelier.machines_disponibles()
+	mode = "construire"
 	selection = ids[0]
 	_remplir_liste(ids)
 	rafraichir()
@@ -155,6 +173,13 @@ func choisir_onglet(nom: String) -> void:
 
 func selectionner(id: String) -> void:
 	selection = id
+	mode = "construire"
+	rafraichir()
+
+
+## Onglet Machines : construire, ou améliorer la vitesse ou la réserve de cette sorte de machine.
+func choisir_mode(nom: String) -> void:
+	mode = nom
 	rafraichir()
 
 
@@ -170,10 +195,14 @@ func fabriquer_selection() -> bool:
 			genre = "construction"
 			reussi = Game.atelier.construire(selection)
 		"machines":
-			genre = "machine"
-			dernier_emplacement = Game.atelier.construire_machine(selection, emplacement_cible)
-			reussi = dernier_emplacement != ""
-			emplacement_cible = ""
+			if mode == "construire":
+				genre = "machine"
+				dernier_emplacement = Game.atelier.construire_machine(selection, emplacement_cible)
+				reussi = dernier_emplacement != ""
+				emplacement_cible = ""
+			else:
+				genre = "machine_amelioration"
+				reussi = Game.atelier.ameliorer_machine(selection, mode)
 		_:
 			reussi = Game.atelier.fabriquer(selection)
 	if reussi:
@@ -189,6 +218,8 @@ func peut_fabriquer_selection() -> bool:
 		"construction":
 			return Game.atelier.peut_construire(selection)
 		"machines":
+			if mode != "construire":
+				return Game.atelier.peut_ameliorer_machine(selection, mode)
 			return Game.atelier.peut_construire_machine(selection)
 	return Game.atelier.peut_fabriquer(selection)
 
@@ -212,6 +243,10 @@ func rafraichir() -> void:
 		_effet.text = "Construite : l'îlot est relié." if construite else Game.atelier.effet_construction(selection)
 		ingredients = {} if construite else Game.atelier.ingredients_construction(selection)
 		_bouton.text = "Construire"
+	elif onglet == "machines" and mode != "construire":
+		_effet.text = _texte_amelioration()
+		ingredients = Game.atelier.prochaine_amelioration_machine(selection, mode)
+		_bouton.text = "Améliorer"
 	elif onglet == "machines":
 		_effet.text = "%s\n%s" % [str(Game.atelier.machine(selection)["effet"]), _texte_emplacement()]
 		ingredients = Game.atelier.machine(selection)["ingredients"]
@@ -223,6 +258,13 @@ func rafraichir() -> void:
 	for id: String in ingredients:
 		_ingredients.add_child(_ligne_ingredient(id, int(ingredients[id])))
 	_bouton.disabled = not peut_fabriquer_selection()
+	# Boutons Construire / Vitesse / Réserve à la place du titre (machines améliorables, palier 2).
+	var avec_modes := onglet == "machines" and Game.atelier.palier >= 2 \
+		and Game.atelier.machines_ameliorables().has(selection)
+	_modes.visible = avec_modes
+	_titre.visible = not avec_modes
+	for nom: String in _boutons_modes:
+		(_boutons_modes[nom] as Button).set_pressed_no_signal(nom == mode)
 
 
 func _remplir_liste(ids: Array) -> void:
@@ -261,13 +303,38 @@ func _libelle(id: String) -> String:
 	return Game.nom_ressource(id)
 
 
+## Effet de la prochaine amélioration de cette sorte de machine (toutes les machines de la sorte).
+func _texte_amelioration() -> String:
+	var atelier := Game.atelier
+	var reglage := atelier.machine(selection)
+	if atelier.prochaine_amelioration_machine(selection, mode).is_empty():
+		return "Niveau maximal atteint pour l'instant."
+	var texte := ""
+	if mode == "vitesse":
+		texte = "1 %s toutes les %s s au lieu de %s s." % [_unite(str(reglage["ressource"])),
+			_nombre(atelier.recharge_machine(selection) / 1.5), _nombre(atelier.recharge_machine(selection))]
+	else:
+		texte = "Réserve de %d au lieu de %d." % [atelier.plafond_machine(selection) * 2, atelier.plafond_machine(selection)]
+	if atelier.nombre_machines(selection) == 0:
+		return texte + "\nConstruis d'abord cette machine."
+	return texte + "\nPour toutes ces machines."
+
+
+func _unite(ressource: String) -> String:
+	return {"vent": "vent", "nuage": "ouate", "cristal_solaire": "cristal"}.get(ressource, ressource)
+
+
+func _nombre(valeur: float) -> String:
+	return str(snappedf(valeur, 0.1)).replace(".", ",").trim_suffix(",0")
+
+
 ## Où ira la prochaine machine.
 func _texte_emplacement() -> String:
 	var atelier := Game.atelier
-	var libres := atelier.emplacements_libres()
+	var libres := atelier.emplacements_libres(selection)
 	if libres.is_empty():
-		return "Aucun emplacement libre."
-	var lieu := emplacement_cible if atelier.emplacement_libre(emplacement_cible) else str(libres[0])
+		return "Aucun filon libre." if atelier.sur_filon(selection) else "Aucun emplacement libre."
+	var lieu := emplacement_cible if libres.has(emplacement_cible) else str(libres[0])
 	return "Emplacement : %s" % str(atelier.emplacement(lieu)["nom"])
 
 
