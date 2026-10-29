@@ -35,6 +35,12 @@ const DISTANCE_MIN_SURFACE := 100.0 # aucun gisement dans les 10 premiers mètre
 const MARGE_FOND := 30.0
 const ESSAIS_PLACEMENT := 200
 
+# Sons (voir l'autoload Son) : bips d'oxygène bas, craquements de la coque au bout du câble, minage
+const SEUIL_BIP_OXYGENE := 0.25
+const INTERVALLE_BIP_S := 1.6
+const INTERVALLE_CRAQUEMENT_S := Vector2(3.0, 6.0)
+const INTERVALLE_MINAGE_S := 0.25
+
 # Câble
 const SEGMENTS_CABLE := 16
 const ONDULATION_CABLE := 6.0
@@ -65,6 +71,10 @@ var _progres_minage := 0.0
 var _gisement_a_portee: Gisement = null
 var _monde := VueMonde.new()
 var _camera := Vector2.ZERO     # coin haut-gauche de la vue, en 640x360
+var _attente_bip := 0.0
+var _attente_craquement := 0.0
+var _attente_coup := 0.0
+var _au_bout_avant := false
 
 @onready var _cloche: Cloche = $Bell
 @onready var _interface: Interface = $HUD
@@ -105,6 +115,8 @@ func _physics_process(delta: float) -> void:
 		oxygene = minf(oxygene + RECHARGE_PAR_S * delta, oxygene_max)
 
 	if oxygene <= 0.0:
+		if not _cloche.remontee_auto:
+			Son.jouer("remontee_auto")
 		_cloche.remontee_auto = true
 	if _sous_leau_avant and not sous_leau and _armee:
 		_terminer_plongee()
@@ -116,10 +128,27 @@ func _physics_process(delta: float) -> void:
 	if sous_leau and str(zone["id"]) != _id_zone:
 		_id_zone = str(zone["id"])
 		_interface.annoncer(str(zone["nom"]))
+		Son.ambiance(_id_zone, 3.0)
 	elif not sous_leau:
 		_id_zone = ""
 
 	_gerer_minage(delta)
+	_gerer_sons(delta, sous_leau)
+
+
+## Bips quand l'air est bas (espacés, jamais pendant la remontée automatique) et craquements de la
+## coque quand le câble est tendu au maximum (un tout de suite, puis de loin en loin).
+func _gerer_sons(delta: float, sous_leau: bool) -> void:
+	_attente_bip -= delta
+	if sous_leau and not _cloche.remontee_auto and oxygene / oxygene_max < SEUIL_BIP_OXYGENE and _attente_bip <= 0.0:
+		Son.jouer("oxygene_bas")
+		_attente_bip = INTERVALLE_BIP_S
+	var au_bout := au_bout_du_cable()
+	_attente_craquement -= delta
+	if au_bout and (not _au_bout_avant or _attente_craquement <= 0.0):
+		Son.jouer("craquement", _hasard.randf_range(0.9, 1.1))
+		_attente_craquement = _hasard.randf_range(INTERVALLE_CRAQUEMENT_S.x, INTERVALLE_CRAQUEMENT_S.y)
+	_au_bout_avant = au_bout
 
 
 func _process(_delta: float) -> void:
@@ -195,6 +224,10 @@ func _gerer_minage(delta: float) -> void:
 			_arreter_minage()
 			_gisement_mine = cible
 		_cloche.stabilisee = true
+		_attente_coup -= delta
+		if _attente_coup <= 0.0:
+			Son.jouer("minage", 0.9 + 0.3 * _progres_minage)
+			_attente_coup = INTERVALLE_MINAGE_S
 		_progres_minage += delta / cible.duree_minage
 		cible.progres = minf(_progres_minage, 1.0)
 		if _progres_minage >= 1.0:
@@ -223,11 +256,15 @@ func _arreter_minage() -> void:
 		_gisement_mine.progres = 0.0
 	_gisement_mine = null
 	_progres_minage = 0.0
+	_attente_coup = 0.0
 	_cloche.stabilisee = false
 
 
 func _terminer_unite(gisement: Gisement) -> void:
 	_sac.ajouter(gisement.minerai)
+	Son.jouer("unite")
+	if _sac.est_plein():
+		Son.jouer("sac_plein")
 	gisement.progres = 0.0
 	gisement.retirer_unite()
 	_progres_minage = 0.0
