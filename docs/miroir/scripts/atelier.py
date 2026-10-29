@@ -9,7 +9,9 @@ Construit aussi les passerelles qui relient les îlots à l'île (une constructi
 et les machines de l'île (data/machines.json), chacune sur un emplacement libre (la foreuse sur un
 filon). Les machines sont rangées par paliers : le palier 2 s'ouvre au premier corail rapporté,
 le palier 3 à la première pierre de braise (voir decouvrir). À partir du palier 2, chaque sorte de
-machine s'améliore : vitesse (production plus rapide) et capacité (réserve plus grande).
+machine s'améliore : vitesse (production plus rapide) et capacité (réserve plus grande) ; le niveau 2
+se paie en matériaux raffinés. Le fourneau (palier 3) fabrique en boucle le raffiné choisi pour lui,
+avec les ingrédients de l'inventaire (voir consommer_fourneau).
 """
 
 from __future__ import annotations
@@ -30,6 +32,9 @@ class Atelier(RefCounted):
     machines: 'Dictionary'
     palier: 'int'
     niveaux_machines: 'Dictionary'
+    recettes_fourneau: 'Dictionary'
+    depenses: 'Dictionary'
+    consomme_fourneau: 'Dictionary'
     _recettes: 'Dictionary'
     _effets: 'Dictionary'
     _machines: 'Dictionary'
@@ -149,6 +154,10 @@ class Atelier(RefCounted):
     def sur_filon(self, id: 'String') -> 'bool':
         self.machine(...)
 
+    def en_plongee(self, id: 'String') -> 'bool':
+        """Vrai pour une machine qui ne produit que pendant les plongées (sonde)."""
+        self.machine(...)
+
     def decouvrir(self, ids: 'Array') -> 'bool':
         """Note les ressources rapportées d'une plongée ; renvoie vrai si un nouveau palier s'ouvre."""
         ...
@@ -217,10 +226,11 @@ class Atelier(RefCounted):
     def _appliquer_entrepot(self) -> 'void':
         """Un entrepôt construit relève le plafond de l'inventaire (plusieurs entrepôts ne s'additionnent pas)."""
         self.machine(...)
+        self.niveau_machine(...)
         Inventaire.borner(...)
 
     def machines_ameliorables(self) -> 'Array':
-        """Sortes de machines qui s'améliorent (l'entrepôt n'a ni production ni réserve)."""
+        """Sortes de machines qui s'améliorent (le fourneau ne s'améliore pas)."""
         self.liste_machines(...)
         self.machine(...)
 
@@ -229,6 +239,14 @@ class Atelier(RefCounted):
 
     def niveau_machine_max(self, id: 'String', genre: 'String') -> 'int':
         self.machine(...)
+
+    def genres_amelioration(self, id: 'String') -> 'Array':
+        """Améliorations proposées pour cette sorte de machine (« vitesse », « capacite » ; l'entrepôt : capacité)."""
+        self.machine(...)
+
+    def facteur(self, genre: 'String', niveau: 'int') -> 'float':
+        """Multiplicateur de vitesse ou de réserve à un niveau donné."""
+        ...
 
     def prochaine_amelioration_machine(self, id: 'String', genre: 'String') -> 'Dictionary':
         """Ingrédients du prochain niveau (vide au niveau maximal)."""
@@ -247,6 +265,7 @@ class Atelier(RefCounted):
         self._payer(...)
         self.prochaine_amelioration_machine(...)
         self.niveau_machine(...)
+        self._appliquer_entrepot(...)
 
     def recharge_machine(self, id: 'String') -> 'float':
         """Secondes par unité produite, vitesse comprise."""
@@ -258,10 +277,40 @@ class Atelier(RefCounted):
         self.machine(...)
         self.niveau_machine(...)
 
+    def plafond_entrepot_suivant(self) -> 'int':
+        """Plafond de l'inventaire que donnerait le prochain niveau de l'entrepôt."""
+        self.machine(...)
+        self.niveau_machine(...)
+
+    def raffines(self) -> 'Array':
+        """Raffinés que le fourneau sait faire, dans l'ordre du fichier de données."""
+        self.machine(...)
+
+    def recette_raffine(self, raffine: 'String') -> 'Dictionary':
+        """Ingrédients d'un cycle du fourneau pour ce raffiné."""
+        self.machine(...)
+
+    def recette_fourneau(self, lieu: 'String') -> 'String':
+        ...
+
+    def choisir_recette_fourneau(self, lieu: 'String', raffine: 'String') -> 'bool':
+        self.raffines(...)
+
+    def consommer_fourneau(self, raffine: 'String') -> 'bool':
+        """Un cycle du fourneau : prend les ingrédients dans l'inventaire s'ils y sont (vrai), sinon rien (faux)."""
+        self.manquants(...)
+        self.recette_raffine(...)
+        Inventaire.retirer(...)
+
+    def charger_fourneaux(self, donnees: 'Dictionary') -> 'void':
+        """Recettes des fourneaux lues depuis une sauvegarde (à appeler après charger_machines)."""
+        self.raffines(...)
+
     def charger_niveaux_machines(self, donnees: 'Dictionary') -> 'void':
         """Améliorations lues depuis une sauvegarde : sortes et genres inconnus ignorés, niveaux bornés."""
         self.machines_ameliorables(...)
         self.niveau_machine_max(...)
+        self._appliquer_entrepot(...)
 
     def longueur_cable_m(self) -> 'float':
         self._effet(...)

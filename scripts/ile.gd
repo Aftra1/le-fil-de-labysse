@@ -9,7 +9,9 @@ extends Node2D
 ## Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ;
 ## une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne).
 ## La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit
-## rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2.
+## rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première
+## pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il
+## fabrique en boucle avec les ingrédients de l'inventaire) et la sonde (qui ne produit qu'en plongée).
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 ## Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 ## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
@@ -31,11 +33,13 @@ const SONS_RECOLTE := {
 	SourceRessource.Forme.NUAGE: "nuage", SourceRessource.Forme.EOLIENNE: "vent",
 	SourceRessource.Forme.FILON: "cristal", SourceRessource.Forme.BASSIN: "bassin",
 	SourceRessource.Forme.MOULIN: "machine", SourceRessource.Forme.FILET: "machine",
-	SourceRessource.Forme.FOREUSE: "foreuse",
+	SourceRessource.Forme.FOREUSE: "foreuse", SourceRessource.Forme.FOURNEAU: "fourneau",
+	SourceRessource.Forme.SONDE: "sonde",
 }
 const FORMES_MACHINES := {
 	"moulin": SourceRessource.Forme.MOULIN, "filet": SourceRessource.Forme.FILET,
 	"foreuse": SourceRessource.Forme.FOREUSE, "entrepot": SourceRessource.Forme.ENTREPOT,
+	"fourneau": SourceRessource.Forme.FOURNEAU, "sonde": SourceRessource.Forme.SONDE,
 }
 const ZONE_EMPLACEMENT := Vector2(12.0, 16.0)   # demi-taille, centrée 16 px au-dessus du sol
 const RAYON_MACHINE := 16.0
@@ -128,6 +132,12 @@ func _sur_fabrication(id: String, genre: String) -> void:
 				if machine(lieu) != null and machine(lieu).forme == SourceRessource.Forme.ENTREPOT
 				else "Un clic dessus récupère sa production."])
 			Son.jouer("construction")
+		"fourneau":
+			var lieu := _atelier.fourneau_lieu
+			_vider_fourneau(lieu)
+			actualiser_machines()
+			_interface.annoncer("Fourneau à l'arrêt." if id == "" else "Fourneau : %s en boucle." % Game.nom_ressource(id).to_lower())
+			Son.jouer("fourneau")
 		"machine_amelioration":
 			actualiser_machines()
 			_interface.annoncer("Amélioré : %s (%s)" % [atelier.nom_machine(id),
@@ -188,6 +198,10 @@ func _clic() -> void:
 	elif _survol_emplacement != "":
 		_panneau.fermer()
 		_atelier.ouvrir_machines(_survol_emplacement)
+	elif _survol != null and _survol.forme == SourceRessource.Forme.FOURNEAU:
+		_recolter(_survol, _survol.stock)
+		_panneau.fermer()
+		_atelier.ouvrir_fourneau(str(_survol.get_meta("lieu")))
 	elif _survol != null:
 		match _survol.mode:
 			SourceRessource.Mode.CLIC:
@@ -310,6 +324,10 @@ func _texte_aide() -> String:
 		var nom := source.nom if source.nom != "" else Game.nom_ressource(source.id_ressource)
 		if source.forme == SourceRessource.Forme.ENTREPOT:
 			return "%s : jusqu'à %d de chaque ressource" % [nom, Game.inventaire.plafond]
+		if source.forme == SourceRessource.Forme.FOURNEAU:
+			return _aide_fourneau(source)
+		if source.forme == SourceRessource.Forme.SONDE and not source.est_disponible():
+			return "%s : produit pendant les plongées" % nom
 		if not source.est_disponible():
 			return "%s : se recharge avec le temps" % nom
 		match source.mode:
@@ -370,10 +388,20 @@ func actualiser_machines() -> void:
 			source.rayon_clic = RAYON_MACHINE
 			source.position = centre_emplacement(lieu)
 			source.set_meta("machine", id)
+			source.set_meta("lieu", lieu)
 			_sources.add_child(source)
 			_machines[lieu] = source
-		_machines[lieu].recharge_s = atelier.recharge_machine(id)
-		_machines[lieu].plafond = atelier.plafond_machine(id)
+		var machine_ile: SourceRessource = _machines[lieu]
+		machine_ile.plafond = atelier.plafond_machine(id)
+		if atelier.en_plongee(id):
+			machine_ile.recharge_plongee_s = atelier.recharge_machine(id)
+			machine_ile.recharge_s = 0.0
+		else:
+			machine_ile.recharge_s = atelier.recharge_machine(id)
+		if id == "fourneau":
+			var raffine := atelier.recette_fourneau(lieu)
+			machine_ile.id_ressource = raffine
+			machine_ile.condition = atelier.consommer_fourneau.bind(raffine)
 	for donnees: Dictionary in atelier.emplacements():
 		if donnees.has("filon"):
 			var filon := _filons[int(donnees["filon"])]
@@ -382,6 +410,24 @@ func actualiser_machines() -> void:
 				_sources.remove_child(filon)
 			elif not couvert and filon.get_parent() == null:
 				_sources.add_child(filon)
+
+
+## Avant un changement de recette : la réserve du fourneau (l'ancien raffiné) passe dans l'inventaire.
+func _vider_fourneau(lieu: String) -> void:
+	var fourneau := machine(lieu)
+	if fourneau != null and fourneau.stock > 0 and fourneau.id_ressource != "":
+		Game.inventaire.ajouter(fourneau.id_ressource, fourneau.prendre(fourneau.stock))
+
+
+func _aide_fourneau(fourneau: SourceRessource) -> String:
+	if fourneau.id_ressource == "":
+		return "Fourneau à l'arrêt : clic pour choisir le raffiné"
+	var nom := Game.nom_ressource(fourneau.id_ressource).to_lower()
+	if fourneau.stock > 0:
+		return "Fourneau (%s) : clic pour récupérer %d et changer de recette" % [nom, fourneau.stock]
+	if not fourneau.en_activite():
+		return "Fourneau (%s) : il manque des ingrédients dans l'inventaire" % nom
+	return "Fourneau : %s en cours (clic pour changer)" % nom
 
 
 ## Machine posée sur un emplacement (null s'il est libre).
@@ -545,6 +591,8 @@ func afficher_interface(afficher: bool) -> void:
 func arriver(temps_plongee: float, gardees: Dictionary, perdues: Dictionary, urgence: bool) -> void:
 	reprendre()
 	rattraper(temps_plongee)
+	for lieu: String in _machines:
+		(_machines[lieu] as SourceRessource).recharger_plongee(temps_plongee)
 
 	var refuse := Game.inventaire.ajouter_tout(gardees)
 	var nb_gardees := _total(gardees) - _total(refuse)
@@ -717,12 +765,15 @@ func _dessiner_ilot(toile: Node2D, donnees: Dictionary) -> void:
 			if i % 2 == 0:
 				toile.draw_rect(Rect2(x, y, 1, 1), Palette.couleur("or.3"))
 			continue
-		# Planches (deux tons alternés), rambarde en fil de nuage, poteaux tous les 7 pixels.
-		toile.draw_rect(Rect2(x, y, 1, 1), Palette.couleur("terre.3" if i % 3 != 0 else "terre.2"))
+		# Planches (deux tons alternés), rambarde en fil de nuage, poteaux tous les 7 pixels ;
+		# l'arche de braise : pierres sombres veinées d'or, rambarde de braise.
+		var arche := str(donnees.get("style", "")) == "arche"
+		var planche := ("roche.2" if i % 3 != 0 else "or.3") if arche else ("terre.3" if i % 3 != 0 else "terre.2")
+		toile.draw_rect(Rect2(x, y, 1, 1), Palette.couleur(planche))
 		toile.draw_rect(Rect2(x, y + 1, 1, 1), Palette.couleur(ArtIle.CONTOUR))
-		toile.draw_rect(Rect2(x, y - 3, 1, 1), Palette.couleur("nuage.4"))
+		toile.draw_rect(Rect2(x, y - 3, 1, 1), Palette.couleur("or.4" if arche else "nuage.4"))
 		if i % 7 == 0:
-			toile.draw_rect(Rect2(x, y - 3, 1, 3), Palette.couleur("terre.1"))
+			toile.draw_rect(Rect2(x, y - 3, 1, 3), Palette.couleur("roche.1" if arche else "terre.1"))
 	if _survol_ilot == id:
 		var zone := (_vecteur(donnees["zone"]) * K).round()
 		Pixel.cadre(toile, Rect2(VueMonde.vers_monde(centre_ilot(id)) - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))

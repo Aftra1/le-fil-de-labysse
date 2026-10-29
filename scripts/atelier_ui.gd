@@ -7,10 +7,13 @@ extends CanvasLayer
 ## Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible),
 ## ou à défaut sur le premier emplacement libre. À partir du palier 2, trois boutons en haut du détail
 ## choisissent entre Construire et les améliorations de cette sorte de machine (Vitesse, Réserve).
+## Le même panneau sert au fourneau (ouvrir_fourneau, clic sur un fourneau de l'île) : sans onglets, la liste
+## des raffinés et « À l'arrêt » ; Choisir règle la recette que ce fourneau fabrique en boucle.
 ## S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 
 ## genre : « composant » (fabriqué), « amelioration » (installée), « construction » (construite)
-## « machine » (construite sur un emplacement) ou « machine_amelioration » (vitesse ou réserve).
+## « machine » (construite sur un emplacement), « machine_amelioration » (vitesse ou réserve)
+## ou « fourneau » (recette choisie ; id vide : à l'arrêt).
 signal fabrique(id: String, genre: String)
 
 const LARGEUR_LISTE := 196.0
@@ -33,9 +36,13 @@ var emplacement_cible := ""
 var dernier_emplacement := ""
 ## Onglet Machines : « construire », « vitesse » ou « capacite ».
 var mode := "construire"
+## Fourneau réglé par le panneau (onglet « fourneau »).
+var fourneau_lieu := ""
 
 var _liste: VBoxContainer
 var _onglets: Dictionary = {}     # onglet -> Button
+var _entete: Label
+var _ligne_onglets: HBoxContainer
 var _titre: Label
 var _modes: HBoxContainer
 var _boutons_modes: Dictionary = {}   # mode -> Button
@@ -59,8 +66,10 @@ func _ready() -> void:
 	panneau.add_theme_stylebox_override("panel", ArtIle.cadre(1.0))
 	var colonne := VBoxContainer.new()
 	colonne.add_theme_constant_override("separation", ECART)
-	colonne.add_child(_etiquette("Atelier"))
+	_entete = _etiquette("Atelier")
+	colonne.add_child(_entete)
 	var ligne_onglets := HBoxContainer.new()
+	_ligne_onglets = ligne_onglets
 	ligne_onglets.add_theme_constant_override("separation", ECART)
 	for nom: String in ONGLETS:
 		var bouton := Button.new()
@@ -131,8 +140,18 @@ func est_ouvert() -> bool:
 
 func ouvrir() -> void:
 	emplacement_cible = ""
+	if onglet == "fourneau":
+		choisir_onglet("composants")
 	rafraichir()
 	visible = true
+
+
+## Panneau du fourneau posé sur cet emplacement : choix du raffiné fabriqué en boucle.
+func ouvrir_fourneau(lieu: String) -> void:
+	fourneau_lieu = lieu
+	visible = true
+	choisir_onglet("fourneau")
+	selectionner(Game.atelier.recette_fourneau(lieu))
 
 
 ## Ouvre l'onglet Machines pour construire sur cet emplacement (clic sur un emplacement libre).
@@ -165,6 +184,10 @@ func choisir_onglet(nom: String) -> void:
 		ids = Atelier.CONSTRUCTIONS
 	elif nom == "machines":
 		ids = Game.atelier.machines_disponibles()
+	elif nom == "fourneau":
+		ids = [""] + Game.atelier.raffines()
+	_ligne_onglets.visible = nom != "fourneau"
+	_entete.text = "Fourneau" if nom == "fourneau" else "Atelier"
 	mode = "construire"
 	selection = ids[0]
 	_remplir_liste(ids)
@@ -203,6 +226,9 @@ func fabriquer_selection() -> bool:
 			else:
 				genre = "machine_amelioration"
 				reussi = Game.atelier.ameliorer_machine(selection, mode)
+		"fourneau":
+			genre = "fourneau"
+			reussi = peut_fabriquer_selection() and Game.atelier.choisir_recette_fourneau(fourneau_lieu, selection)
 		_:
 			reussi = Game.atelier.fabriquer(selection)
 	if reussi:
@@ -221,6 +247,8 @@ func peut_fabriquer_selection() -> bool:
 			if mode != "construire":
 				return Game.atelier.peut_ameliorer_machine(selection, mode)
 			return Game.atelier.peut_construire_machine(selection)
+		"fourneau":
+			return selection != Game.atelier.recette_fourneau(fourneau_lieu)
 	return Game.atelier.peut_fabriquer(selection)
 
 
@@ -251,20 +279,29 @@ func rafraichir() -> void:
 		_effet.text = "%s\n%s" % [str(Game.atelier.machine(selection)["effet"]), _texte_emplacement()]
 		ingredients = Game.atelier.machine(selection)["ingredients"]
 		_bouton.text = "Construire"
+	elif onglet == "fourneau":
+		_effet.text = "Le fourneau s'arrête." if selection == "" else \
+			"1 toutes les 20 s, pris dans l'inventaire tant qu'il a ces ingrédients (5 au plus en réserve)."
+		ingredients = {} if selection == "" else Game.atelier.recette_raffine(selection)
+		_bouton.text = "En cours" if selection == Game.atelier.recette_fourneau(fourneau_lieu) else "Choisir"
 	else:
 		_effet.text = "Composant pour les améliorations de la cloche."
 		ingredients = Game.atelier.ingredients_composant(selection)
 		_bouton.text = "Fabriquer"
 	for id: String in ingredients:
 		_ingredients.add_child(_ligne_ingredient(id, int(ingredients[id])))
+		# Une quantité au-delà du plafond de l'inventaire ne peut être réunie qu'avec un entrepôt.
+		if int(ingredients[id]) > Game.inventaire.plafond:
+			_effet.text += "\nPlus de %d %s : il faut un entrepôt." % [Game.inventaire.plafond, Game.nom_ressource(id).to_lower()]
 	_bouton.disabled = not peut_fabriquer_selection()
 	# Boutons Construire / Vitesse / Réserve à la place du titre (machines améliorables, palier 2).
-	var avec_modes := onglet == "machines" and Game.atelier.palier >= 2 \
-		and Game.atelier.machines_ameliorables().has(selection)
+	var genres := Game.atelier.genres_amelioration(selection) if onglet == "machines" else []
+	var avec_modes := onglet == "machines" and Game.atelier.palier >= 2 and not genres.is_empty()
 	_modes.visible = avec_modes
 	_titre.visible = not avec_modes
 	for nom: String in _boutons_modes:
 		(_boutons_modes[nom] as Button).set_pressed_no_signal(nom == mode)
+		(_boutons_modes[nom] as Button).visible = nom == "construire" or genres.has(nom)
 
 
 func _remplir_liste(ids: Array) -> void:
@@ -284,6 +321,8 @@ func _remplir_liste(ids: Array) -> void:
 				bouton.icon = ArtIle.icone_construction(id)
 			"machines":
 				bouton.icon = ArtIle.icone_machine(id)
+			"fourneau":
+				bouton.icon = ArtIle.icone(id, 1.0)
 			_:
 				bouton.icon = ArtIle.icone(id, 1.0)
 		bouton.set_meta("id", id)
@@ -300,6 +339,9 @@ func _libelle(id: String) -> String:
 	if onglet == "machines":
 		var nombre := Game.atelier.nombre_machines(id)
 		return Game.atelier.nom_machine(id) + ("  ×%d" % nombre if nombre > 0 else "")
+	if onglet == "fourneau":
+		var nom := "À l'arrêt" if id == "" else Game.nom_ressource(id)
+		return nom + ("  (en cours)" if id == Game.atelier.recette_fourneau(fourneau_lieu) else "")
 	return Game.nom_ressource(id)
 
 
@@ -310,18 +352,22 @@ func _texte_amelioration() -> String:
 	if atelier.prochaine_amelioration_machine(selection, mode).is_empty():
 		return "Niveau maximal atteint pour l'instant."
 	var texte := ""
-	if mode == "vitesse":
+	var suivant := atelier.niveau_machine(selection, mode) + 1
+	if selection == "entrepot":
+		texte = "L'inventaire garde jusqu'à %d au lieu de %d." % [atelier.plafond_entrepot_suivant(), Game.inventaire.plafond]
+	elif mode == "vitesse":
 		texte = "1 %s toutes les %s s au lieu de %s s." % [_unite(str(reglage["ressource"])),
-			_nombre(atelier.recharge_machine(selection) / 1.5), _nombre(atelier.recharge_machine(selection))]
+			_nombre(float(reglage["recharge_s"]) / atelier.facteur("vitesse", suivant)), _nombre(atelier.recharge_machine(selection))]
 	else:
-		texte = "Réserve de %d au lieu de %d." % [atelier.plafond_machine(selection) * 2, atelier.plafond_machine(selection)]
+		texte = "Réserve de %d au lieu de %d." % [int(reglage["plafond"]) * int(atelier.facteur("capacite", suivant)),
+			atelier.plafond_machine(selection)]
 	if atelier.nombre_machines(selection) == 0:
 		return texte + "\nConstruis d'abord cette machine."
 	return texte + "\nPour toutes ces machines."
 
 
 func _unite(ressource: String) -> String:
-	return {"vent": "vent", "nuage": "ouate", "cristal_solaire": "cristal"}.get(ressource, ressource)
+	return {"vent": "vent", "nuage": "ouate", "cristal_solaire": "cristal", "cristal_lagon": "cristal"}.get(ressource, ressource)
 
 
 func _nombre(valeur: float) -> String:

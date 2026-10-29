@@ -89,6 +89,13 @@
 						"poche_air": 2
 					},
 					"effet": "Sac : 8 → 12 places"
+				},
+				{
+					"ingredients": {
+						"nacre": 3,
+						"verre_lagon": 3
+					},
+					"effet": "Sac : 12 → 16 places"
 				}
 			]
 		}
@@ -114,6 +121,17 @@
 			},
 			"effet": "Relie l'îlot du nord : deux emplacements de machine.",
 			"annonce": "Îlot du nord relié : deux emplacements de machine en plus."
+		},
+		"arche": {
+			"nom": "Arche de braise",
+			"ilot": "ilot_couchant",
+			"ingredients": {
+				"pierre_braise": 3,
+				"lingot_solaire": 3,
+				"vent": 120
+			},
+			"effet": "Relie l'îlot du couchant : deux emplacements de machine.",
+			"annonce": "Îlot du couchant relié : deux emplacements de machine en plus."
 		}
 	}
 }

@@ -101,6 +101,9 @@ class RunTests(SceneTree):
         self._test_palier2_ile(...)
         self._test_palier2_sauvegarde(...)
         self._test_sac_12(...)
+        self._test_palier3_logique(...)
+        self._test_palier3_ile(...)
+        self._test_palier3_sauvegarde(...)
         self._test_synthese(...)
         self._test_bus_et_volumes(...)
         self._test_ambiances(...)
@@ -643,6 +646,10 @@ class RunTests(SceneTree):
         self._cliquer(...)
         self._centre(...)
 
+    def _meme_recette(self, a: 'Dictionary', b: 'Dictionary') -> 'bool':
+        """Compare des recettes en nombres entiers (le JSON donne des nombres décimaux)."""
+        ...
+
     def _ingredients(self, inventaire: Inventaire, ingredients: 'Dictionary') -> 'void':
         Inventaire.ajouter(...)
 
@@ -665,7 +672,8 @@ class RunTests(SceneTree):
         Atelier.ameliorer_machine(...)
         Atelier.recharge_machine(...)
         Atelier.plafond_machine(...)
-        Atelier.machines_ameliorables(...)
+        self._meme_recette(...)
+        Atelier.genres_amelioration(...)
         Atelier.charger_niveaux_machines(...)
         Atelier.places_sac(...)
         Atelier.ameliorer(...)
@@ -701,6 +709,60 @@ class RunTests(SceneTree):
         self._demarrer(...)
         self._verifier(...)
         self._terminer(...)
+
+    def _test_palier3_logique(self) -> 'void':
+        self._verifier(...)
+        Atelier.decouvrir(...)
+        Atelier.machines_disponibles(...)
+        self._ingredients(...)
+        Atelier.machine(...)
+        Atelier.construire_machine(...)
+        Inventaire.total(...)
+        Atelier.recette_fourneau(...)
+        Atelier.raffines(...)
+        Atelier.recette_raffine(...)
+        self._meme_recette(...)
+        Atelier.choisir_recette_fourneau(...)
+        Atelier.consommer_fourneau(...)
+        Atelier.charger_fourneaux(...)
+        Inventaire.quantite(...)
+        Atelier.peut_construire(...)
+        Inventaire.ajouter(...)
+        Atelier.construire(...)
+        Atelier.est_relie(...)
+        Atelier.emplacements_libres(...)
+        Atelier.ameliorer_machine(...)
+        Atelier.prochaine_amelioration_machine(...)
+        Atelier.recharge_machine(...)
+        Atelier.plafond_machine(...)
+        Atelier.en_plongee(...)
+        Atelier.ameliorer(...)
+        Atelier.places_sac(...)
+
+    def _test_palier3_ile(self) -> 'void':
+        self._son(...)
+        self._ouvrir_ile(...)
+        self._ingredients(...)
+        Atelier.machine(...)
+        Atelier.construire_machine(...)
+        self._souris(...)
+        self._images(...)
+        self._verifier(...)
+        self._cliquer(...)
+        Atelier.recette_fourneau(...)
+        self._fermer_ile(...)
+
+    def _test_palier3_sauvegarde(self) -> 'void':
+        self._effacer_sauvegarde(...)
+        self._ouvrir_jeu(...)
+        self._ingredients(...)
+        Atelier.machine(...)
+        Atelier.construire_machine(...)
+        Atelier.choisir_recette_fourneau(...)
+        Sauvegarde.ecrire(...)
+        self._fermer_jeu(...)
+        self._images(...)
+        self._verifier(...)
 
     def _aller_retour(self, fond: 'float') -> 'Array':
         """Aller-retour à pleine vitesse jusqu'à « fond » px ; renvoie [oxygène à 300 m, au fond, en surface, remontée auto]."""
