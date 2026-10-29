@@ -21,6 +21,10 @@ const DUREE_EFFET := 0.8
 const MONTEE_EFFET := 18.0
 
 const K := 0.5   # échelle du monde (320x180) par rapport aux positions du jeu (640x360)
+const SONS_RECOLTE := {
+	SourceRessource.Forme.NUAGE: "nuage", SourceRessource.Forme.EOLIENNE: "vent",
+	SourceRessource.Forme.FILON: "cristal", SourceRessource.Forme.BASSIN: "bassin",
+}
 
 var cloche_visible := true
 
@@ -92,11 +96,14 @@ func _sur_fabrication(id: String, genre: String) -> void:
 	match genre:
 		"amelioration":
 			_interface.annoncer("Installé : %s (niveau %d)" % [atelier.nom_amelioration(id), atelier.niveau(id)])
+			Son.jouer("installation")
 		"construction":
 			actualiser_ilot()
 			_interface.annoncer("Îlot relié : le bassin de lumière donne du cristal de lagon.")
+			Son.jouer("construction")
 		_:
 			_interface.annoncer("Fabriqué : %s" % Game.nom_ressource(id))
+			Son.jouer("fabrication")
 	_interface.rafraichir_inventaire()
 	partie_modifiee.emit()
 
@@ -192,6 +199,7 @@ func _recolter(source: SourceRessource, nombre: int) -> void:
 	var prises := source.prendre(mini(nombre, ceili(float(place) / source.rendement)))
 	var pris := Game.inventaire.ajouter(source.id_ressource, prises * source.rendement)
 	_afficher_gain(source.position, pris)
+	Son.jouer(SONS_RECOLTE[source.forme])
 	_interface.rafraichir_inventaire()
 	if source.forme == SourceRessource.Forme.NUAGE and not source.est_disponible():
 		source.queue_free()

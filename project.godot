@@ -13,6 +13,7 @@ config/custom_user_dir_name="Le Fil de l'Abysse"
 [autoload]
 
 Game="*res://scripts/autoload/game.gd"
+Son="*res://scripts/autoload/son.gd"
 
 [display]
 

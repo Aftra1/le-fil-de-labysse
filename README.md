@@ -62,6 +62,22 @@ Le fichier contient : version du format, date, inventaire, niveaux des améliora
 abîmé) et, au besoin, `sauvegarde.corrompue.json` (fichier illisible mis de côté, jamais supprimé).
 Une sauvegarde d'une version plus récente du jeu n'est jamais écrasée.
 
+## Son
+
+Tout le son est synthétisé en code au démarrage (`scripts/synthe.gd`, environ une demi-seconde), sans aucun
+fichier audio, et joué par l'autoload `Son` (`scripts/autoload/son.gd`) :
+
+- **Ambiances** en boucles de 8 s sans couture : nappe lumineuse sur l'île ; drones graves et étouffés en
+  plongée, de plus en plus sombres (Lagon, Forêt de coraux, Faille volcanique avec un lent battement) ;
+  fondu enchaîné de 2,5 s pendant les transitions et de 3 s au changement de zone.
+- **Effets** : récolte (nuage, vent, cristal, bassin), coups de minage et unité gagnée, sac plein, bips
+  d'oxygène bas, craquements de la coque au bout du câble, remontée automatique, fabrication, installation,
+  construction, clics d'interface, souffle des transitions.
+- **Mixage** : bus « Musique » et « Effets » (limiteur sur le bus principal), niveau propre à chaque effet,
+  délai minimal avant de rejouer le même son et légère variation de hauteur, pour ne pas lasser.
+- **Volumes** : menu pause (Échap), « Musique » et « Effets » de 0 à 100 % par pas de 10 % (70 % et 80 %
+  par défaut), enregistrés dans la sauvegarde.
+
 ## Tests
 
 Tests de logique (sans fenêtre), avec PASS/FAIL pour chaque point et un total :

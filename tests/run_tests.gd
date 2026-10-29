@@ -128,6 +128,17 @@ func _lancer() -> void:
 	await _test_ilot_ile()
 	await _test_ilot_sauvegarde()
 
+	_titre("Audio : synthèse, bus, volumes, sauvegarde")
+	_test_synthese()
+	_test_bus_et_volumes()
+	await _test_ambiances()
+
+	_titre("Audio : sons déclenchés par le jeu")
+	await _test_sons_ile()
+	await _test_sons_plongee()
+	await _test_sons_transitions()
+	await _test_volumes_sauvegarde()
+
 	_titre("Rendu pixel art")
 	_test_rendu_pixel()
 	await _test_monde_320()
@@ -136,7 +147,7 @@ func _lancer() -> void:
 	_effacer_sauvegarde()
 	print("")
 	print("TOTAL : %d/%d PASS" % [_reussis, _total])
-	quit(0 if _reussis == _total else 1)
+	await _couper_son_et_quitter(0 if _reussis == _total else 1)
 
 
 # --- Outils -----------------------------------------------------------------
@@ -1789,3 +1800,218 @@ func _test_lueur_braise() -> void:
 	var lueur := Palette.couleur("or.5")
 	_verifier(ArtAbysse.assombrir(lueur, 400.0, 500.0, 40.0, 3) == lueur and ArtAbysse.lueur("pierre_braise") == "or.5",
 		"obscurité : la lueur des pierres de braise (or.5) n'est jamais assombrie")
+
+
+## Coupe le son quelques images avant de quitter (le serveur audio relâche alors ses lectures).
+func _couper_son_et_quitter(code: int) -> void:
+	root.get_node("Son").arreter()
+	for i in 10:
+		await process_frame
+		OS.delay_msec(20)   # le mixage audio tourne en temps réel, à côté des images
+	quit(code)
+
+
+# --- Audio ---------------------------------------------------------------------------------
+
+func _son() -> Node:
+	return root.get_node("Son")
+
+
+func _test_synthese() -> void:
+	var effets: Dictionary = Synthe.effets()
+	var ok := effets.size() == Synthe.EFFETS.size()
+	var detail := ""
+	for id: String in effets:
+		var s := Synthe.echantillons(effets[id])
+		var crete := 0.0
+		for v in s:
+			crete = maxf(crete, absf(v))
+		if s.size() < 200 or crete > Synthe.CRETE + 0.001 or crete < 0.05:
+			ok = false
+			detail += "%s (%d échantillons, crête %.2f) " % [id, s.size(), crete]
+	_verifier(ok, "synthèse : les %d effets sont générés, sans saturation (crête ≤ %.1f)" % [effets.size(), Synthe.CRETE], detail)
+
+	var ambiances: Dictionary = Synthe.ambiances()
+	var boucles_ok := ambiances.size() == 4
+	var raccords := ""
+	for id: String in ambiances:
+		var flux: AudioStreamWAV = ambiances[id]
+		var s := Synthe.echantillons(flux)
+		# Raccord : le saut de la fin au début ne dépasse pas le plus grand saut entre deux échantillons voisins.
+		var plus_grand_saut := 0.0
+		for i in range(1, s.size()):
+			plus_grand_saut = maxf(plus_grand_saut, absf(s[i] - s[i - 1]))
+		var saut := absf(s[0] - s[s.size() - 1])
+		raccords += "%s %.3f/%.3f " % [id, saut, plus_grand_saut]
+		boucles_ok = boucles_ok and flux.loop_mode == AudioStreamWAV.LOOP_FORWARD and flux.loop_end == s.size() \
+			and saut <= plus_grand_saut and s.size() == int(Synthe.DUREE_BOUCLE * Synthe.FREQ_AMBIANCE)
+	_verifier(boucles_ok, "synthèse : 4 ambiances en boucle de 8 s, raccord sans saut audible", raccords)
+	var a := Synthe.echantillons(Synthe.effet("cristal"))
+	var b := Synthe.echantillons(Synthe.effet("cristal"))
+	_verifier(a == b, "synthèse : sons identiques d'une génération à l'autre (graine fixe)")
+
+
+func _test_bus_et_volumes() -> void:
+	var son := _son()
+	var musique := AudioServer.get_bus_index("Musique")
+	var effets := AudioServer.get_bus_index("Effets")
+	_verifier(musique > 0 and effets > 0 and AudioServer.get_bus_send(musique) == "Master"
+		and AudioServer.get_bus_send(effets) == "Master", "bus « Musique » et « Effets » vers Master")
+	son.regler_volumes(0.5, 0.3)
+	_verifier(is_equal_approx(AudioServer.get_bus_volume_db(musique), linear_to_db(0.5))
+		and is_equal_approx(AudioServer.get_bus_volume_db(effets), linear_to_db(0.3)),
+		"volumes appliqués aux bus (50 %% → %.1f dB)" % linear_to_db(0.5))
+	son.regler_volumes(0.0, 1.43)
+	_verifier(AudioServer.is_bus_mute(musique) and son.volume_effets == 1.0 and not AudioServer.is_bus_mute(effets),
+		"volume à 0 : bus coupé ; au-delà de 100 % : ramené à 100 %")
+	son.regler_volumes(0.7, 0.8)
+	son.vider_historique()
+	var premier: bool = son.jouer("unite")
+	var second: bool = son.jouer("unite")
+	_verifier(premier and not second, "anti-répétition : le même effet n'est pas rejoué tout de suite")
+	_verifier(not son.jouer("inconnu"), "effet inconnu : ignoré sans planter")
+	_verifier(AudioServer.get_driver_name() != "", "sans pilote audio réel : tout fonctionne (pilote « %s »)"
+		% AudioServer.get_driver_name())
+
+
+func _test_ambiances() -> void:
+	var son := _son()
+	son.ambiance("faille", 0.2)
+	await _secondes(0.4)
+	var lecteur: AudioStreamPlayer = son.lecteur_ambiance()
+	_verifier(son.ambiance_actuelle == "faille" and lecteur.playing and lecteur.bus == "Musique"
+		and (lecteur.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD,
+		"ambiance : la Faille joue en boucle sur le bus Musique")
+	son.ambiance("ile", 0.2)
+	await _secondes(0.4)
+	_verifier(son.ambiance_actuelle == "ile" and son.lecteur_ambiance() != lecteur and not lecteur.playing,
+		"ambiance : fondu enchaîné vers l'île, l'ancienne s'arrête")
+
+
+func _test_sons_ile() -> void:
+	var son := _son()
+	son.vider_historique()
+	var ile := await _ouvrir_ile()
+	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
+	nuage.derive = 0.0
+	await _cliquer(nuage.position)
+	_verifier(son.a_joue("nuage"), "son : récolte d'un nuage")
+	await _cliquer(ile._eolienne.position)
+	_verifier(son.a_joue("vent"), "son : vent de l'éolienne")
+	var filon: SourceRessource = ile._filons[0]
+	_souris(filon.position)
+	await _images(2)
+	_bouton(filon.position, true)
+	await _secondes(1.1)
+	_bouton(filon.position, false)
+	await _images(2)
+	_verifier(son.a_joue("cristal"), "son : cristal solaire")
+	_jeu.inventaire.ajouter("nuage", 3)
+	_jeu.inventaire.ajouter("vent", 1)
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.ouvrir()
+	atelier.choisir_onglet("composants")
+	atelier.selectionner("fil_nuage")
+	await _images(3)   # mise en page du panneau avant de viser le bouton
+	await _cliquer(atelier._bouton.get_global_rect().get_center())
+	_verifier(son.a_joue("fabrication") and son.a_joue("clic"), "son : fabrication à l'atelier et clic du bouton")
+	atelier.fermer()
+	await _fermer_ile(ile)
+
+
+func _test_sons_plongee() -> void:
+	var son := _son()
+	son.vider_historique()
+	await _demarrer()
+	var gisement := _gisements()[0]
+	_bell.position = gisement.position
+	_bell.velocity = Vector2.ZERO
+	Input.action_press("interact")
+	await _secondes(1.2)
+	Input.action_release("interact")
+	_verifier(son.a_joue("minage") and son.a_joue("unite"), "son : coups de minage puis unité gagnée")
+	for i in Sac.CAPACITE:
+		_plongee._sac.ajouter("cristal_lagon")
+	_plongee._sac._unites.pop_back()
+	var autre := _gisements()[0]
+	_bell.position = autre.position
+	Input.action_press("interact")
+	await _secondes(1.2)
+	Input.action_release("interact")
+	_verifier(son.a_joue("sac_plein"), "son : sac plein")
+	_bell.position = Vector2(0.0, 1400.0)
+	_bell.velocity = Vector2.ZERO
+	Input.action_press("move_down")
+	await _secondes(2.5)
+	_verifier(son.a_joue("craquement") and _plongee.au_bout_du_cable(), "son : craquement de la coque au bout du câble (150 m)",
+		"%.0f m, au bout : %s" % [_bell.position.y / 10.0, _plongee.au_bout_du_cable()])
+	Input.action_release("move_down")
+	_plongee.oxygene = _plongee.oxygene_max * 0.2
+	await _secondes(0.3)
+	_verifier(son.a_joue("oxygene_bas"), "son : bip quand l'air est bas")
+	_plongee.oxygene = 0.0
+	await _images(3)
+	_verifier(son.a_joue("remontee_auto"), "son : remontée automatique")
+	await _terminer()
+
+	_jeu.atelier.niveaux = {"cable": 2, "lanterne": 0, "reservoir": 0}
+	await _demarrer()
+	_jeu.atelier.niveaux = {"cable": 2, "lanterne": 0, "reservoir": 0}
+	_plongee.appliquer_ameliorations()
+	_bell.position = Vector2(0.0, 1700.0)
+	await _images(3)
+	var coraux: String = son.ambiance_actuelle
+	_bell.position = Vector2(0.0, 3300.0)
+	await _images(3)
+	_verifier(coraux == "coraux" and son.ambiance_actuelle == "faille", "ambiance : Coraux puis Faille selon la profondeur")
+	await _terminer()
+	_jeu.atelier.niveaux = {"cable": 0, "lanterne": 0, "reservoir": 0}
+
+
+func _test_sons_transitions() -> void:
+	var son := _son()
+	son.vider_historique()
+	var jeu := await _ouvrir_jeu()
+	_touche(KEY_E)
+	await _images(3)
+	_verifier(son.a_joue("souffle") and son.ambiance_actuelle == "lagon", "transition : souffle et fondu vers l'ambiance du Lagon")
+	await _attendre_etat(jeu, ETAT_PLONGEE)
+	son.vider_historique()
+	await _remonter(jeu)
+	await _images(3)
+	_verifier(son.a_joue("souffle") and son.ambiance_actuelle == "ile", "remontée : souffle et retour de la nappe de l'île")
+	await _fermer_jeu(jeu)
+
+
+func _test_volumes_sauvegarde() -> void:
+	var son := _son()
+	_effacer_sauvegarde()
+	son.regler_volumes(0.7, 0.8)
+	var jeu := await _ouvrir_jeu()
+	var pause: Node = jeu._pause
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	await _cliquer(pause.boutons_volume["musique"][0].get_global_rect().get_center())
+	await _cliquer(pause.boutons_volume["musique"][0].get_global_rect().get_center())
+	await _cliquer(pause.boutons_volume["effets"][1].get_global_rect().get_center())
+	_verifier(is_equal_approx(son.volume_musique, 0.5) and is_equal_approx(son.volume_effets, 0.9),
+		"menu pause : − et + règlent musique et effets par pas de 10 %", "%.1f / %.1f" % [son.volume_musique, son.volume_effets])
+	var sauve: Dictionary = Sauvegarde.lire()["partie"].get("reglages", {})
+	_verifier(is_equal_approx(float(sauve.get("musique", -1.0)), 0.5) and is_equal_approx(float(sauve.get("effets", -1.0)), 0.9),
+		"volumes enregistrés dans la sauvegarde", str(sauve))
+	jeu.fermer_pause()
+	await _fermer_jeu(jeu)
+
+	son.regler_volumes(1.0, 1.0)
+	jeu = await _ouvrir_jeu(true)
+	_verifier(is_equal_approx(son.volume_musique, 0.5) and is_equal_approx(son.volume_effets, 0.9),
+		"écran titre : les volumes de la sauvegarde sont repris")
+	await _fermer_jeu(jeu)
+
+	Sauvegarde.ecrire({"inventaire": {}, "ameliorations": {}, "ilots": [], "ile": {}, "reglages": {"musique": "fort"}})
+	jeu = await _ouvrir_jeu(true)
+	_verifier(is_equal_approx(son.volume_musique, 0.7) and is_equal_approx(son.volume_effets, 0.8),
+		"réglages faux ou absents : volumes par défaut (70 % / 80 %)")
+	await _fermer_jeu(jeu)
+	son.regler_volumes(0.7, 0.8)
+	_effacer_sauvegarde()
