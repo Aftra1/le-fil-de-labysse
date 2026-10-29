@@ -127,8 +127,8 @@
 			"ilot": "ilot_couchant",
 			"ingredients": {
 				"pierre_braise": 3,
-				"lingot_solaire": 3,
-				"vent": 120
+				"lingot_solaire": 4,
+				"vent": 100
 			},
 			"effet": "Relie l'îlot du couchant : deux emplacements de machine.",
 			"annonce": "Îlot du couchant relié : deux emplacements de machine en plus."

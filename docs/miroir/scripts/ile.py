@@ -208,7 +208,15 @@ class Ile(Node2D):
         Atelier.en_plongee(...)
         Atelier.recharge_machine(...)
         Atelier.recette_fourneau(...)
+        self._cycle_fourneau  # passée comme Callable
         Atelier.emplacements(...)
+
+    def _cycle_fourneau(self, raffine: 'String') -> 'bool':
+        """Un cycle du fourneau : ingrédients pris dans l'inventaire, dont l'affichage suit."""
+        Atelier.consommer_fourneau(...)
+        InterfaceIle.rafraichir_inventaire(...)
+        PanneauAtelier.est_ouvert(...)
+        PanneauAtelier.rafraichir(...)
 
     def _vider_fourneau(self, lieu: 'String') -> 'void':
         """Avant un changement de recette : la réserve du fourneau (l'ancien raffiné) passe dans l'inventaire."""

@@ -2184,26 +2184,26 @@ func _test_palier3_logique() -> void:
 		tous_au_vent = tous_au_vent and atelier.recette_raffine(raffine).has("vent")
 	_verifier(atelier.raffines() == ["verre_lagon", "nacre", "lingot_solaire"] and tous_au_vent,
 		"3 raffinés (verre de lagon, nacre, lingot solaire), tous attisés au vent")
-	_verifier(_meme_recette(atelier.recette_raffine("nacre"), {"corail": 1, "nuage": 4, "vent": 1})
-		and _meme_recette(atelier.recette_raffine("lingot_solaire"), {"cristal_solaire": 4, "vent": 2})
-		and _meme_recette(atelier.recette_raffine("verre_lagon"), {"cristal_lagon": 2, "vent": 3}),
+	_verifier(_meme_recette(atelier.recette_raffine("nacre"), {"corail": 1, "nuage": 8, "vent": 2})
+		and _meme_recette(atelier.recette_raffine("lingot_solaire"), {"cristal_solaire": 5, "vent": 5})
+		and _meme_recette(atelier.recette_raffine("verre_lagon"), {"cristal_lagon": 2, "vent": 6}),
 		"recettes : ouates (filet), cristaux solaires (foreuse) et vent (moulin) en quantité")
 	_verifier(not atelier.choisir_recette_fourneau(lieu, "or_massif") and not atelier.choisir_recette_fourneau("ile_centre", "nacre")
 		and atelier.choisir_recette_fourneau(lieu, "lingot_solaire"), "recette du fourneau : raffiné et fourneau connus seulement")
 	_verifier(not atelier.consommer_fourneau("lingot_solaire"), "fourneau sans ingrédients : il attend")
-	_ingredients(inventaire, {"cristal_solaire": 4, "vent": 2})
+	_ingredients(inventaire, {"cristal_solaire": 5, "vent": 5})
 	_verifier(atelier.consommer_fourneau("lingot_solaire") and inventaire.total() == 0
-		and atelier.consomme_fourneau == {"cristal_solaire": 4, "vent": 2}, "un cycle prend ses ingrédients dans l'inventaire et les compte")
+		and atelier.consomme_fourneau == {"cristal_solaire": 5, "vent": 5}, "un cycle prend ses ingrédients dans l'inventaire et les compte")
 	atelier.charger_fourneaux({lieu: "nacre", "ile_centre": "nacre"})
 	_verifier(atelier.recettes_fourneau == {lieu: "nacre"}, "recettes lues d'une sauvegarde : fourneaux connus seulement")
 
-	# Arche de braise : 120 vents, plus que les 99 que garde l'inventaire sans entrepôt.
-	_ingredients(inventaire, {"pierre_braise": 3, "lingot_solaire": 3, "vent": 150})
+	# Arche de braise : 100 vents, plus que les 99 que garde l'inventaire sans entrepôt.
+	_ingredients(inventaire, {"pierre_braise": 3, "lingot_solaire": 4, "vent": 150})
 	_verifier(inventaire.quantite("vent") == 99 and not atelier.peut_construire("arche"),
-		"arche de braise : 120 vents, impossible sans entrepôt (l'inventaire s'arrête à 99)")
+		"arche de braise : 100 vents, impossible sans entrepôt (l'inventaire s'arrête à 99)")
 	_ingredients(inventaire, atelier.machine("entrepot")["ingredients"])
 	atelier.construire_machine("entrepot")
-	inventaire.ajouter("vent", 30)
+	inventaire.ajouter("vent", 10)
 	_verifier(atelier.construire("arche") and atelier.est_relie("ilot_couchant") and atelier.emplacements_libres().has("couchant_ouest"),
 		"avec un entrepôt : l'arche relie l'îlot du couchant (deux emplacements)")
 	_ingredients(inventaire, {"lingot_solaire": 3, "verre_lagon": 3})
@@ -2225,7 +2225,7 @@ func _test_palier3_logique() -> void:
 	atelier.niveaux["sac"] = 1
 	_ingredients(inventaire, {"nacre": 3, "verre_lagon": 3})
 	_verifier(atelier.ameliorer("sac") and atelier.places_sac() == 16, "sac de plongée niveau 2 (3 nacres, 3 verres) : 16 places")
-	_verifier(int(atelier.depenses.get("vent", 0)) >= 120, "dépenses de l'atelier comptées (vent de l'arche)")
+	_verifier(int(atelier.depenses.get("vent", 0)) >= 100, "dépenses de l'atelier comptées (vent de l'arche)")
 
 
 func _test_palier3_ile() -> void:
@@ -2253,15 +2253,15 @@ func _test_palier3_ile() -> void:
 	await _images(2)
 	_verifier(logique.recette_fourneau("ile_centre") == "lingot_solaire" and fourneau.id_ressource == "lingot_solaire"
 		and son.a_joue("fourneau"), "le fourneau fabrique des lingots en boucle, avec son")
-	_jeu.inventaire.ajouter("cristal_solaire", 8)
-	_jeu.inventaire.ajouter("vent", 4)
+	_jeu.inventaire.ajouter("cristal_solaire", 10)
+	_jeu.inventaire.ajouter("vent", 10)
 	ile.rattraper(40.0)
 	_verifier(fourneau.stock == 2 and _jeu.inventaire.quantite("cristal_solaire") == 0 and _jeu.inventaire.quantite("vent") == 0,
 		"40 s : 2 lingots, ingrédients pris dans l'inventaire", "stock %d" % fourneau.stock)
 	ile.rattraper(200.0)
 	_verifier(fourneau.stock == 2, "sans ingrédients, le fourneau attend")
-	_jeu.inventaire.ajouter("cristal_solaire", 4)
-	_jeu.inventaire.ajouter("vent", 2)
+	_jeu.inventaire.ajouter("cristal_solaire", 5)
+	_jeu.inventaire.ajouter("vent", 5)
 	ile.rattraper(0.1)
 	_verifier(fourneau.stock == 3, "ingrédients revenus : le cycle prêt repart aussitôt")
 	ile.rattraper(1000.0)
@@ -2290,7 +2290,7 @@ func _test_palier3_ile() -> void:
 	await _cliquer(ile.centre_ilot("ilot_couchant"))
 	_verifier(aide.contains("arche") and atelier.onglet == "construction" and atelier.selection == "arche"
 		and atelier._effet.text.contains("entrepôt"),
-		"îlot du couchant : l'aide et l'atelier (l'arche demande 120 vents : il faut un entrepôt)", atelier._effet.text)
+		"îlot du couchant : l'aide et l'atelier (l'arche demande 100 vents : il faut un entrepôt)", atelier._effet.text)
 	atelier.fermer()
 	await _fermer_ile(ile)
 
@@ -2305,7 +2305,7 @@ func _test_palier3_sauvegarde() -> void:
 	logique.construire_machine("fourneau", "ile_ouest")
 	logique.choisir_recette_fourneau("ile_ouest", "nacre")
 	ile.actualiser_machines()
-	_ingredients(_jeu.inventaire, {"corail": 2, "nuage": 8, "vent": 2})
+	_ingredients(_jeu.inventaire, {"corail": 2, "nuage": 16, "vent": 4})
 	# Partie enregistrée il y a 70 s : de quoi faire 2 nacres (3 cycles possibles en temps).
 	Sauvegarde.ecrire(jeu.donnees_partie(), Time.get_unix_time_from_system() - 70.0)
 	await _fermer_jeu(jeu)

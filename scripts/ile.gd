@@ -401,7 +401,7 @@ func actualiser_machines() -> void:
 		if id == "fourneau":
 			var raffine := atelier.recette_fourneau(lieu)
 			machine_ile.id_ressource = raffine
-			machine_ile.condition = atelier.consommer_fourneau.bind(raffine)
+			machine_ile.condition = _cycle_fourneau.bind(raffine)
 	for donnees: Dictionary in atelier.emplacements():
 		if donnees.has("filon"):
 			var filon := _filons[int(donnees["filon"])]
@@ -410,6 +410,16 @@ func actualiser_machines() -> void:
 				_sources.remove_child(filon)
 			elif not couvert and filon.get_parent() == null:
 				_sources.add_child(filon)
+
+
+## Un cycle du fourneau : ingrédients pris dans l'inventaire, dont l'affichage suit.
+func _cycle_fourneau(raffine: String) -> bool:
+	if not Game.atelier.consommer_fourneau(raffine):
+		return false
+	_interface.rafraichir_inventaire()
+	if _atelier.est_ouvert():
+		_atelier.rafraichir()
+	return true
 
 
 ## Avant un changement de recette : la réserve du fourneau (l'ancien raffiné) passe dans l'inventaire.

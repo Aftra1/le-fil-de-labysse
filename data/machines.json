@@ -247,16 +247,16 @@
 			"recettes": {
 				"verre_lagon": {
 					"cristal_lagon": 2,
-					"vent": 3
+					"vent": 6
 				},
 				"nacre": {
 					"corail": 1,
-					"nuage": 4,
-					"vent": 1
+					"nuage": 8,
+					"vent": 2
 				},
 				"lingot_solaire": {
-					"cristal_solaire": 4,
-					"vent": 2
+					"cristal_solaire": 5,
+					"vent": 5
 				}
 			}
 		},
