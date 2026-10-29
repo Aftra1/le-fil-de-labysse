@@ -93,6 +93,9 @@ const OBJECTIFS := [
 	["amelioration_machine", "entrepot", "capacite", 1],
 ]
 const MINERAIS := ["pierre_braise", "corail", "cristal_lagon"]   # du plus profond au moins profond
+## Le robot ne réunit que les ressources des quelques prochains objectifs (comme un joueur qui avance pas
+## à pas), pas celles de toute la partie d'un coup.
+const HORIZON_OBJECTIFS := 3
 
 var _video := false
 var _sortie := ""
@@ -197,13 +200,13 @@ func _partie_complete() -> void:
 	_ecrire_mesures()
 
 
-## Matières premières encore nécessaires pour tous les objectifs restants (inventaire déduit).
+## Matières premières encore nécessaires pour les prochains objectifs (inventaire déduit).
 func _besoins() -> Dictionary:
 	var atelier: Atelier = _game.atelier
 	var inventaire: Inventaire = _game.inventaire
 	var composants := {}
 	var brut := {}
-	for objectif: Array in _objectifs_restants():
+	for objectif: Array in _objectifs_proches():
 		var ingredients := _ingredients_objectif(objectif)
 		for id: String in ingredients:
 			if atelier.composants().has(id):
@@ -231,11 +234,11 @@ func _besoins() -> Dictionary:
 	return resultat
 
 
-## Raffinés encore à fabriquer pour les objectifs restants : { raffiné: nombre }, dans l'ordre des objectifs.
+## Raffinés encore à fabriquer pour les prochains objectifs : { raffiné: nombre }, dans l'ordre des objectifs.
 func _raffines_manquants() -> Dictionary:
 	var atelier: Atelier = _game.atelier
 	var voulus := {}
-	for objectif: Array in _objectifs_restants():
+	for objectif: Array in _objectifs_proches():
 		var ingredients := _ingredients_objectif(objectif)
 		for id: String in ingredients:
 			if atelier.raffines().has(id):
@@ -295,6 +298,10 @@ func _besoin_raffine(raffine: String) -> bool:
 		if _ingredients_objectif(objectif).has(raffine):
 			return true
 	return false
+
+
+func _objectifs_proches() -> Array:
+	return _objectifs_restants().slice(0, HORIZON_OBJECTIFS)
 
 
 func _objectifs_restants() -> Array:

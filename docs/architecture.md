@@ -541,7 +541,7 @@ Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captu
 Playtest robot : joue une partie entière comme un joueur, avec de vrais évènements clavier et souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'inventaire.
 
 - **Hérite de** : SceneTree
-- **Fonctions** : `_initialize`, `_lancer`, `_partie_complete`, `_besoins`, `_raffines_manquants`, `_en_reserve_fourneaux`, `_gerer_fourneaux`, `_besoin_raffine`, `_objectifs_restants`, `_ingredients_objectif`, `_plongee_utile`, `_zone_de`, `_atteignable`, `_recolter_utile`, `_compter`, `_nuage_visible`, `_cliquer_nuage`, `_maintenir_sur`, `_recolter_bassin`, `_fabriquer_tout`
+- **Fonctions** : `_initialize`, `_lancer`, `_partie_complete`, `_besoins`, `_raffines_manquants`, `_en_reserve_fourneaux`, `_gerer_fourneaux`, `_besoin_raffine`, `_objectifs_proches`, `_objectifs_restants`, `_ingredients_objectif`, `_plongee_utile`, `_zone_de`, `_atteignable`, `_recolter_utile`, `_compter`, `_nuage_visible`, `_cliquer_nuage`, `_maintenir_sur`, `_recolter_bassin`
 - **Dépend de** : ArtAbysse, Atelier, Donnees, Ile, Inventaire, Jeu, Sauvegarde, SourceRessource
 
 ### `tests/run_tests.gd` : RunTests

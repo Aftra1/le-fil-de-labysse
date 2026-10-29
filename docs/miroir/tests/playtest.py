@@ -59,6 +59,7 @@ class Playtest(SceneTree):
     VITESSE_APPROCHE = 35.0
     OBJECTIFS = ...
     MINERAIS = ...
+    HORIZON_OBJECTIFS = 3
     _video: 'bool'
     _sortie: 'String'
     _nom_profil: 'String'
@@ -124,8 +125,8 @@ class Playtest(SceneTree):
         self._ecrire_mesures(...)
 
     def _besoins(self) -> 'Dictionary':
-        """Matières premières encore nécessaires pour tous les objectifs restants (inventaire déduit)."""
-        self._objectifs_restants(...)
+        """Matières premières encore nécessaires pour les prochains objectifs (inventaire déduit)."""
+        self._objectifs_proches(...)
         self._ingredients_objectif(...)
         Atelier.composants(...)
         Atelier.raffines(...)
@@ -135,8 +136,8 @@ class Playtest(SceneTree):
         Atelier.ingredients_composant(...)
 
     def _raffines_manquants(self) -> 'Dictionary':
-        """Raffinés encore à fabriquer pour les objectifs restants : { raffiné: nombre }, dans l'ordre des objectifs."""
-        self._objectifs_restants(...)
+        """Raffinés encore à fabriquer pour les prochains objectifs : { raffiné: nombre }, dans l'ordre des objectifs."""
+        self._objectifs_proches(...)
         self._ingredients_objectif(...)
         Atelier.raffines(...)
         self._en_reserve_fourneaux(...)
@@ -160,6 +161,9 @@ class Playtest(SceneTree):
     def _besoin_raffine(self, raffine: 'String') -> 'bool':
         self._objectifs_restants(...)
         self._ingredients_objectif(...)
+
+    def _objectifs_proches(self) -> 'Array':
+        self._objectifs_restants(...)
 
     def _objectifs_restants(self) -> 'Array':
         Atelier.niveau(...)
