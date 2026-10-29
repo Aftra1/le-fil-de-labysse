@@ -452,7 +452,8 @@ func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 	var exploration := {"rang": -1, "sens": 1.0}
 	while _jeu.etat == 2:
 		mesure["profondeur_max_m"] = maxf(mesure["profondeur_max_m"], cloche.position.y / 10.0)
-		if _video and not mesure.has("video_fond") and cloche.position.y >= 2900.0:
+		# Fin de la descente accélérée au montage : arrivée dans la Faille, ou premier coup de minage.
+		if _video and not mesure.has("video_fond") and (cloche.position.y >= 2900.0 or Input.is_physical_key_pressed(KEY_E)):
 			mesure["video_fond"] = true
 			_marque_video("fond")
 		if _video and remonter and not mesure.has("video_remontee"):
