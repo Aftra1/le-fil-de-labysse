@@ -101,6 +101,7 @@ class RunTests(SceneTree):
         self._test_palier2_ile(...)
         self._test_palier2_sauvegarde(...)
         self._test_sac_12(...)
+        self._test_nuages_devant(...)
         self._test_palier3_logique(...)
         self._test_palier3_ile(...)
         self._test_palier3_sauvegarde(...)
@@ -709,6 +710,14 @@ class RunTests(SceneTree):
         self._demarrer(...)
         self._verifier(...)
         self._terminer(...)
+
+    def _test_nuages_devant(self) -> 'void':
+        self._ouvrir_ile(...)
+        self._nuage_degage(...)
+        self._cliquer(...)
+        self._verifier(...)
+        self._ingredients(...)
+        self._fermer_ile(...)
 
     def _test_palier3_logique(self) -> 'void':
         self._verifier(...)

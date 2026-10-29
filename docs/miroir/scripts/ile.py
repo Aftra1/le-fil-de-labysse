@@ -175,7 +175,8 @@ class Ile(Node2D):
     def _souris_sur_cloche(self) -> 'bool':
         ...
 
-    def _source_sous_souris(self) -> SourceRessource:
+    def _source_sous_souris(self, conteneur: 'Node2D') -> SourceRessource:
+        """Source sous la souris dans ce conteneur (sources fixes et machines, ou nuages)."""
         SourceRessource.contient(...)
 
     def _mettre_a_jour_survol(self) -> 'void':

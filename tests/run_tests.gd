@@ -139,6 +139,9 @@ func _lancer() -> void:
 	await _test_palier2_sauvegarde()
 	await _test_sac_12()
 
+	_titre("Clics : un nuage qui passe devant ne vole jamais le clic")
+	await _test_nuages_devant()
+
 	_titre("Palier 3 : fourneau et raffinés, sonde, arche de braise, sac à 16 places, niveaux 2")
 	_test_palier3_logique()
 	await _test_palier3_ile()
@@ -2164,6 +2167,53 @@ func _test_sac_12() -> void:
 	_verifier(_plongee._sac.capacite == 12 and texte.contains("/12"), "sac de plongée installé : 12 places en plongée", texte)
 	await _terminer()
 	_jeu.atelier.niveaux["sac"] = 0
+
+
+# --- Nuages devant les éléments de l'île --------------------------------------------------------
+
+func _test_nuages_devant() -> void:
+	var ile := await _ouvrir_ile()
+	var atelier: Node = ile.get_node("Atelier")
+	var nuage := _nuage_degage(ile)
+	var prises := nuage.stock
+	var demandes := [0]
+	ile.plongee_demandee.connect(func() -> void: demandes[0] += 1)
+
+	nuage.position = ile.centre_emplacement("ile_centre")
+	await _cliquer(nuage.position)
+	_verifier(atelier.est_ouvert() and atelier.emplacement_cible == "ile_centre" and nuage.stock == prises,
+		"nuage devant un emplacement libre : le clic ouvre l'atelier pour l'emplacement, le nuage reste")
+	atelier.fermer()
+
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("moulin")["ingredients"])
+	_jeu.atelier.construire_machine("moulin", "ile_ouest")
+	ile.actualiser_machines()
+	var moulin: SourceRessource = ile.machine("ile_ouest")
+	moulin.stock = 5
+	nuage.position = moulin.position
+	await _cliquer(moulin.position + Vector2(1, 0))
+	_verifier(moulin.stock == 0 and _jeu.inventaire.quantite("vent") == 5 and nuage.stock == prises,
+		"nuage devant une machine : le clic vide la machine, pas le nuage")
+
+	nuage.position = _ile_script.POSITION_CLOCHE
+	await _cliquer(_ile_script.POSITION_CLOCHE)
+	_verifier(demandes[0] == 1 and nuage.stock == prises, "nuage devant la cloche : le clic lance la plongée")
+
+	nuage.position = _ile_script.POSITION_CABANE
+	await _cliquer(_ile_script.POSITION_CABANE)
+	_verifier(atelier.est_ouvert() and nuage.stock == prises, "nuage devant la cabane : le clic ouvre l'atelier")
+	atelier.fermer()
+
+	nuage.position = ile.centre_ilot("ilot_nord")
+	await _cliquer(ile.centre_ilot("ilot_nord"))
+	_verifier(atelier.est_ouvert() and atelier.selection == "pont" and nuage.stock == prises,
+		"nuage devant un îlot isolé : le clic ouvre la construction du pont")
+	atelier.fermer()
+
+	nuage.position = Vector2(400.0, 70.0)
+	await _cliquer(nuage.position)
+	_verifier(nuage.stock == prises - 1, "nuage seul sous la souris : il se récolte")
+	await _fermer_ile(ile)
 
 
 # --- Palier 3 --------------------------------------------------------------------------------

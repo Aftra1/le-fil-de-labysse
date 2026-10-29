@@ -275,12 +275,12 @@ func _souris_sur_cloche() -> bool:
 			and absf(_souris.y - POSITION_CLOCHE.y) <= ZONE_CLOCHE.y
 
 
-func _source_sous_souris() -> SourceRessource:
-	for conteneur: Node2D in [_nuages, _sources]:
-		for enfant in conteneur.get_children():
-			var source := enfant as SourceRessource
-			if source != null and not source.is_queued_for_deletion() and source.contient(_souris):
-				return source
+## Source sous la souris dans ce conteneur (sources fixes et machines, ou nuages).
+func _source_sous_souris(conteneur: Node2D) -> SourceRessource:
+	for enfant in conteneur.get_children():
+		var source := enfant as SourceRessource
+		if source != null and not source.is_queued_for_deletion() and source.contient(_souris):
+			return source
 	return null
 
 
@@ -288,17 +288,20 @@ func _mettre_a_jour_survol() -> void:
 	var sur_cloche := not panneau_ouvert() and _souris_sur_cloche()
 	var sur_cabane := not panneau_ouvert() and not sur_cloche \
 		and absf(_souris.x - POSITION_CABANE.x) <= ZONE_CABANE.x and absf(_souris.y - POSITION_CABANE.y) <= ZONE_CABANE.y
-	var survol: SourceRessource = null
-	if not panneau_ouvert() and not sur_cloche and not sur_cabane:
-		survol = _source_sous_souris()
+	# Priorité du clic : cloche, cabane, sources fixes et machines, îlot isolé, emplacement libre ; un nuage
+	# qui passe devant ne prend le clic que si rien d'autre n'est sous la souris.
+	var libre := not panneau_ouvert() and not sur_cloche and not sur_cabane
+	var survol: SourceRessource = _source_sous_souris(_sources) if libre else null
 	_survol_cloche = sur_cloche
 	_survol_cabane = sur_cabane
 	_survol_ilot = ""
-	if not panneau_ouvert() and not sur_cloche and not sur_cabane and survol == null:
+	if libre and survol == null:
 		_survol_ilot = _ilot_isole_sous_souris()
 	_survol_emplacement = ""
-	if not panneau_ouvert() and not sur_cloche and not sur_cabane and survol == null and _survol_ilot == "":
+	if libre and survol == null and _survol_ilot == "":
 		_survol_emplacement = _emplacement_sous_souris()
+	if libre and survol == null and _survol_ilot == "" and _survol_emplacement == "":
+		survol = _source_sous_souris(_nuages)
 	if survol != _survol:
 		if is_instance_valid(_survol):
 			_survol.en_survol = false
