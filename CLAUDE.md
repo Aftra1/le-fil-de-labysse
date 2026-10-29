@@ -52,5 +52,6 @@ Gardien d'une île flottante au-dessus d'un océan sans fond.
 - [ ] 6. Test de la boucle complète sur PC (en cours), puis ajustements, pixel art et audio
 - [ ] 7. Machines et nouveau contenu (+45 à 60 min), en cinq PR :
   - [x] PR A (PR #13) : base des machines, emplacements, palier 1 (moulin à vent, filet à nuages)
-  - [ ] PR B : palier 2 (îlot du nord, foreuse solaire, entrepôt, sac à 12 places, améliorations de niveau 1 des machines)
-  - [ ] PR C : palier 3 (fourneau : fabrique en boucle la recette choisie d'un clic sur le fourneau, sans file d'attente) ; PR D : trouvailles et carnet ; PR E : équilibrage
+  - [x] PR B (PR #14) : palier 2 (îlot du nord, foreuse solaire, entrepôt, sac à 12 places, améliorations de niveau 1 des machines)
+  - [ ] PR C : palier 3 (îlot du couchant, fourneau qui fabrique en boucle la recette choisie d'un clic sur le fourneau, 3 raffinés, sonde, sac à 16, niveaux 2)
+  - [ ] PR D : trouvailles et carnet ; PR E : équilibrage

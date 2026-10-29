@@ -2,8 +2,10 @@
 # Source : scripts/source_ressource.gd (le jeu n'utilise que le GDScript).
 # Régénérer : python3 tests/generer_miroir.py
 """Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot)
-ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt) ou sur un filon
-(foreuse solaire).
+ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt, fourneau, sonde)
+ou sur un filon (foreuse solaire).
+Production sous condition : « condition » (si elle est donnée) est appelée avant chaque unité et peut
+refuser (fourneau sans ingrédients) ; la sonde ne produit que pendant les plongées (recharger_plongee).
 Trois façons de récolter :
 - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
@@ -37,6 +39,8 @@ class SourceRessource(Node2D):
         FILET = 5
         FOREUSE = 6
         ENTREPOT = 7
+        FOURNEAU = 8
+        SONDE = 9
 
     VITESSE_PALES = 1.6
     VITESSE_AILES = 1.1
@@ -55,6 +59,8 @@ class SourceRessource(Node2D):
     plafond: 'int'
     recharge_s: 'float'
     duree_maintien: 'float'
+    condition: 'Variant'
+    recharge_plongee_s: 'float'
     rayon_clic: 'float'
     derive: 'float'
     progres: 'float'
@@ -72,6 +78,14 @@ class SourceRessource(Node2D):
 
     def recharger(self, secondes: 'float') -> 'void':
         """Fait avancer la recharge de « secondes » (aussi utilisé pour rattraper le temps de plongée)."""
+        ...
+
+    def recharger_plongee(self, secondes: 'float') -> 'void':
+        """Sonde : production pendant « secondes » de plongée (rien sur l'île ni jeu fermé)."""
+        self.recharger(...)
+
+    def en_activite(self) -> 'bool':
+        """Vrai si la machine travaille en ce moment (fourneau : recette choisie et réserve pas pleine)."""
         ...
 
     def etat(self) -> 'Dictionary':
@@ -102,6 +116,8 @@ class SourceRessource(Node2D):
         self._dessiner_filet(...)
         self._dessiner_foreuse(...)
         self._dessiner_entrepot(...)
+        self._dessiner_fourneau(...)
+        self._dessiner_sonde(...)
         self.est_disponible(...)
         Pixel.sprite(...)
         Pixel.anneau(...)
@@ -138,6 +154,19 @@ class SourceRessource(Node2D):
         cristal tant que la réserve n'est pas pleine."""
         Pixel.sprite_ombre(...)
         ArtIle.filon(...)
+        Palette.couleur(...)
+        ArtAbysse.temps(...)
+        self._dessiner_points(...)
+
+    def _dessiner_fourneau(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
+        """Fourneau : un four de pierre en dôme ; quand il travaille, sa bouche rougeoie et sa cheminée fume."""
+        Palette.couleur(...)
+        self.en_activite(...)
+        ArtAbysse.temps(...)
+        self._dessiner_points(...)
+
+    def _dessiner_sonde(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
+        """Sonde de plongée : une potence au bord de l'île ; sa capsule cyan monte et descend au bout du câble."""
         Palette.couleur(...)
         ArtAbysse.temps(...)
         self._dessiner_points(...)

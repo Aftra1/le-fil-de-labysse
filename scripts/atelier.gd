@@ -8,10 +8,12 @@ extends RefCounted
 ## et les machines de l'île (data/machines.json), chacune sur un emplacement libre (la foreuse sur un
 ## filon). Les machines sont rangées par paliers : le palier 2 s'ouvre au premier corail rapporté,
 ## le palier 3 à la première pierre de braise (voir decouvrir). À partir du palier 2, chaque sorte de
-## machine s'améliore : vitesse (production plus rapide) et capacité (réserve plus grande).
+## machine s'améliore : vitesse (production plus rapide) et capacité (réserve plus grande) ; le niveau 2
+## se paie en matériaux raffinés. Le fourneau (palier 3) fabrique en boucle le raffiné choisi pour lui,
+## avec les ingrédients de l'inventaire (voir consommer_fourneau).
 
 const AMELIORATIONS := ["cable", "lanterne", "reservoir", "sac"]
-const CONSTRUCTIONS := ["passerelle", "pont"]
+const CONSTRUCTIONS := ["passerelle", "pont", "arche"]
 ## Ressource qui ouvre chaque palier de machines, la première fois qu'on la rapporte.
 const PALIERS := {"corail": 2, "pierre_braise": 3}
 const GENRES_AMELIORATION := ["vitesse", "capacite"]
@@ -27,6 +29,11 @@ var machines: Dictionary = {}
 var palier := 1
 ## Améliorations des machines, par sorte : { "moulin": { "vitesse": 1, "capacite": 0 } }.
 var niveaux_machines: Dictionary = {}
+## Recette de chaque fourneau : { emplacement: raffiné } (vide : à l'arrêt).
+var recettes_fourneau: Dictionary = {}
+## Mesures : ressources dépensées à l'atelier et par les fourneaux depuis le début de la partie.
+var depenses: Dictionary = {}
+var consomme_fourneau: Dictionary = {}
 
 var _recettes: Dictionary = {}
 var _effets: Dictionary = {}
@@ -195,6 +202,11 @@ func sur_filon(id: String) -> bool:
 	return bool(machine(id).get("sur_filon", false))
 
 
+## Vrai pour une machine qui ne produit que pendant les plongées (sonde).
+func en_plongee(id: String) -> bool:
+	return bool(machine(id).get("en_plongee", false))
+
+
 ## Note les ressources rapportées d'une plongée ; renvoie vrai si un nouveau palier s'ouvre.
 func decouvrir(ids: Array) -> bool:
 	var avant := palier
@@ -283,6 +295,8 @@ func construire_machine(id: String, cible: String = "") -> String:
 	var lieu := cible if libres.has(cible) else str(libres[0])
 	_payer(machine(id)["ingredients"])
 	machines[lieu] = id
+	if machine(id).has("recettes"):
+		recettes_fourneau[lieu] = ""
 	_appliquer_entrepot()
 	return lieu
 
@@ -303,14 +317,16 @@ func charger_machines(donnees: Dictionary) -> void:
 func _appliquer_entrepot() -> void:
 	var plafond := Inventaire.PLAFOND
 	for id: String in machines.values():
-		plafond = maxi(plafond, int(machine(id).get("plafond_inventaire", 0)))
+		var paliers = machine(id).get("plafond_inventaire", [])
+		if paliers is Array and not paliers.is_empty():
+			plafond = maxi(plafond, int(paliers[mini(niveau_machine(id, "capacite"), paliers.size() - 1)]))
 	inventaire.plafond = plafond
 	inventaire.borner()
 
 
 # --- Améliorations des machines -------------------------------------------------------------
 
-## Sortes de machines qui s'améliorent (l'entrepôt n'a ni production ni réserve).
+## Sortes de machines qui s'améliorent (le fourneau ne s'améliore pas).
 func machines_ameliorables() -> Array:
 	return liste_machines().filter(func(id: String) -> bool: return machine(id).has("ameliorations"))
 
@@ -322,7 +338,20 @@ func niveau_machine(id: String, genre: String) -> int:
 func niveau_machine_max(id: String, genre: String) -> int:
 	if not machine(id).has("ameliorations"):
 		return 0
-	return (machine(id)["ameliorations"][genre] as Array).size()
+	return (machine(id)["ameliorations"].get(genre, []) as Array).size()
+
+
+## Améliorations proposées pour cette sorte de machine (« vitesse », « capacite » ; l'entrepôt : capacité).
+func genres_amelioration(id: String) -> Array:
+	if not machine(id).has("ameliorations"):
+		return []
+	return GENRES_AMELIORATION.filter(func(genre: String) -> bool: return machine(id)["ameliorations"].has(genre))
+
+
+## Multiplicateur de vitesse ou de réserve à un niveau donné.
+func facteur(genre: String, niveau: int) -> float:
+	var facteurs: Array = _machines["facteurs"][genre]
+	return float(facteurs[clampi(niveau, 0, facteurs.size() - 1)])
 
 
 ## Ingrédients du prochain niveau (vide au niveau maximal).
@@ -347,6 +376,7 @@ func ameliorer_machine(id: String, genre: String) -> bool:
 	if not niveaux_machines.has(id):
 		niveaux_machines[id] = {}
 	niveaux_machines[id][genre] = niveau_machine(id, genre) + 1
+	_appliquer_entrepot()
 	return true
 
 
@@ -362,6 +392,55 @@ func plafond_machine(id: String) -> int:
 	return int(machine(id)["plafond"]) * int(facteurs[mini(niveau_machine(id, "capacite"), facteurs.size() - 1)])
 
 
+## Plafond de l'inventaire que donnerait le prochain niveau de l'entrepôt.
+func plafond_entrepot_suivant() -> int:
+	var paliers: Array = machine("entrepot")["plafond_inventaire"]
+	return int(paliers[mini(niveau_machine("entrepot", "capacite") + 1, paliers.size() - 1)])
+
+
+# --- Fourneau ----------------------------------------------------------------------------------
+
+## Raffinés que le fourneau sait faire, dans l'ordre du fichier de données.
+func raffines() -> Array:
+	return (machine("fourneau")["recettes"] as Dictionary).keys()
+
+
+## Ingrédients d'un cycle du fourneau pour ce raffiné.
+func recette_raffine(raffine: String) -> Dictionary:
+	return machine("fourneau")["recettes"][raffine]
+
+
+func recette_fourneau(lieu: String) -> String:
+	return str(recettes_fourneau.get(lieu, ""))
+
+
+func choisir_recette_fourneau(lieu: String, raffine: String) -> bool:
+	if machines.get(lieu) != "fourneau" or (raffine != "" and not raffines().has(raffine)):
+		return false
+	recettes_fourneau[lieu] = raffine
+	return true
+
+
+## Un cycle du fourneau : prend les ingrédients dans l'inventaire s'ils y sont (vrai), sinon rien (faux).
+func consommer_fourneau(raffine: String) -> bool:
+	if raffine == "" or not manquants(recette_raffine(raffine)).is_empty():
+		return false
+	var ingredients := recette_raffine(raffine)
+	for id: String in ingredients:
+		inventaire.retirer(id, int(ingredients[id]))
+		consomme_fourneau[id] = int(consomme_fourneau.get(id, 0)) + int(ingredients[id])
+	return true
+
+
+## Recettes des fourneaux lues depuis une sauvegarde (à appeler après charger_machines).
+func charger_fourneaux(donnees: Dictionary) -> void:
+	recettes_fourneau.clear()
+	for lieu: String in machines:
+		if machines[lieu] == "fourneau":
+			var raffine = donnees.get(lieu, "")
+			recettes_fourneau[lieu] = raffine if (raffine is String and raffines().has(raffine)) else ""
+
+
 ## Améliorations lues depuis une sauvegarde : sortes et genres inconnus ignorés, niveaux bornés.
 func charger_niveaux_machines(donnees: Dictionary) -> void:
 	niveaux_machines.clear()
@@ -375,6 +454,7 @@ func charger_niveaux_machines(donnees: Dictionary) -> void:
 				if not niveaux_machines.has(id):
 					niveaux_machines[id] = {}
 				niveaux_machines[id][genre] = clampi(int(valeur), 0, niveau_machine_max(id, genre))
+	_appliquer_entrepot()
 
 
 # --- Effets des niveaux installés -------------------------------------------------------------
@@ -414,6 +494,7 @@ func manquants(ingredients: Dictionary) -> Dictionary:
 func _payer(ingredients: Dictionary) -> void:
 	for id: String in ingredients:
 		inventaire.retirer(id, int(ingredients[id]))
+		depenses[id] = int(depenses.get(id, 0)) + int(ingredients[id])
 
 
 func _effet(id: String, cle: String) -> float:

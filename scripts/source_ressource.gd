@@ -1,8 +1,10 @@
 class_name SourceRessource
 extends Node2D
 ## Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot)
-## ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt) ou sur un filon
-## (foreuse solaire).
+## ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt, fourneau, sonde)
+## ou sur un filon (foreuse solaire).
+## Production sous condition : « condition » (si elle est donnée) est appelée avant chaque unité et peut
+## refuser (fourneau sans ingrédients) ; la sonde ne produit que pendant les plongées (recharger_plongee).
 ## Trois façons de récolter :
 ## - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 ## - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
@@ -10,7 +12,7 @@ extends Node2D
 ## Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 
 enum Mode { CLIC, MAINTIEN, RESERVE }
-enum Forme { EOLIENNE, FILON, NUAGE, BASSIN, MOULIN, FILET, FOREUSE, ENTREPOT }
+enum Forme { EOLIENNE, FILON, NUAGE, BASSIN, MOULIN, FILET, FOREUSE, ENTREPOT, FOURNEAU, SONDE }
 
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
 const VITESSE_AILES := 1.1       # ailes du moulin, arrêtées quand sa réserve est pleine
@@ -35,6 +37,10 @@ var rendement := 1
 var plafond := 1
 var recharge_s := 0.0          # 0 : pas de recharge
 var duree_maintien := 1.0
+## Appelée avant chaque unité produite ; renvoie faux pour attendre (vide : toujours possible).
+var condition := Callable()
+## Sonde : secondes de plongée par unité (0 : la source n'est pas une sonde).
+var recharge_plongee_s := 0.0
 var rayon_clic := 20.0
 ## Vitesse horizontale (nuages), en px/s (640x360). Elle est arrondie pour que le nuage avance
 ## d'un pixel du monde toutes les N images de physique exactement : un pas régulier, jamais saccadé.
@@ -88,11 +94,28 @@ func recharger(secondes: float) -> void:
 		return
 	_accumulateur += secondes
 	while _accumulateur >= recharge_s and stock < plafond:
+		if condition.is_valid() and not condition.call():
+			_accumulateur = recharge_s    # prêt : l'unité suivante part dès que la condition le permet
+			return
 		_accumulateur -= recharge_s
 		stock += 1
 		queue_redraw()
 	if stock >= plafond:
 		_accumulateur = 0.0
+
+
+## Sonde : production pendant « secondes » de plongée (rien sur l'île ni jeu fermé).
+func recharger_plongee(secondes: float) -> void:
+	if recharge_plongee_s <= 0.0:
+		return
+	recharge_s = recharge_plongee_s
+	recharger(secondes)
+	recharge_s = 0.0
+
+
+## Vrai si la machine travaille en ce moment (fourneau : recette choisie et réserve pas pleine).
+func en_activite() -> bool:
+	return stock < plafond and (not condition.is_valid() or _accumulateur < recharge_s)
 
 
 ## État enregistré dans la sauvegarde : stock et recharge en cours.
@@ -149,6 +172,10 @@ func dessiner_monde(toile: CanvasItem) -> void:
 			_dessiner_foreuse(toile, p)
 		Forme.ENTREPOT:
 			_dessiner_entrepot(toile, p)
+		Forme.FOURNEAU:
+			_dessiner_fourneau(toile, p)
+		Forme.SONDE:
+			_dessiner_sonde(toile, p)
 	var rayon := roundi(rayon_clic * K)
 	if en_survol and est_disponible():
 		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("nuage.4")), p)
@@ -253,6 +280,47 @@ func _dessiner_foreuse(toile: CanvasItem, centre: Vector2) -> void:
 	toile.draw_rect(Rect2(x - 1 + tour, bas, 1, 1), Palette.couleur("metal.3"))
 	toile.draw_rect(Rect2(x, bas + 1, 1, 1), Palette.couleur("or.4"))
 	_dessiner_points(toile, centre + Vector2(0, -12), "or.4")
+
+
+## Fourneau : un four de pierre en dôme ; quand il travaille, sa bouche rougeoie et sa cheminée fume.
+func _dessiner_fourneau(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var sol := centre.y + HAUTEUR_MACHINE
+	toile.draw_rect(Rect2(x - 6, sol, 13, 1), Palette.couleur("herbe.3"))
+	var largeurs := [6, 6, 6, 5, 5, 4, 3, 2]
+	for rang in largeurs.size():
+		var demi: int = largeurs[rang]
+		toile.draw_rect(Rect2(x - demi - 1, sol - 1 - rang, demi * 2 + 3, 1), Palette.couleur(ArtIle.CONTOUR))
+		toile.draw_rect(Rect2(x - demi, sol - 1 - rang, demi * 2 + 1, 1), Palette.couleur("roche.3" if rang % 3 else "roche.4"))
+	toile.draw_rect(Rect2(x + 3, sol - 12, 3, 5), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x + 4, sol - 12, 1, 4), Palette.couleur("roche.2"))
+	var actif := en_activite() and condition.is_valid()
+	var t := ArtAbysse.temps()
+	var braise := "or.5" if actif and int(t * 6.0) % 3 == 0 else ("or.4" if actif else "roche.1")
+	toile.draw_rect(Rect2(x - 2, sol - 4, 5, 4), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 1, sol - 3, 3, 3), Palette.couleur(braise))
+	if actif:
+		var pas := int(t * 3.0)
+		for bouffee in 2:
+			var montee := posmod(pas + bouffee * 3, 6)
+			toile.draw_rect(Rect2(Vector2(x + 4 + posmod(montee, 2), sol - 13 - montee), Vector2.ONE), Palette.couleur("nuage.3"))
+	_dessiner_points(toile, centre + Vector2(0, -12), "or.4")
+
+
+## Sonde de plongée : une potence au bord de l'île ; sa capsule cyan monte et descend au bout du câble.
+func _dessiner_sonde(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var sol := centre.y + HAUTEUR_MACHINE
+	toile.draw_rect(Rect2(x - 3, sol, 7, 1), Palette.couleur("herbe.3"))
+	toile.draw_rect(Rect2(x - 3, sol - 13, 3, 13), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 2, sol - 12, 1, 12), Palette.couleur("terre.2"))
+	toile.draw_rect(Rect2(x - 3, sol - 14, 10, 2), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 2, sol - 14, 8, 1), Palette.couleur("metal.2"))
+	var bas := sol - 7 + roundi(3.0 * sin(ArtAbysse.temps() * 1.2))
+	toile.draw_rect(Rect2(x + 5, sol - 13, 1, bas - (sol - 13)), Palette.couleur("metal.3"))
+	toile.draw_rect(Rect2(x + 4, bas, 3, 3), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x + 5, bas + 1, 1, 1), Palette.couleur("cyan.3"))
+	_dessiner_points(toile, centre + Vector2(0, -13), "cyan.3")
 
 
 ## Entrepôt : une petite remise de planches au toit sombre, avec une caisse devant la porte.

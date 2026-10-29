@@ -139,6 +139,14 @@ func _lancer() -> void:
 	await _test_palier2_sauvegarde()
 	await _test_sac_12()
 
+	_titre("Clics : un nuage qui passe devant ne vole jamais le clic")
+	await _test_nuages_devant()
+
+	_titre("Palier 3 : fourneau et raffinés, sonde, arche de braise, sac à 16 places, niveaux 2")
+	_test_palier3_logique()
+	await _test_palier3_ile()
+	await _test_palier3_sauvegarde()
+
 	_titre("Audio : synthèse, bus, volumes, sauvegarde")
 	_test_synthese()
 	_test_bus_et_volumes()
@@ -1943,6 +1951,16 @@ func _test_machines_sauvegarde() -> void:
 
 # --- Palier 2 --------------------------------------------------------------------------------
 
+## Compare des recettes en nombres entiers (le JSON donne des nombres décimaux).
+func _meme_recette(a: Dictionary, b: Dictionary) -> bool:
+	if a.size() != b.size():
+		return false
+	for id: String in b:
+		if int(a.get(id, -1)) != int(b[id]):
+			return false
+	return true
+
+
 func _ingredients(inventaire: Inventaire, ingredients: Dictionary) -> void:
 	for id: String in ingredients:
 		inventaire.ajouter(id, int(ingredients[id]))
@@ -1987,11 +2005,11 @@ func _test_palier2_logique() -> void:
 		"moulin, vitesse niveau 1 : 1 vent toutes les 6,7 s au lieu de 10 s")
 	_verifier(atelier.ameliorer_machine("moulin", "capacite") and atelier.plafond_machine("moulin") == 16,
 		"moulin, réserve niveau 1 : 16 au lieu de 8")
-	_verifier(atelier.prochaine_amelioration_machine("moulin", "vitesse").is_empty()
-		and not atelier.ameliorer_machine("moulin", "vitesse"), "niveau 1 : maximum de cette PR")
-	_verifier(not atelier.machines_ameliorables().has("entrepot"), "l'entrepôt ne s'améliore pas (son niveau 2 viendra au palier 3)")
+	_verifier(_meme_recette(atelier.prochaine_amelioration_machine("moulin", "vitesse"), {"verre_lagon": 2})
+		and not atelier.ameliorer_machine("moulin", "vitesse"), "niveau 2 : se paie en matériaux raffinés (2 verres de lagon)")
+	_verifier(atelier.genres_amelioration("entrepot") == ["capacite"], "l'entrepôt ne s'améliore qu'en capacité")
 	atelier.charger_niveaux_machines({"moulin": {"vitesse": 9, "inconnu": 1}, "fusee": {"vitesse": 1}, "filet": "x"})
-	_verifier(atelier.niveaux_machines == {"moulin": {"vitesse": 1}}, "améliorations lues : bornées, inconnues ignorées",
+	_verifier(atelier.niveaux_machines == {"moulin": {"vitesse": 2}}, "améliorations lues : bornées, inconnues ignorées",
 		str(atelier.niveaux_machines))
 
 	inventaire = Inventaire.new()
@@ -2149,6 +2167,208 @@ func _test_sac_12() -> void:
 	_verifier(_plongee._sac.capacite == 12 and texte.contains("/12"), "sac de plongée installé : 12 places en plongée", texte)
 	await _terminer()
 	_jeu.atelier.niveaux["sac"] = 0
+
+
+# --- Nuages devant les éléments de l'île --------------------------------------------------------
+
+func _test_nuages_devant() -> void:
+	var ile := await _ouvrir_ile()
+	var atelier: Node = ile.get_node("Atelier")
+	var nuage := _nuage_degage(ile)
+	var prises := nuage.stock
+	var demandes := [0]
+	ile.plongee_demandee.connect(func() -> void: demandes[0] += 1)
+
+	nuage.position = ile.centre_emplacement("ile_centre")
+	await _cliquer(nuage.position)
+	_verifier(atelier.est_ouvert() and atelier.emplacement_cible == "ile_centre" and nuage.stock == prises,
+		"nuage devant un emplacement libre : le clic ouvre l'atelier pour l'emplacement, le nuage reste")
+	atelier.fermer()
+
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("moulin")["ingredients"])
+	_jeu.atelier.construire_machine("moulin", "ile_ouest")
+	ile.actualiser_machines()
+	var moulin: SourceRessource = ile.machine("ile_ouest")
+	moulin.stock = 5
+	nuage.position = moulin.position
+	await _cliquer(moulin.position + Vector2(1, 0))
+	_verifier(moulin.stock == 0 and _jeu.inventaire.quantite("vent") == 5 and nuage.stock == prises,
+		"nuage devant une machine : le clic vide la machine, pas le nuage")
+
+	nuage.position = _ile_script.POSITION_CLOCHE
+	await _cliquer(_ile_script.POSITION_CLOCHE)
+	_verifier(demandes[0] == 1 and nuage.stock == prises, "nuage devant la cloche : le clic lance la plongée")
+
+	nuage.position = _ile_script.POSITION_CABANE
+	await _cliquer(_ile_script.POSITION_CABANE)
+	_verifier(atelier.est_ouvert() and nuage.stock == prises, "nuage devant la cabane : le clic ouvre l'atelier")
+	atelier.fermer()
+
+	nuage.position = ile.centre_ilot("ilot_nord")
+	await _cliquer(ile.centre_ilot("ilot_nord"))
+	_verifier(atelier.est_ouvert() and atelier.selection == "pont" and nuage.stock == prises,
+		"nuage devant un îlot isolé : le clic ouvre la construction du pont")
+	atelier.fermer()
+
+	nuage.position = Vector2(400.0, 70.0)
+	await _cliquer(nuage.position)
+	_verifier(nuage.stock == prises - 1, "nuage seul sous la souris : il se récolte")
+	await _fermer_ile(ile)
+
+
+# --- Palier 3 --------------------------------------------------------------------------------
+
+func _test_palier3_logique() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	atelier.palier = 2
+	_verifier(atelier.decouvrir(["pierre_braise"]) and atelier.palier == 3
+		and atelier.machines_disponibles().has("fourneau") and atelier.machines_disponibles().has("sonde"),
+		"première pierre de braise : palier 3, fourneau et sonde proposés")
+	_ingredients(inventaire, atelier.machine("fourneau")["ingredients"])
+	var lieu := atelier.construire_machine("fourneau")
+	_verifier(lieu == "ile_ouest" and inventaire.total() == 0 and atelier.recette_fourneau(lieu) == "",
+		"fourneau : 3 pierres de braise, 3 coraux, 6 cristaux solaires ; à l'arrêt au départ")
+	var tous_au_vent := true
+	for raffine: String in atelier.raffines():
+		tous_au_vent = tous_au_vent and atelier.recette_raffine(raffine).has("vent")
+	_verifier(atelier.raffines() == ["verre_lagon", "nacre", "lingot_solaire"] and tous_au_vent,
+		"3 raffinés (verre de lagon, nacre, lingot solaire), tous attisés au vent")
+	_verifier(_meme_recette(atelier.recette_raffine("nacre"), {"corail": 1, "nuage": 8, "vent": 2})
+		and _meme_recette(atelier.recette_raffine("lingot_solaire"), {"cristal_solaire": 5, "vent": 5})
+		and _meme_recette(atelier.recette_raffine("verre_lagon"), {"cristal_lagon": 2, "vent": 6}),
+		"recettes : ouates (filet), cristaux solaires (foreuse) et vent (moulin) en quantité")
+	_verifier(not atelier.choisir_recette_fourneau(lieu, "or_massif") and not atelier.choisir_recette_fourneau("ile_centre", "nacre")
+		and atelier.choisir_recette_fourneau(lieu, "lingot_solaire"), "recette du fourneau : raffiné et fourneau connus seulement")
+	_verifier(not atelier.consommer_fourneau("lingot_solaire"), "fourneau sans ingrédients : il attend")
+	_ingredients(inventaire, {"cristal_solaire": 5, "vent": 5})
+	_verifier(atelier.consommer_fourneau("lingot_solaire") and inventaire.total() == 0
+		and atelier.consomme_fourneau == {"cristal_solaire": 5, "vent": 5}, "un cycle prend ses ingrédients dans l'inventaire et les compte")
+	atelier.charger_fourneaux({lieu: "nacre", "ile_centre": "nacre"})
+	_verifier(atelier.recettes_fourneau == {lieu: "nacre"}, "recettes lues d'une sauvegarde : fourneaux connus seulement")
+
+	# Arche de braise : 100 vents, plus que les 99 que garde l'inventaire sans entrepôt.
+	_ingredients(inventaire, {"pierre_braise": 3, "lingot_solaire": 4, "vent": 150})
+	_verifier(inventaire.quantite("vent") == 99 and not atelier.peut_construire("arche"),
+		"arche de braise : 100 vents, impossible sans entrepôt (l'inventaire s'arrête à 99)")
+	_ingredients(inventaire, atelier.machine("entrepot")["ingredients"])
+	atelier.construire_machine("entrepot")
+	inventaire.ajouter("vent", 10)
+	_verifier(atelier.construire("arche") and atelier.est_relie("ilot_couchant") and atelier.emplacements_libres().has("couchant_ouest"),
+		"avec un entrepôt : l'arche relie l'îlot du couchant (deux emplacements)")
+	_ingredients(inventaire, {"lingot_solaire": 3, "verre_lagon": 3})
+	_verifier(atelier.ameliorer_machine("entrepot", "capacite") and inventaire.plafond == 499,
+		"entrepôt amélioré (3 lingots, 3 verres) : 499 de chaque ressource")
+
+	_ingredients(inventaire, atelier.machine("moulin")["ingredients"])
+	atelier.construire_machine("moulin")
+	for niveau in 2:
+		_ingredients(inventaire, atelier.prochaine_amelioration_machine("moulin", "vitesse"))
+		_ingredients(inventaire, atelier.prochaine_amelioration_machine("moulin", "capacite"))
+		atelier.ameliorer_machine("moulin", "vitesse")
+		atelier.ameliorer_machine("moulin", "capacite")
+	_verifier(is_equal_approx(atelier.recharge_machine("moulin"), 5.0) and atelier.plafond_machine("moulin") == 24,
+		"moulin au niveau 2 : 1 vent toutes les 5 s, réserve de 24")
+	_ingredients(inventaire, atelier.machine("sonde")["ingredients"])
+	_verifier(atelier.construire_machine("sonde") != "" and atelier.en_plongee("sonde"),
+		"sonde : 2 pierres de braise, 2 poches d'air, 1 lentille ; produit en plongée")
+	atelier.niveaux["sac"] = 1
+	_ingredients(inventaire, {"nacre": 3, "verre_lagon": 3})
+	_verifier(atelier.ameliorer("sac") and atelier.places_sac() == 16, "sac de plongée niveau 2 (3 nacres, 3 verres) : 16 places")
+	_verifier(int(atelier.depenses.get("vent", 0)) >= 100, "dépenses de l'atelier comptées (vent de l'arche)")
+
+
+func _test_palier3_ile() -> void:
+	var son := _son()
+	son.vider_historique()
+	var ile := await _ouvrir_ile()
+	var atelier: Node = ile.get_node("Atelier")
+	var logique: Atelier = _jeu.atelier
+	logique.palier = 3
+	_ingredients(_jeu.inventaire, logique.machine("fourneau")["ingredients"])
+	logique.construire_machine("fourneau", "ile_centre")
+	ile.actualiser_machines()
+	var fourneau: SourceRessource = ile.machine("ile_centre")
+	_souris(fourneau.position)
+	await _images(2)
+	var aide: String = ile._texte_aide()
+	_verifier(fourneau.forme == SourceRessource.Forme.FOURNEAU and aide.contains("à l'arrêt"), "fourneau neuf : à l'arrêt", aide)
+	await _cliquer(fourneau.position)
+	_verifier(atelier.est_ouvert() and atelier.onglet == "fourneau" and not atelier._ligne_onglets.visible
+		and atelier._entete.text == "Fourneau", "clic sur le fourneau : son panneau (sans onglets)")
+	atelier.selectionner("lingot_solaire")
+	_verifier(atelier._bouton.text == "Choisir" and not atelier._bouton.disabled, "choisir le lingot solaire")
+	atelier._bouton.pressed.emit()
+	atelier.fermer()
+	await _images(2)
+	_verifier(logique.recette_fourneau("ile_centre") == "lingot_solaire" and fourneau.id_ressource == "lingot_solaire"
+		and son.a_joue("fourneau"), "le fourneau fabrique des lingots en boucle, avec son")
+	_jeu.inventaire.ajouter("cristal_solaire", 10)
+	_jeu.inventaire.ajouter("vent", 10)
+	ile.rattraper(40.0)
+	_verifier(fourneau.stock == 2 and _jeu.inventaire.quantite("cristal_solaire") == 0 and _jeu.inventaire.quantite("vent") == 0,
+		"40 s : 2 lingots, ingrédients pris dans l'inventaire", "stock %d" % fourneau.stock)
+	ile.rattraper(200.0)
+	_verifier(fourneau.stock == 2, "sans ingrédients, le fourneau attend")
+	_jeu.inventaire.ajouter("cristal_solaire", 5)
+	_jeu.inventaire.ajouter("vent", 5)
+	ile.rattraper(0.1)
+	_verifier(fourneau.stock == 3, "ingrédients revenus : le cycle prêt repart aussitôt")
+	ile.rattraper(1000.0)
+	_souris(fourneau.position + Vector2(1, 0))
+	await _images(2)
+	aide = ile._texte_aide()
+	_verifier(aide.contains("récupérer 3"), "aide : réserve à récupérer", aide)
+	await _cliquer(fourneau.position + Vector2(1, 0))
+	_verifier(_jeu.inventaire.quantite("lingot_solaire") == 3 and fourneau.stock == 0 and atelier.est_ouvert(),
+		"un clic : 3 lingots dans l'inventaire, et le panneau du fourneau s'ouvre")
+	atelier.fermer()
+
+	_ingredients(_jeu.inventaire, logique.machine("sonde")["ingredients"])
+	logique.construire_machine("sonde", "ile_ouest")
+	ile.actualiser_machines()
+	var sonde: SourceRessource = ile.machine("ile_ouest")
+	ile.rattraper(1000.0)
+	var sur_ile := sonde.stock
+	ile.arriver(36.0, {}, {}, false)
+	_verifier(sur_ile == 0 and sonde.stock == 3, "sonde : rien sur l'île, 3 cristaux de lagon pour 36 s de plongée",
+		"%d puis %d" % [sur_ile, sonde.stock])
+
+	_souris(ile.centre_ilot("ilot_couchant"))
+	await _images(2)
+	aide = ile._texte_aide()
+	await _cliquer(ile.centre_ilot("ilot_couchant"))
+	_verifier(aide.contains("arche") and atelier.onglet == "construction" and atelier.selection == "arche"
+		and atelier._effet.text.contains("entrepôt"),
+		"îlot du couchant : l'aide et l'atelier (l'arche demande 100 vents : il faut un entrepôt)", atelier._effet.text)
+	atelier.fermer()
+	await _fermer_ile(ile)
+
+
+func _test_palier3_sauvegarde() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	var ile: Node = jeu.get_node("Ile")
+	var logique: Atelier = _jeu.atelier
+	logique.palier = 3
+	_ingredients(_jeu.inventaire, logique.machine("fourneau")["ingredients"])
+	logique.construire_machine("fourneau", "ile_ouest")
+	logique.choisir_recette_fourneau("ile_ouest", "nacre")
+	ile.actualiser_machines()
+	_ingredients(_jeu.inventaire, {"corail": 2, "nuage": 16, "vent": 4})
+	# Partie enregistrée il y a 70 s : de quoi faire 2 nacres (3 cycles possibles en temps).
+	Sauvegarde.ecrire(jeu.donnees_partie(), Time.get_unix_time_from_system() - 70.0)
+	await _fermer_jeu(jeu)
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	ile = jeu.get_node("Ile")
+	var fourneau: SourceRessource = ile.machine("ile_ouest")
+	_verifier(_jeu.atelier.recette_fourneau("ile_ouest") == "nacre" and fourneau.id_ressource == "nacre" and fourneau.stock == 2
+		and _jeu.inventaire.quantite("nuage") == 0, "Continuer : le fourneau a fait 2 nacres jeu fermé, avec l'inventaire",
+		"stock %d" % fourneau.stock)
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
 
 
 # --- Étape 4 (partie 2) : Faille volcanique ----------------------------------------------

@@ -7,7 +7,12 @@ souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'in
 Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
 → fils de nuage → câble tressé → moulin à vent (clic sur un emplacement libre) → plongées dans la
 Forêt de coraux (le premier corail ouvre le palier 2) → lanterne → filet à nuages → réservoir → sac à 12 places →
-pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → entrepôt →
+pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → entrepôt → … → lanterne 2 →
+palier 3 : fourneau (le robot règle sa recette d'un clic sur le fourneau selon le raffiné qui manque, et
+l'arrête quand rien ne manque) → sonde → arche de braise (100 vents : entrepôt) → sac à 16 places →
+niveaux 2 du moulin, de la foreuse et du filet → entrepôt à 499.
+Mesures d'économie : origine de chaque ressource (machines, sources de l'île, plongées, fourneau) et où elle
+est dépensée (atelier, fourneau).
 passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
 (pierre de braise) → lanterne de niveau 2 → récolte du bassin de lumière sur l'îlot.
 
@@ -54,6 +59,7 @@ class Playtest(SceneTree):
     VITESSE_APPROCHE = 35.0
     OBJECTIFS = ...
     MINERAIS = ...
+    HORIZON_OBJECTIFS = 3
     _video: 'bool'
     _sortie: 'String'
     _nom_profil: 'String'
@@ -79,6 +85,10 @@ class Playtest(SceneTree):
     _machines_construites: 'Array'
     _machines_recolte: 'Dictionary'
     _paliers: 'Dictionary'
+    _ile_recolte: 'Dictionary'
+    _plongee_recolte: 'Dictionary'
+    _fourneau_recolte: 'Dictionary'
+    _inventaire_max: 'Dictionary'
 
     def _initialize(self) -> 'void':
         Donnees.charger_json(...)
@@ -102,6 +112,7 @@ class Playtest(SceneTree):
         self._fabriquer_tout(...)
         self._objectifs_restants(...)
         self._besoins(...)
+        self._gerer_fourneaux(...)
         self._recolter_utile(...)
         self._plongee_utile(...)
         self._fin_attente(...)
@@ -114,12 +125,45 @@ class Playtest(SceneTree):
         self._ecrire_mesures(...)
 
     def _besoins(self) -> 'Dictionary':
-        """Matières premières encore nécessaires pour tous les objectifs restants (inventaire déduit)."""
-        self._objectifs_restants(...)
+        """Matières premières encore nécessaires pour les prochains objectifs (inventaire déduit)."""
+        self._objectifs_proches(...)
         self._ingredients_objectif(...)
         Atelier.composants(...)
+        Atelier.raffines(...)
+        self._raffines_manquants(...)
+        Atelier.recette_raffine(...)
         Inventaire.quantite(...)
         Atelier.ingredients_composant(...)
+
+    def _raffines_manquants(self) -> 'Dictionary':
+        """Raffinés encore à fabriquer pour les prochains objectifs : { raffiné: nombre }, dans l'ordre des objectifs."""
+        self._objectifs_proches(...)
+        self._ingredients_objectif(...)
+        Atelier.raffines(...)
+        self._en_reserve_fourneaux(...)
+
+    def _en_reserve_fourneaux(self, raffine: 'String') -> 'int':
+        ...
+
+    def _gerer_fourneaux(self) -> 'bool':
+        """Fourneaux : un clic récupère la réserve si ce raffiné sert, et règle la recette sur le premier raffiné
+        qui manque (ou les arrête quand plus rien ne manque, pour ne pas gaspiller)."""
+        self._raffines_manquants(...)
+        self._besoin_raffine(...)
+        self._fin_attente(...)
+        self._deplacer_souris(...)
+        self._cliquer(...)
+        self._attendre(...)
+        self._centre(...)
+        self._noter(...)
+        self._touche(...)
+
+    def _besoin_raffine(self, raffine: 'String') -> 'bool':
+        self._objectifs_restants(...)
+        self._ingredients_objectif(...)
+
+    def _objectifs_proches(self) -> 'Array':
+        self._objectifs_restants(...)
 
     def _objectifs_restants(self) -> 'Array':
         Atelier.niveau(...)
@@ -148,9 +192,13 @@ class Playtest(SceneTree):
         """Récolte ce qui sert aux objectifs et qui est disponible ; vrai si quelque chose a été fait."""
         self._besoins(...)
         self._cliquer(...)
+        self._compter(...)
         self._maintenir_sur(...)
         self._nuage_visible(...)
         self._cliquer_nuage(...)
+
+    def _compter(self, compteur: 'Dictionary', id: 'String', nombre: 'int') -> 'void':
+        ...
 
     def _nuage_visible(self) -> SourceRessource:
         ...
@@ -183,8 +231,8 @@ class Playtest(SceneTree):
         self._touche(...)
         self._attendre(...)
         self._centre(...)
-        self._secondes(...)
         self._noter(...)
+        self._secondes(...)
 
     def _prochaine_fabrication(self) -> 'Array':
         """[onglet, id] de la prochaine fabrication utile, ou [] s'il n'y a rien à faire.
@@ -195,6 +243,7 @@ class Playtest(SceneTree):
         Atelier.peut_construire(...)
         Atelier.peut_construire_machine(...)
         Atelier.peut_ameliorer_machine(...)
+        Atelier.niveau_machine(...)
         self._ingredients_objectif(...)
         Atelier.composants(...)
         Atelier.peut_fabriquer(...)
@@ -215,6 +264,7 @@ class Playtest(SceneTree):
         self._marque_video(...)
         self._conduire(...)
         self._relacher_tout(...)
+        self._compter(...)
         self._attendre(...)
 
     def _conduire(self, plongee: 'Node', besoins: 'Dictionary', mesure: 'Dictionary') -> 'void':
@@ -281,16 +331,16 @@ class Playtest(SceneTree):
         Sauvegarde.ecrire(...)
 
     def _sequence_video(self) -> 'void':
-        """Séquence vidéo (avec le son) : le palier 2. L'îlot du nord et son entrepôt, la foreuse qui creuse le filon
-        du milieu (un clic la vide), le moulin et le filet ; à l'atelier, la vitesse du moulin (bouton Vitesse)
-        puis le sac de plongée à 12 places ; plongée dans la Forêt de coraux jusqu'à remplir le sac ; au retour,
-        les machines ont produit pendant la plongée. Les trajets verticaux sont repérés (lignes « VIDEO ») pour
-        être accélérés au montage (tests/playtest.sh)."""
+        """Séquence vidéo (avec le son) : le palier 3. Un clic sur le fourneau ouvre son panneau : lingot solaire en
+        boucle ; il rougeoie et fume en prenant cristaux et vent dans l'inventaire ; atelier : l'arche de braise
+        (100 vents, grâce à l'entrepôt) relie l'îlot du couchant, puis le sac de plongée à 16 places ; plongée dans
+        le Lagon de lumière ; au retour, la sonde a pêché du cristal de lagon et le fourneau a produit des lingots.
+        Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh)."""
         self._attendre(...)
-        self._cliquer(...)
         self._deplacer_souris(...)
-        self._touche(...)
+        self._cliquer(...)
         self._centre(...)
+        self._touche(...)
         self._plonger(...)
 
     def _marque_video(self, nom: 'String') -> 'void':

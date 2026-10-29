@@ -2,11 +2,13 @@
 	"facteurs": {
 		"vitesse": [
 			1.0,
-			1.5
+			1.5,
+			2.0
 		],
 		"capacite": [
 			1,
-			2
+			2,
+			3
 		]
 	},
 	"emplacements": [
@@ -54,6 +56,24 @@
 				144
 			],
 			"ilot": "ilot_nord"
+		},
+		{
+			"id": "couchant_ouest",
+			"nom": "îlot du couchant, ouest",
+			"position": [
+				52,
+				258
+			],
+			"ilot": "ilot_couchant"
+		},
+		{
+			"id": "couchant_est",
+			"nom": "îlot du couchant, est",
+			"position": [
+				88,
+				258
+			],
+			"ilot": "ilot_couchant"
 		},
 		{
 			"id": "filon_1",
@@ -104,12 +124,18 @@
 					{
 						"fil_nuage": 2,
 						"cristal_lagon": 3
+					},
+					{
+						"verre_lagon": 2
 					}
 				],
 				"capacite": [
 					{
 						"poche_air": 1,
 						"cristal_lagon": 3
+					},
+					{
+						"nacre": 2
 					}
 				]
 			}
@@ -130,12 +156,18 @@
 					{
 						"fil_nuage": 2,
 						"cristal_lagon": 2
+					},
+					{
+						"nacre": 2
 					}
 				],
 				"capacite": [
 					{
 						"cristal_solaire": 2,
 						"cristal_lagon": 2
+					},
+					{
+						"verre_lagon": 2
 					}
 				]
 			}
@@ -158,12 +190,19 @@
 					{
 						"lentille": 1,
 						"corail": 3
+					},
+					{
+						"lingot_solaire": 2
 					}
 				],
 				"capacite": [
 					{
 						"corail": 3,
 						"cristal_solaire": 3
+					},
+					{
+						"lingot_solaire": 1,
+						"verre_lagon": 1
 					}
 				]
 			}
@@ -174,13 +213,86 @@
 			"ressource": "",
 			"recharge_s": 0.0,
 			"plafond": 0,
-			"plafond_inventaire": 199,
+			"plafond_inventaire": [
+				199,
+				499
+			],
 			"ingredients": {
 				"corail": 5,
 				"fil_nuage": 4,
 				"cristal_lagon": 4
 			},
-			"effet": "L'inventaire garde jusqu'à 199 de chaque ressource au lieu de 99."
+			"effet": "L'inventaire garde jusqu'à 199 de chaque ressource au lieu de 99.",
+			"ameliorations": {
+				"capacite": [
+					{
+						"lingot_solaire": 3,
+						"verre_lagon": 3
+					}
+				]
+			}
+		},
+		"fourneau": {
+			"nom": "Fourneau",
+			"palier": 3,
+			"ressource": "",
+			"recharge_s": 20.0,
+			"plafond": 5,
+			"ingredients": {
+				"pierre_braise": 3,
+				"corail": 3,
+				"cristal_solaire": 6
+			},
+			"effet": "Fabrique en boucle le matériau choisi (clic sur le fourneau), 1 toutes les 20 s.",
+			"recettes": {
+				"verre_lagon": {
+					"cristal_lagon": 2,
+					"vent": 6
+				},
+				"nacre": {
+					"corail": 1,
+					"nuage": 8,
+					"vent": 2
+				},
+				"lingot_solaire": {
+					"cristal_solaire": 5,
+					"vent": 5
+				}
+			}
+		},
+		"sonde": {
+			"nom": "Sonde de plongée",
+			"palier": 3,
+			"ressource": "cristal_lagon",
+			"recharge_s": 12.0,
+			"plafond": 8,
+			"en_plongee": true,
+			"ingredients": {
+				"pierre_braise": 2,
+				"poche_air": 2,
+				"lentille": 1
+			},
+			"effet": "Pendant les plongées : 1 cristal de lagon toutes les 12 s, 8 au plus.",
+			"ameliorations": {
+				"vitesse": [
+					{
+						"pierre_braise": 2,
+						"cristal_lagon": 3
+					},
+					{
+						"verre_lagon": 2
+					}
+				],
+				"capacite": [
+					{
+						"pierre_braise": 1,
+						"poche_air": 2
+					},
+					{
+						"nacre": 2
+					}
+				]
+			}
 		}
 	}
 }

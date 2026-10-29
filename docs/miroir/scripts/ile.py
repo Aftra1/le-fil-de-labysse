@@ -10,7 +10,9 @@ gauche, l'îlot du nord, relié par le pont suspendu (deux emplacements de machi
 Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ;
 une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne).
 La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit
-rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2.
+rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première
+pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il
+fabrique en boucle avec les ingrédients de l'inventaire) et la sonde (qui ne produit qu'en plongée).
 Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
@@ -112,6 +114,7 @@ class Ile(Node2D):
         self.actualiser_machines(...)
         Atelier.nom_machine(...)
         self.machine(...)
+        self._vider_fourneau(...)
         Game.nom_ressource(...)
         InterfaceIle.rafraichir_inventaire(...)
         self.partie_modifiee.emit(...)
@@ -143,6 +146,7 @@ class Ile(Node2D):
         PanneauAtelier.selectionner(...)
         PanneauAtelier.ouvrir_machines(...)
         self._recolter(...)
+        PanneauAtelier.ouvrir_fourneau(...)
 
     def _gerer_maintien(self, delta: 'float') -> 'void':
         SourceRessource.est_disponible(...)
@@ -171,7 +175,8 @@ class Ile(Node2D):
     def _souris_sur_cloche(self) -> 'bool':
         ...
 
-    def _source_sous_souris(self) -> SourceRessource:
+    def _source_sous_souris(self, conteneur: 'Node2D') -> SourceRessource:
+        """Source sous la souris dans ce conteneur (sources fixes et machines, ou nuages)."""
         SourceRessource.contient(...)
 
     def _mettre_a_jour_survol(self) -> 'void':
@@ -185,6 +190,7 @@ class Ile(Node2D):
     def _texte_aide(self) -> 'String':
         self._ilot(...)
         Game.nom_ressource(...)
+        self._aide_fourneau(...)
         SourceRessource.est_disponible(...)
 
     def _creer_sources(self) -> 'void':
@@ -199,9 +205,29 @@ class Ile(Node2D):
         Atelier.machine(...)
         Atelier.nom_machine(...)
         self.centre_emplacement(...)
-        Atelier.recharge_machine(...)
         Atelier.plafond_machine(...)
+        Atelier.en_plongee(...)
+        Atelier.recharge_machine(...)
+        Atelier.recette_fourneau(...)
+        self._cycle_fourneau  # passée comme Callable
         Atelier.emplacements(...)
+
+    def _cycle_fourneau(self, raffine: 'String') -> 'bool':
+        """Un cycle du fourneau : ingrédients pris dans l'inventaire, dont l'affichage suit."""
+        Atelier.consommer_fourneau(...)
+        InterfaceIle.rafraichir_inventaire(...)
+        PanneauAtelier.est_ouvert(...)
+        PanneauAtelier.rafraichir(...)
+
+    def _vider_fourneau(self, lieu: 'String') -> 'void':
+        """Avant un changement de recette : la réserve du fourneau (l'ancien raffiné) passe dans l'inventaire."""
+        self.machine(...)
+        Inventaire.ajouter(...)
+        SourceRessource.prendre(...)
+
+    def _aide_fourneau(self, fourneau: SourceRessource) -> 'String':
+        Game.nom_ressource(...)
+        SourceRessource.en_activite(...)
 
     def machine(self, lieu: 'String') -> SourceRessource:
         """Machine posée sur un emplacement (null s'il est libre)."""
@@ -280,6 +306,7 @@ class Ile(Node2D):
         """Appelé à la fin de la remontée : rattrape la recharge, range le butin, annonce le résultat."""
         self.reprendre(...)
         self.rattraper(...)
+        SourceRessource.recharger_plongee(...)
         Inventaire.ajouter_tout(...)
         self._total(...)
         InterfaceIle.annoncer(...)

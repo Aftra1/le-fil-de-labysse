@@ -26,7 +26,7 @@ func _ready() -> void:
 	var colonne := VBoxContainer.new()
 	colonne.add_theme_constant_override("separation", ECART)
 	colonne.add_child(_etiquette("Inventaire"))
-	for categorie: String in ["ressource", "composant"]:
+	for categorie: String in ["ressource", "composant", "raffine"]:
 		var cases := HBoxContainer.new()
 		cases.add_theme_constant_override("separation", ECART)
 		for id: String in Game.ids(categorie):

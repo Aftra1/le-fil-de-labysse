@@ -250,6 +250,50 @@ const ICONE_PONT: PackedStringArray = [
 	".tTt.tTt.",
 	"...tTt...",
 ]
+const ICONE_FOURNEAU: PackedStringArray = [
+	"....MM..",
+	"..rrMr..",
+	".rRRRRr.",
+	"rRRRRRRr",
+	"rRRooRRr",
+	"rRoOOoRr",
+	"rRoOOoRr",
+	"rrrrrrrr",
+]
+const ICONE_SONDE: PackedStringArray = [
+	"TMMMMM.",
+	"T....M.",
+	"T....M.",
+	"T....M.",
+	"T...mcm",
+	"T...cCc",
+	"T...mcm",
+	"TT.....",
+]
+const VERRE: PackedStringArray = [
+	"..cCCc..",
+	".cCBBCc.",
+	"cCBCCCCc",
+	"cCCCCCCs",
+	"cCCCCCss",
+	".cCCCss.",
+	"..csss..",
+]
+const NACRE: PackedStringArray = [
+	"..nNNn..",
+	".nNBBNn.",
+	"nNBNNNNn",
+	"nNNNNNNs",
+	".nNNNNs.",
+	"..nnss..",
+]
+const LINGOT: PackedStringArray = [
+	"..OOOOOO",
+	".OOOOOOd",
+	"oooooodd",
+	"ooooood.",
+	"dddddd..",
+]
 const COULEURS_CABANE := {
 	"c": "roche.2", "o": "or.2", "O": "or.3", "w": "terre.1", "W": "terre.2", "d": "interface.1", "f": "or.5",
 }
@@ -257,7 +301,7 @@ const COULEURS_OBJETS := {
 	"t": "terre.2", "T": "terre.1", "n": "nuage.3", "N": "nuage.4",
 	"o": "or.3", "O": "or.4", "d": "or.1", "c": "cyan.2", "C": "cyan.3",
 	"b": "ciel.3", "B": "nuage.4", "s": "ciel.2",
-	"m": "metal.2", "M": "metal.3",
+	"m": "metal.2", "M": "metal.3", "r": "roche.2", "R": "roche.3",
 }
 
 const COULEURS_CLOCHE := {
@@ -671,6 +715,10 @@ static func icone_machine(id: String) -> Texture2D:
 			return Pixel.motif(ICONE_FOREUSE, COULEURS_OBJETS, CONTOUR)
 		"entrepot":
 			return Pixel.motif(ICONE_ENTREPOT, COULEURS_OBJETS, CONTOUR)
+		"fourneau":
+			return Pixel.motif(ICONE_FOURNEAU, COULEURS_OBJETS, CONTOUR)
+		"sonde":
+			return Pixel.motif(ICONE_SONDE, COULEURS_OBJETS, CONTOUR)
 	return Pixel.disque(3, c("roche.3"))
 
 
@@ -710,6 +758,12 @@ static func icone(id: String, k: float) -> Texture2D:
 			return Pixel.motif(LENTILLE, COULEURS_OBJETS, CONTOUR)
 		"poche_air":
 			return Pixel.motif(POCHE_AIR, COULEURS_OBJETS, CONTOUR)
+		"verre_lagon":
+			return Pixel.motif(VERRE, COULEURS_OBJETS, CONTOUR)
+		"nacre":
+			return Pixel.motif(NACRE, COULEURS_OBJETS, CONTOUR)
+		"lingot_solaire":
+			return Pixel.motif(LINGOT, COULEURS_OBJETS, CONTOUR)
 	return Pixel.disque(3, c("roche.3"))
 
 

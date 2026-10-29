@@ -8,6 +8,8 @@ Fabriquer, Installer ou Construire.
 Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible),
 ou à défaut sur le premier emplacement libre. À partir du palier 2, trois boutons en haut du détail
 choisissent entre Construire et les améliorations de cette sorte de machine (Vitesse, Réserve).
+Le même panneau sert au fourneau (ouvrir_fourneau, clic sur un fourneau de l'île) : sans onglets, la liste
+des raffinés et « À l'arrêt » ; Choisir règle la recette que ce fourneau fabrique en boucle.
 S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 """
 
@@ -36,8 +38,11 @@ class PanneauAtelier(CanvasLayer):
     emplacement_cible: 'String'
     dernier_emplacement: 'String'
     mode: 'String'
+    fourneau_lieu: 'String'
     _liste: 'VBoxContainer'
     _onglets: 'Dictionary'
+    _entete: 'Label'
+    _ligne_onglets: 'HBoxContainer'
     _titre: 'Label'
     _modes: 'HBoxContainer'
     _boutons_modes: 'Dictionary'
@@ -61,7 +66,14 @@ class PanneauAtelier(CanvasLayer):
         ...
 
     def ouvrir(self) -> 'void':
+        self.choisir_onglet(...)
         self.rafraichir(...)
+
+    def ouvrir_fourneau(self, lieu: 'String') -> 'void':
+        """Panneau du fourneau posé sur cet emplacement : choix du raffiné fabriqué en boucle."""
+        self.choisir_onglet(...)
+        self.selectionner(...)
+        Atelier.recette_fourneau(...)
 
     def ouvrir_machines(self, emplacement: 'String') -> 'void':
         """Ouvre l'onglet Machines pour construire sur cet emplacement (clic sur un emplacement libre)."""
@@ -95,6 +107,8 @@ class PanneauAtelier(CanvasLayer):
         Atelier.construire(...)
         Atelier.construire_machine(...)
         Atelier.ameliorer_machine(...)
+        self.peut_fabriquer_selection(...)
+        Atelier.choisir_recette_fourneau(...)
         Atelier.fabriquer(...)
         self.fabrique.emit(...)
         self.rafraichir(...)
@@ -104,6 +118,7 @@ class PanneauAtelier(CanvasLayer):
         Atelier.peut_construire(...)
         Atelier.peut_ameliorer_machine(...)
         Atelier.peut_construire_machine(...)
+        Atelier.recette_fourneau(...)
         Atelier.peut_fabriquer(...)
 
     def rafraichir(self) -> 'void':
@@ -115,10 +130,12 @@ class PanneauAtelier(CanvasLayer):
         Atelier.prochaine_amelioration_machine(...)
         Atelier.machine(...)
         self._texte_emplacement(...)
+        Atelier.recette_fourneau(...)
         Atelier.ingredients_composant(...)
         self._ligne_ingredient(...)
+        Game.nom_ressource(...)
         self.peut_fabriquer_selection(...)
-        Atelier.machines_ameliorables(...)
+        Atelier.genres_amelioration(...)
 
     def _remplir_liste(self, ids: 'Array') -> 'void':
         ArtIle.styler_bouton(...)
@@ -136,13 +153,17 @@ class PanneauAtelier(CanvasLayer):
         Atelier.nombre_machines(...)
         Atelier.nom_machine(...)
         Game.nom_ressource(...)
+        Atelier.recette_fourneau(...)
 
     def _texte_amelioration(self) -> 'String':
         """Effet de la prochaine amélioration de cette sorte de machine (toutes les machines de la sorte)."""
         Atelier.machine(...)
         Atelier.prochaine_amelioration_machine(...)
+        Atelier.niveau_machine(...)
+        Atelier.plafond_entrepot_suivant(...)
         self._unite(...)
         self._nombre(...)
+        Atelier.facteur(...)
         Atelier.recharge_machine(...)
         Atelier.plafond_machine(...)
         Atelier.nombre_machines(...)

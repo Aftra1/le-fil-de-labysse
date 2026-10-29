@@ -97,6 +97,29 @@
 				]
 			],
 			"aide": "Îlot isolé : construis un pont suspendu à l'atelier"
+		},
+		{
+			"id": "ilot_couchant",
+			"position": [
+				70,
+				256
+			],
+			"zone": [
+				36,
+				24
+			],
+			"passerelle": [
+				[
+					150,
+					212
+				],
+				[
+					104,
+					258
+				]
+			],
+			"style": "arche",
+			"aide": "Îlot isolé : construis l'arche de braise à l'atelier"
 		}
 	]
 }

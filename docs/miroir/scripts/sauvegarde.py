@@ -7,6 +7,7 @@ voir project.godot : %APPDATA%\\Le Fil de l'Abysse sous Windows).
 Contenu : { "version", "horodatage" (secondes Unix), "inventaire" { id: nombre },
 "ameliorations" { id: niveau }, "ilots" [ids reliés], "machines" { emplacement: machine },
 "machines_ameliorations" { machine: { "vitesse", "capacite" } }, "palier" (1 à 3),
+"fourneaux" { emplacement: raffiné fabriqué en boucle },
 "ile" { état des sources, machines comprises },
 "reglages" { "musique", "effets" : volumes de 0 à 1 } }.
 Ce module ne connaît que le fichier : la validation des identifiants et des valeurs est faite

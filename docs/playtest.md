@@ -1,8 +1,76 @@
-# Playtest automatique : boucle complète avec les machines des paliers 1 et 2
+# Playtest automatique : boucle complète avec les machines des paliers 1 à 3
 
-Date : 29 octobre 2026, branche `etape-7-machines-b` (étape 7, PR B).
+Date : 29 octobre 2026, branche `etape-7-machines-c` (étape 7, PR C).
 
-## Palier 2 (étape 7, PR B)
+## Palier 3 (étape 7, PR C)
+
+Après la lanterne de niveau 2, le robot poursuit : **fourneau → sonde → arche de braise → sac à 16 places →
+niveaux 2 du moulin (vitesse, réserve), de la foreuse (réserve) et du filet (vitesse) → entrepôt à 499**.
+
+- **Fourneau** : un clic dessus récupère sa réserve et ouvre son panneau ; le robot y choisit le premier
+  raffiné qui manque, et l'arrête quand plus rien ne manque. Le fourneau prend ses ingrédients dans
+  l'inventaire, 1 raffiné toutes les 20 s, même en plongée et jeu fermé.
+- **Recettes**, toutes au vent : verre de lagon (2 cristaux de lagon, 6 vents), nacre (1 corail, 8 ouates,
+  2 vents), lingot solaire (5 cristaux solaires, 5 vents).
+- **Arche de braise** : 3 pierres de braise, 4 lingots, **100 vents**. Sans entrepôt, l'inventaire s'arrête à
+  99 : l'atelier le signale.
+- Deux changements de méthode : le robot ne réunit plus que les ressources des **3 prochains objectifs**
+  (comme un joueur qui avance pas à pas ; avant, il amassait d'un coup le vent de toute la partie), et il vide
+  une machine **pleine** même si sa ressource ne manque pas encore (ses ailes arrêtées le signalent).
+
+### Résultats (quatre parties par profil)
+
+| | Robot parfait | **Joueur humain** |
+|---|---|---|
+| Durée totale | 1216 à 1297 s (PR B : 417 à 463 s) | **1457 à 1549 s** (PR B : 694 à 756 s) |
+| Durée moyenne | 20 min 51 (PR B : 7 min 20) | **24 min 54** (PR B : 12 min 04) |
+| Plongées par partie | 12 à 13 | 12 à 13 |
+| Palier 2 ouvert à | 105 à 121 s | 153 à 237 s |
+| Palier 3 ouvert à | 491 à 524 s | 680 à 759 s |
+| Remontées automatiques | 0 | **0** |
+| Attentes de plus de 10 s | 3 (12 à 18 s, le fourneau) | **1** (12 s) |
+
+### D'où viennent les ressources, et où elles partent (moyenne par partie)
+
+| Ressource | Machines | Île à la main | Plongées | **Part des machines** | Atelier | **Fourneau** | Reste |
+|---|---|---|---|---|---|---|---|
+| Vent (parfait) | 145 (moulin) | 113 (éolienne) | — | **56 %** | 158 (dont 100 pour l'arche) | **108** | 0 |
+| Vent (humain) | 166 | 97 | — | **63 %** | 158 | **108** | 0 |
+| Ouates (parfait) | 190 (filet) | 72 (nuages) | — | **73 %** | 94 (fils de nuage) | **56** | 119 |
+| Ouates (humain) | 203 | 51 | — | **80 %** | 94 | **56** | 105 |
+| Cristal solaire (parfait) | 48 (foreuse) | 30 (filons) | — | **61 %** | 31 | **40** | 12 |
+| Cristal solaire (humain) | 46 | 28 | — | **62 %** | 31 | **40** | 5 |
+| Cristal de lagon (parfait) | 10 (sonde) | 11 (bassin) | 30 | 20 % | 32 | 18 | 1 |
+| Cristal de lagon (humain) | 16 | 6 | 30 | 30 % | 32 | 18 | 4 |
+
+- **Le fourneau consomme la production des machines** :
+  - cristal solaire : 40 au fourneau contre 31 à l'atelier ;
+  - vent, depuis le palier 3 : 108 au fourneau contre 100 pour l'arche ;
+  - ouates : 56 au fourneau, le reste des dépenses vient surtout des fils de nuage du début de partie.
+- **Les machines fournissent la majorité** du vent (56 à 63 %), des ouates (73 à 80 %) et du cristal solaire
+  (61 à 62 %).
+- **L'entrepôt sert** : l'arche demande 100 vents d'un coup (plus haut niveau atteint : 101), et les ouates
+  montent jusqu'à 125 à 161.
+- **Le filet produit plus qu'il ne faut** : il reste 105 à 119 ouates en fin de partie (filet en vitesse 2).
+  À reprendre dans la PR E (équilibrage) : une recette de plus pour les ouates, ou un filet moins rapide.
+- **Raffinés fabriqués par partie** : 9 verres de lagon, 7 nacres, 8 lingots solaires.
+
+### Vidéo
+
+Séquence de 68 s avec le son (Movie Maker, Xvfb), à partir d'une partie préparée au palier 3 :
+1. un clic sur le fourneau ouvre son panneau : **lingot solaire en boucle** ; il rougeoie et fume ;
+2. à l'atelier, l'**arche de braise** relie l'îlot du couchant (le vent passe de 150 à 45), puis le
+   **sac de plongée à 16 places** ;
+3. plongée dans le Lagon (descente et remontée accélérées ×2) jusqu'à 16 cristaux ;
+4. au retour, un clic vide la sonde (cristal de lagon pêché pendant la plongée) et le fourneau (lingots).
+
+- MP4 (4,1 Mo, 1280x720, son AAC, moyenne −17 dB, crête −1 dB) : `docs/playtest/sequence.mp4`
+- GIF (sans son) : `docs/playtest/sequence.gif`
+
+---
+
+# Rapport précédent : palier 2 (étape 7, PR B)
+
 
 Objectifs du robot, dans l'ordre : câble 1 → moulin à vent → lanterne 1 → filet à nuages → réservoir 1 →
 **sac à 12 places → pont suspendu (îlot du nord) → foreuse solaire** → passerelle → **entrepôt** → réservoir 2 →
@@ -43,7 +111,7 @@ Améliorations de niveau 1 (×1,5 en vitesse, ×2 en réserve) : moulin 2 fils d
 - **L'entrepôt** est construit mais jamais nécessaire : aucune ressource ne dépasse 99 dans cette boucle.
 - **Air au retour** (joueur humain) : 22 à 78 / 100 à 150 dans le Lagon et les Coraux, 32 à 67 / 200 dans la Faille.
 
-### Vidéo
+### Vidéo (à l'époque)
 
 Séquence de 65 s avec le son (Movie Maker, Xvfb), à partir d'une partie préparée au palier 2 (îlot du nord
 relié avec son entrepôt, foreuse sur le filon du milieu, moulin et filet) : animations des machines → un clic vide
@@ -52,8 +120,7 @@ Machines, **Vitesse du moulin** → onglet Améliorations, **sac de plongée** �
 jusqu'à remplir le sac (**12 coraux**, descente et remontée accélérées ×2) → au retour, un clic vide la foreuse
 et le moulin.
 
-- MP4 (4,5 Mo, 1280x720, son AAC, moyenne −18 dB, crête −4 dB) : `docs/playtest/sequence.mp4`
-- GIF (6,0 Mo, sans son) : `docs/playtest/sequence.gif`
+Elle est remplacée par la séquence du palier 3 (voir plus haut).
 
 ---
 
