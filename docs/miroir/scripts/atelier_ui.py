@@ -2,9 +2,11 @@
 # Source : scripts/atelier_ui.gd (le jeu n'utilise que le GDScript).
 # Régénérer : python3 tests/generer_miroir.py
 """Interface de l'atelier (640x360) : panneau opaque en cadres or et crème.
-En haut, trois onglets (composants, améliorations, construction) ; à gauche, la liste des recettes ;
-à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton
+En haut, quatre onglets (composants, améliorations, construction, machines) ; à gauche, la liste des
+recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton
 Fabriquer, Installer ou Construire.
+Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible),
+ou à défaut sur le premier emplacement libre.
 S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 """
 
@@ -29,6 +31,8 @@ class PanneauAtelier(CanvasLayer):
     fabrique = Signal('id: String, genre: String')
     onglet: 'String'
     selection: 'String'
+    emplacement_cible: 'String'
+    dernier_emplacement: 'String'
     _liste: 'VBoxContainer'
     _onglets: 'Dictionary'
     _titre: 'Label'
@@ -53,6 +57,12 @@ class PanneauAtelier(CanvasLayer):
     def ouvrir(self) -> 'void':
         self.rafraichir(...)
 
+    def ouvrir_machines(self, emplacement: 'String') -> 'void':
+        """Ouvre l'onglet Machines pour construire sur cet emplacement (clic sur un emplacement libre)."""
+        self.ouvrir(...)
+        self.choisir_onglet(...)
+        self.rafraichir(...)
+
     def fermer(self) -> 'void':
         ...
 
@@ -62,6 +72,7 @@ class PanneauAtelier(CanvasLayer):
 
     def choisir_onglet(self, nom: 'String') -> 'void':
         Atelier.composants(...)
+        Atelier.liste_machines(...)
         self._remplir_liste(...)
         self.rafraichir(...)
 
@@ -72,6 +83,7 @@ class PanneauAtelier(CanvasLayer):
         """Fabrique, installe ou construit la recette sélectionnée, si c'est possible."""
         Atelier.ameliorer(...)
         Atelier.construire(...)
+        Atelier.construire_machine(...)
         Atelier.fabriquer(...)
         self.fabrique.emit(...)
         self.rafraichir(...)
@@ -79,6 +91,7 @@ class PanneauAtelier(CanvasLayer):
     def peut_fabriquer_selection(self) -> 'bool':
         Atelier.peut_ameliorer(...)
         Atelier.peut_construire(...)
+        Atelier.peut_construire_machine(...)
         Atelier.peut_fabriquer(...)
 
     def rafraichir(self) -> 'void':
@@ -86,6 +99,8 @@ class PanneauAtelier(CanvasLayer):
         Atelier.prochain_niveau(...)
         Atelier.est_construite(...)
         Atelier.effet_construction(...)
+        Atelier.machine(...)
+        self._texte_emplacement(...)
         Atelier.ingredients_composant(...)
         self._ligne_ingredient(...)
         self.peut_fabriquer_selection(...)
@@ -94,6 +109,7 @@ class PanneauAtelier(CanvasLayer):
         ArtIle.styler_bouton(...)
         ArtIle.icone_amelioration(...)
         ArtIle.icone_construction(...)
+        ArtIle.icone_machine(...)
         ArtIle.icone(...)
         self.selectionner  # passée comme Callable
 
@@ -102,7 +118,15 @@ class PanneauAtelier(CanvasLayer):
         Atelier.niveau(...)
         Atelier.niveau_max(...)
         Atelier.nom_construction(...)
+        Atelier.nombre_machines(...)
+        Atelier.nom_machine(...)
         Game.nom_ressource(...)
+
+    def _texte_emplacement(self) -> 'String':
+        """Où ira la prochaine machine."""
+        Atelier.emplacements_libres(...)
+        Atelier.emplacement_libre(...)
+        Atelier.emplacement(...)
 
     def _ligne_ingredient(self, id: 'String', requis: 'int') -> 'HBoxContainer':
         ArtIle.icone(...)

@@ -24,6 +24,8 @@ Sur l'île (à la souris) :
 | Récolter un cristal solaire | Maintenir le clic sur un filon (1 s) |
 | Relier l'îlot | Construire la passerelle de nuage à l'atelier (onglet Construction ; un clic sur l'îlot l'ouvre) |
 | Récolter un cristal de lagon (îlot relié) | Maintenir le clic sur le bassin de lumière (1 s) |
+| Construire une machine | Clic sur un emplacement libre (pointillés or) : l'atelier s'ouvre sur l'onglet Machines |
+| Vider une machine | Clic sur la machine (toute sa réserve passe dans l'inventaire) |
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
 | Atelier | C ou un clic sur la cabane (Échap pour fermer) |
@@ -45,6 +47,17 @@ Zones de plongée : Lagon de lumière (0 à 150 m, cristal de lagon), Forêt de 
 luisant), Faille volcanique (300 à 450 m, pierre de braise). Le câble tressé ouvre les zones une à une
 (150 m → 300 m → 450 m) ; le réservoir d'air de niveau 2 (200) est nécessaire pour revenir du fond de la Faille.
 
+## Machines
+
+Les machines (`data/machines.json`) produisent seules, jusqu'à leur réserve, y compris pendant les plongées
+et jeu fermé ; un clic vide la réserve. Chacune se pose sur un emplacement : 2 sur l'île, 1 sur l'îlot de
+l'est une fois relié (d'autres îlots en ajouteront). Une même machine peut être construite plusieurs fois.
+
+| Machine (palier 1) | Production | Coût |
+|---|---|---|
+| Moulin à vent | 1 vent toutes les 10 s, réserve de 8 | 2 fils de nuage, 3 cristaux de lagon, 2 cristaux solaires |
+| Filet à nuages | 1 ouate toutes les 6 s, réserve de 10 | 3 fils de nuage, 2 cristaux de lagon |
+
 ## Sauvegarde
 
 La partie est sauvegardée automatiquement dans un fichier JSON :
@@ -58,7 +71,7 @@ garde l'état du départ (le butin en cours est perdu, rien d'autre). Au chargem
 rattrapent le temps passé jeu fermé, sans dépasser leurs plafonds.
 
 Le fichier contient : version du format, date, inventaire, niveaux des améliorations, îlots reliés,
-état des sources de l'île. À côté : `sauvegarde.bak` (sauvegarde précédente, reprise si le fichier est
+machines construites (emplacement et type), état des sources de l'île et des machines (réserve). À côté : `sauvegarde.bak` (sauvegarde précédente, reprise si le fichier est
 abîmé) et, au besoin, `sauvegarde.corrompue.json` (fichier illisible mis de côté, jamais supprimé).
 Une sauvegarde d'une version plus récente du jeu n'est jamais écrasée.
 
@@ -70,7 +83,7 @@ fichier audio, et joué par l'autoload `Son` (`scripts/autoload/son.gd`) :
 - **Ambiances** en boucles de 8 s sans couture : nappe lumineuse sur l'île ; drones graves et étouffés en
   plongée, de plus en plus sombres (Lagon, Forêt de coraux, Faille volcanique avec un lent battement) ;
   fondu enchaîné de 2,5 s pendant les transitions et de 3 s au changement de zone.
-- **Effets** : récolte (nuage, vent, cristal, bassin), coups de minage et unité gagnée, sac plein, bips
+- **Effets** : récolte (nuage, vent, cristal, bassin, machine), coups de minage et unité gagnée, sac plein, bips
   d'oxygène bas, craquements de la coque au bout du câble, remontée automatique, fabrication, installation,
   construction, clics d'interface, souffle des transitions.
 - **Mixage** : bus « Musique » et « Effets » (limiteur sur le bus principal), niveau propre à chaque effet,

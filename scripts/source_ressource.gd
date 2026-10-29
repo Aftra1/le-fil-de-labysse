@@ -1,16 +1,20 @@
 class_name SourceRessource
 extends Node2D
-## Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot).
+## Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot)
+## ou machine construite sur un emplacement (moulin à vent, filet à nuages).
 ## Trois façons de récolter :
 ## - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 ## - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
-## - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne).
+## - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne, machines).
 ## Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 
 enum Mode { CLIC, MAINTIEN, RESERVE }
-enum Forme { EOLIENNE, FILON, NUAGE, BASSIN }
+enum Forme { EOLIENNE, FILON, NUAGE, BASSIN, MOULIN, FILET }
 
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
+const VITESSE_AILES := 1.1       # ailes du moulin, arrêtées quand sa réserve est pleine
+## Machines : la position est le centre de la zone cliquable, le sol est en dessous (pixels du monde).
+const HAUTEUR_MACHINE := 8
 const IMAGES_PAR_SECONDE := 60   # cadence de la physique : les nuages avancent par pas réguliers
 
 # Dessin dans le monde 320x180 (voir VueMonde)
@@ -20,6 +24,8 @@ const TAILLE_NUAGE := Vector2i(16, 8)
 const HAUTEUR_MAT := 25          # pixels du monde, du moyeu au sol
 
 var id_ressource := ""
+## Nom affiché dans l'aide (machines) ; vide : le nom de la ressource.
+var nom := ""
 var mode := Mode.CLIC
 var forme := Forme.NUAGE
 var stock := 0
@@ -59,6 +65,8 @@ func _process(delta: float) -> void:
 	recharger(delta)
 	if forme == Forme.EOLIENNE:
 		_angle = fmod(_angle + VITESSE_PALES * delta, TAU)
+	elif forme == Forme.MOULIN and stock < plafond:
+		_angle = fmod(_angle + VITESSE_AILES * delta, TAU)
 
 
 func _physics_process(_delta: float) -> void:
@@ -132,6 +140,10 @@ func dessiner_monde(toile: CanvasItem) -> void:
 			_dessiner_nuage(toile, p)
 		Forme.BASSIN:
 			_dessiner_bassin(toile, p)
+		Forme.MOULIN:
+			_dessiner_moulin(toile, p)
+		Forme.FILET:
+			_dessiner_filet(toile, p)
 	var rayon := roundi(rayon_clic * K)
 	if en_survol and est_disponible():
 		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("nuage.4")), p)
@@ -159,6 +171,59 @@ func _dessiner_bassin(toile: CanvasItem, centre: Vector2) -> void:
 		var reflet := posmod(int(ArtAbysse.temps() * 4.0), 9)
 		toile.draw_rect(Rect2(x - 4 + reflet, y, 1, 1), Palette.couleur("lagon.5"))
 	_dessiner_points(toile, centre + Vector2(0, -6), "lagon.5")
+
+
+## Moulin à vent : petite tour de bois au toit sombre, quatre ailes de toile sur une armature, qui
+## tournent tant qu'il produit (elles s'arrêtent quand la réserve est pleine : il est temps de la vider).
+func _dessiner_moulin(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var sol := centre.y + HAUTEUR_MACHINE
+	toile.draw_rect(Rect2(x - 3, sol, 8, 1), Palette.couleur("herbe.3"))
+	for rang in 8:
+		var demi := 3 if rang < 4 else 2
+		var y := sol - 1 - rang
+		toile.draw_rect(Rect2(x - demi - 1, y, demi * 2 + 3, 1), Palette.couleur(ArtIle.CONTOUR))
+		toile.draw_rect(Rect2(x - demi, y, demi * 2 + 1, 1), Palette.couleur("terre.3"))
+		toile.draw_rect(Rect2(x + demi, y, 1, 1), Palette.couleur("terre.2"))
+	toile.draw_rect(Rect2(x, sol - 3, 1, 2), Palette.couleur(ArtIle.CONTOUR))
+	for rang in 3:
+		toile.draw_rect(Rect2(x - 3 + rang, sol - 9 - rang, 7 - rang * 2, 1), Palette.couleur("terre.1"))
+	var moyeu := Vector2(x, sol - 9)
+	for bras in 4:
+		var direction := Vector2.from_angle(_angle + bras * PI / 2.0)
+		var cote := direction.orthogonal()
+		for d in range(1, 9):
+			var point := (moyeu + direction * d).round()
+			if d >= 3:
+				toile.draw_rect(Rect2((moyeu + direction * d + cote * 1.5).round(), Vector2.ONE), Palette.couleur("nuage.4"))
+			toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur("terre.1"))
+	toile.draw_rect(Rect2(moyeu, Vector2.ONE), Palette.couleur("or.4"))
+	_dessiner_points(toile, centre + Vector2(0, -13), "ciel.4")
+
+
+## Filet à nuages : deux poteaux, un filet qui ondule au vent et les ouates prises dans ses mailles.
+func _dessiner_filet(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var sol := centre.y + HAUTEUR_MACHINE
+	toile.draw_rect(Rect2(x - 6, sol, 14, 1), Palette.couleur("herbe.3"))
+	for cote: int in [-6, 6]:
+		toile.draw_rect(Rect2(x + cote - 1, sol - 12, 3, 12), Palette.couleur(ArtIle.CONTOUR))
+		toile.draw_rect(Rect2(x + cote, sol - 11, 1, 11), Palette.couleur("terre.2"))
+	toile.draw_rect(Rect2(x - 5, sol - 11, 11, 1), Palette.couleur("nuage.4"))
+	var t := ArtAbysse.temps()
+	for rang in 7:
+		var ecart := roundi(sin(t * 2.0 + rang * 0.6) * (rang / 6.0))
+		for colonne in 11:
+			if (colonne + rang) % 2 == 0:
+				var mx := clampf(x - 5 + colonne + ecart, x - 5, x + 5)
+				toile.draw_rect(Rect2(mx, sol - 10 + rang, 1, 1), Palette.couleur("nuage.3"))
+	# Ouates prises : de 0 à 4 touffes selon la réserve.
+	var touffes := ceili(4.0 * stock / maxf(plafond, 1.0))
+	var places := [Vector2(-3, -8), Vector2(2, -6), Vector2(-1, -4), Vector2(3, -9)]
+	for i in touffes:
+		var coin: Vector2 = Vector2(x, sol) + places[i]
+		toile.draw_rect(Rect2(coin, Vector2(2, 2)), Palette.couleur("nuage.4"))
+	_dessiner_points(toile, centre + Vector2(0, -12), "nuage.4")
 
 
 func _dessiner_filon(toile: CanvasItem, centre: Vector2) -> void:

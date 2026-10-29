@@ -94,6 +94,9 @@ class RunTests(SceneTree):
         self._test_ilot_logique(...)
         self._test_ilot_ile(...)
         self._test_ilot_sauvegarde(...)
+        self._test_machines_logique(...)
+        self._test_machines_ile(...)
+        self._test_machines_sauvegarde(...)
         self._test_synthese(...)
         self._test_bus_et_volumes(...)
         self._test_ambiances(...)
@@ -266,8 +269,16 @@ class RunTests(SceneTree):
         self._bouton(...)
         self._images(...)
 
+    def _nuage_degage(self, ile: 'Node') -> SourceRessource:
+        """Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 34 et 112 :
+        l'un d'eux peut se trouver sous le bouton « Inventaire » (en haut à gauche), et un clic ouvrirait alors
+        l'inventaire, qui bloque tous les clics suivants. On le déplace dans ce cas (c'est le premier des
+        nuages parcourus au survol : un autre nuage au même endroit ne gêne pas)."""
+        ...
+
     def _test_recolte(self) -> 'void':
         self._ouvrir_ile(...)
+        self._nuage_degage(...)
         self._cliquer(...)
         self._verifier(...)
         self._souris(...)
@@ -583,6 +594,50 @@ class RunTests(SceneTree):
         self._centre(...)
         Sauvegarde.ecrire(...)
 
+    def _ingredients_moulin(self, inventaire: Inventaire) -> 'void':
+        Inventaire.ajouter(...)
+
+    def _ingredients_filet(self, inventaire: Inventaire) -> 'void':
+        Inventaire.ajouter(...)
+
+    def _test_machines_logique(self) -> 'void':
+        self._verifier(...)
+        Atelier.liste_machines(...)
+        Atelier.emplacements(...)
+        Atelier.emplacements_libres(...)
+        Atelier.construire_machine(...)
+        self._ingredients_moulin(...)
+        Inventaire.total(...)
+        Atelier.nombre_machines(...)
+        self._ingredients_filet(...)
+        Atelier.peut_construire_machine(...)
+        Inventaire.quantite(...)
+        Atelier.charger_machines(...)
+
+    def _test_machines_ile(self) -> 'void':
+        self._son(...)
+        self._ouvrir_ile(...)
+        self._souris(...)
+        self._images(...)
+        self._verifier(...)
+        self._cliquer(...)
+        self._ingredients_moulin(...)
+        self._ingredients_filet(...)
+        self._fermer_ile(...)
+
+    def _test_machines_sauvegarde(self) -> 'void':
+        """Machines : sauvegarde, production pendant la plongée et jeu fermé (dans la limite de la réserve)."""
+        self._effacer_sauvegarde(...)
+        self._ouvrir_jeu(...)
+        self._ingredients_moulin(...)
+        self._images(...)
+        Sauvegarde.lire(...)
+        self._verifier(...)
+        Sauvegarde.ecrire(...)
+        self._fermer_jeu(...)
+        self._cliquer(...)
+        self._centre(...)
+
     def _aller_retour(self, fond: 'float') -> 'Array':
         """Aller-retour à pleine vitesse jusqu'à « fond » px ; renvoie [oxygène à 300 m, au fond, en surface, remontée auto]."""
         self._images(...)
@@ -627,6 +682,7 @@ class RunTests(SceneTree):
     def _test_sons_ile(self) -> 'void':
         self._son(...)
         self._ouvrir_ile(...)
+        self._nuage_degage(...)
         self._cliquer(...)
         self._verifier(...)
         self._souris(...)

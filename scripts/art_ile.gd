@@ -190,6 +190,27 @@ const ICONE_PASSERELLE: PackedStringArray = [
 	"TtTtTtTtT",
 	".T.....T.",
 ]
+const ICONE_MOULIN: PackedStringArray = [
+	"N.......N",
+	".N.....N.",
+	"..N.T.N..",
+	"...TOT...",
+	"..NtttN..",
+	".N.tdt.N.",
+	"N..tdt..N",
+	"...tdt...",
+	"..ttttt..",
+]
+const ICONE_FILET: PackedStringArray = [
+	"T.......T",
+	"TnNnNnNnT",
+	"T.n.n.n.T",
+	"TnNnNnNnT",
+	"T.n.n.n.T",
+	"TnBnNnBnT",
+	"T.......T",
+	"T.......T",
+]
 const COULEURS_CABANE := {
 	"c": "roche.2", "o": "or.2", "O": "or.3", "w": "terre.1", "W": "terre.2", "d": "interface.1", "f": "or.5",
 }
@@ -596,6 +617,16 @@ static func ilot(relie: bool) -> ImageTexture:
 ## Icône d'une construction (atelier).
 static func icone_construction(_id: String) -> Texture2D:
 	return Pixel.motif(ICONE_PASSERELLE, COULEURS_OBJETS, CONTOUR)
+
+
+## Icône d'une machine de l'île (atelier, onglet Machines).
+static func icone_machine(id: String) -> Texture2D:
+	match id:
+		"moulin":
+			return Pixel.motif(ICONE_MOULIN, COULEURS_OBJETS, CONTOUR)
+		"filet":
+			return Pixel.motif(ICONE_FILET, COULEURS_OBJETS, CONTOUR)
+	return Pixel.disque(3, c("roche.3"))
 
 
 ## Icône d'une amélioration de la cloche (atelier).

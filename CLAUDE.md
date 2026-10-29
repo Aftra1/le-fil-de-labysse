@@ -45,8 +45,11 @@ Gardien d'une île flottante au-dessus d'un océan sans fond.
 - [x] 3.5. Pixel art (variante C : monde en 320x180 affiché ×2, interface en 640x360, palette en rampes, police DotGothic16)
 - [x] 4. Craft et 3 améliorations de cloche, planifiée en deux parties :
   - [x] Partie 1 (PR #5) : atelier, recettes, composants, améliorations de niveau 1 (câble 150 → 300 m, lanterne, réservoir)
-  - [ ] Partie 2 : Faille volcanique, pierre de braise, niveaux 2 des améliorations (câble 450 m). Planifiée, pas commencée.
+  - [x] Partie 2 (PR #9) : Faille volcanique, pierre de braise, niveaux 2 des améliorations (câble 450 m)
 - [x] 5. Îlot à relier et sauvegarde, en deux parties :
   - [x] Partie 1 (PR #6) : sauvegarde JSON dans user:// (%APPDATA%\Le Fil de l'Abysse), écran titre, menu pause
   - [x] Partie 2 (PR #7) : îlot, passerelle de nuage, bassin de lumière
 - [ ] 6. Test de la boucle complète sur PC (en cours), puis ajustements, pixel art et audio
+- [ ] 7. Machines et nouveau contenu (+45 à 60 min), en cinq PR :
+  - [ ] PR A : base des machines, emplacements, palier 1 (moulin à vent, filet à nuages)
+  - [ ] PR B : palier 2 ; PR C : palier 3 (fourneau : fabrique en boucle la recette choisie d'un clic sur le fourneau, sans file d'attente) ; PR D : trouvailles et carnet ; PR E : équilibrage

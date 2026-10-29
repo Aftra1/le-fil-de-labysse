@@ -124,6 +124,7 @@ func continuer() -> void:
 	Game.inventaire = Inventaire.depuis_dictionnaire(partie["inventaire"], Game.ressources.keys())
 	Game.atelier.charger_niveaux(partie["ameliorations"])
 	Game.atelier.charger_ilots(partie["ilots"])
+	Game.atelier.charger_machines(partie["machines"])
 	_ile.restaurer_sources(partie["ile"])
 	_ile.rattraper(Sauvegarde.secondes_depuis(partie))
 	_commencer()
@@ -153,6 +154,7 @@ func donnees_partie() -> Dictionary:
 		"inventaire": Game.inventaire.vers_dictionnaire(),
 		"ameliorations": Game.atelier.niveaux.duplicate(),
 		"ilots": Game.atelier.ilots_relies.duplicate(),
+		"machines": Game.atelier.machines.duplicate(),
 		"reglages": Son.reglages(),
 		"ile": _ile.etat_sources(),
 	}

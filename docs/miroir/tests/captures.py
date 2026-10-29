@@ -6,7 +6,7 @@
 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ;
 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ;
 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
-sauvegarde abîmée.
+sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet).
 Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -53,6 +53,7 @@ class Captures(SceneTree):
         self._scenario_jeu(...)
         self._scenario_ameliorations(...)
         self._scenario_ilot(...)
+        self._scenario_machines(...)
         self._scenario_menus(...)
         self._couper_son_et_quitter(...)
 
@@ -106,6 +107,18 @@ class Captures(SceneTree):
         self._verifier_grille_monde(...)
         Inventaire.ajouter(...)
         self._cliquer(...)
+        self._fermer_jeu(...)
+
+    def _scenario_machines(self) -> 'void':
+        Inventaire()
+        Jeu()  # instantiate()
+        self._images(...)
+        self._souris(...)
+        self._capturer(...)
+        self._verifier_grille_monde(...)
+        Inventaire.ajouter(...)
+        self._cliquer(...)
+        self._atelier(...)
         self._fermer_jeu(...)
 
     def _scenario_menus(self) -> 'void':

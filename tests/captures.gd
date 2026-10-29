@@ -4,7 +4,7 @@ extends SceneTree
 ## 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ;
 ## 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ;
 ## 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
-## sauvegarde abîmée.
+## sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -40,6 +40,7 @@ func _scenarios() -> void:
 	await _scenario_jeu()
 	await _scenario_ameliorations()
 	await _scenario_ilot()
+	await _scenario_machines()
 	await _scenario_menus()
 	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
@@ -140,6 +141,9 @@ func _scenario_jeu() -> void:
 	var eolienne: Node2D = ile._eolienne
 	await _cliquer(eolienne.position)
 	var nuage: Node2D = ile.get_node("Nuages").get_child(0)
+	# Un nuage né sous le bouton « Inventaire » ouvrirait l'inventaire au lieu d'être récolté.
+	if (ile.get_node("HUD").bouton_inventaire as Control).get_global_rect().grow(4.0).has_point(nuage.position):
+		nuage.position = Vector2(320.0, 90.0)
 	await _cliquer(nuage.position)
 	var filon: Node2D = ile._filons[1]
 	_souris(filon.position)
@@ -327,6 +331,47 @@ func _scenario_ilot() -> void:
 	_souris(ile.bassin().position)
 	await _images(30)
 	await _capturer("24-ilot-relie")
+	await _verifier_grille_monde(ile)
+	await _fermer_jeu(jeu)
+	root.get_node("Game").inventaire = Inventaire.new()
+
+
+# --- 30-32 : machines du palier 1 --------------------------------------------------------
+
+func _scenario_machines() -> void:
+	root.get_node("Game").inventaire = Inventaire.new()
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	jeu.avec_titre = false
+	root.add_child(jeu)
+	var ile: Node = jeu.get_node("Ile")
+	await _images(20)
+	_souris(ile.centre_emplacement("ile_centre"))
+	await _images(5)
+	await _capturer("30-emplacement-libre")
+	await _verifier_grille_monde(ile)
+
+	var inventaire: Inventaire = root.get_node("Game").inventaire
+	inventaire.ajouter("fil_nuage", 5)
+	inventaire.ajouter("cristal_lagon", 5)
+	inventaire.ajouter("cristal_solaire", 2)
+	await _cliquer(ile.centre_emplacement("ile_centre"))
+	var atelier: Node = ile.get_node("Atelier")
+	atelier.selectionner("moulin")
+	await _images(3)
+	await _capturer("31-atelier-machines")
+	atelier.fabriquer_selection()
+	# Îlot relié : le filet va sur son emplacement.
+	_atelier().ilots_relies.append("ilot_est")
+	ile.actualiser_ilot()
+	atelier.emplacement_cible = "ilot_est"
+	atelier.selectionner("filet")
+	atelier.fabriquer_selection()
+	atelier.fermer()
+	ile.machine("ile_centre").stock = 5
+	ile.machine("ilot_est").stock = 7
+	_souris(ile.machine("ile_centre").position)
+	await _images(40)
+	await _capturer("32-machines")
 	await _verifier_grille_monde(ile)
 	await _fermer_jeu(jeu)
 	root.get_node("Game").inventaire = Inventaire.new()

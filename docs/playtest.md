@@ -1,6 +1,60 @@
-# Playtest automatique : boucle complète avec la Faille volcanique
+# Playtest automatique : boucle complète avec les machines du palier 1
 
-Date : 28 octobre 2026, branche `etape-4-faille` (étape 4, partie 2).
+Date : 29 octobre 2026, branche `etape-7-machines-a` (étape 7, PR A).
+
+## Machines du palier 1 (étape 7, PR A)
+
+Le robot poursuit maintenant deux objectifs de plus, dans l'ordre où un joueur les rencontre :
+**câble 1 → moulin à vent → lanterne 1 → filet à nuages → réservoir 1 → passerelle → réservoir 2 → câble 2 →
+lanterne 2**. Il construit une machine comme un joueur : clic sur un emplacement libre (l'atelier s'ouvre
+sur l'onglet Machines), choix de la machine, **Construire**. Quand du vent ou des ouates manquent, il vide
+d'abord les machines d'un clic, avant l'éolienne et les nuages.
+
+| | Moulin à vent | Filet à nuages |
+|---|---|---|
+| Production | 1 vent / 10 s, réserve 8 | 1 ouate / 6 s, réserve 10 |
+| Coût | 2 fils de nuage, 3 cristaux de lagon, 2 cristaux solaires | 3 fils de nuage, 2 cristaux de lagon |
+
+### Résultats (quatre parties par profil)
+
+| | Robot parfait | **Joueur humain** |
+|---|---|---|
+| Durée totale | 293 à 310 s (avant : 308 à 323 s) | **398 à 611 s** (avant : 399 à 502 s) |
+| Durée moyenne | 5 min 03 (avant : 5 min 14) | **8 min 16** (avant : 7 min 41) |
+| Plongées par partie | 5 | 5 à 6 |
+| Moulin construit à | 41 à 50 s | 62 à 252 s |
+| Filet construit à | 145 à 161 s | 129 à 336 s |
+| Vent récolté sur le moulin | 14 à 15 | 13 à 16 |
+| Remontées automatiques | 0 | **0** |
+| Attentes de plus de 10 s | 0 | **0** |
+
+- **Le moulin sert** : 13 à 16 vents par partie, soit la moitié du vent nécessaire après sa construction.
+  L'éolienne et lui suffisent : le robot n'attend jamais le vent.
+- **Le filet ne sert pas encore** : quand il est construit, il ne reste presque plus d'ouates à réunir (les
+  nuages et leurs 2 ouates par clic suffisent). Il prendra son rôle avec les recettes du palier 2.
+- **Durée** : le palier 1 coûte des matières (5 fils de nuage, 5 cristaux de lagon, 2 cristaux solaires)
+  et en rend une partie en vent. Le robot parfait gagne 11 s, le joueur humain perd 35 s en moyenne
+  (la partie 4 construit son moulin tard, à 252 s, après une plongée de plus). Les +45 à 60 minutes visées
+  viendront des paliers 2 et 3, des îlots et des trouvailles (PR B à D).
+- **Air au retour** (joueur humain) : 22 à 80 / 100 à 150 dans le Lagon et les Coraux, 45 à 68 / 200 dans la
+  Faille ; aucune remontée automatique en 23 plongées.
+
+### Vidéo
+
+Séquence de 40 s avec le son (Movie Maker, Xvfb, 640x360 à 30 images/s), à partir d'une partie préparée
+(îlot relié, moulin au centre de l'île, filet sur l'îlot) : le moulin tourne et le filet ondule → un clic vide
+chacun (son « machine ») → survol de l'emplacement libre de l'ouest (pointillés or) → clic : atelier, onglet
+Machines → **un second filet à nuages** → plongée dans le Lagon de lumière (descente et remontée accélérées ×2)
+→ au retour, le moulin et les filets ont produit pendant la plongée → un clic les vide.
+
+- MP4 (2,4 Mo, 1280x720, son AAC) : `docs/playtest/sequence.mp4`
+- GIF (2,5 Mo, 640x360, 12 images/s, sans son) : `docs/playtest/sequence.gif`
+
+---
+
+# Rapport précédent : boucle complète avec la Faille volcanique (étape 4, partie 2)
+
+Les mesures brutes de ce rapport ont été remplacées par celles des machines ; la méthode reste valable.
 
 ## Méthode
 
@@ -105,7 +159,7 @@ de niveau 2 (15 à 28 s au total, en attentes courtes) ; le joueur humain, plus 
 - **Ont manqué** : rien sur l'île (vent compris). En plongée, l'air limite le corail et la pierre de braise du
   joueur humain, sans jamais de remontée automatique.
 
-## Vidéo
+## Vidéo (à l'époque)
 
 Séquence de 42 s (Movie Maker, Xvfb, 640x360 à 30 images/s), jouée par le robot à partir d'une partie
 préparée (câble 450 m, réservoir 200, lanterne 1, îlot relié, 2 lentilles et 2 pierres de braise en poche) :
@@ -114,8 +168,7 @@ et de la Faille (**accélérée ×4**) → minage de 2 pierres de braise dans la
 → atelier : **lanterne de cristal niveau 2**. Les passages accélérés sont repérés automatiquement par le robot
 (lignes `VIDEO` du journal) et montés par `tests/playtest.sh`.
 
-- MP4 (2,5 Mo, 1280x720) : `docs/playtest/sequence.mp4`
-- GIF (4,5 Mo, 640x360, 12 images/s) : `docs/playtest/sequence.gif`
+Elle est remplacée par la séquence des machines (voir plus haut).
 
 ## Conclusions
 

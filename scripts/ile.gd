@@ -4,6 +4,8 @@ extends Node2D
 ## atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace).
 ## À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île,
 ## et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons).
+## Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ;
+## une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne).
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 ## Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 ## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
@@ -24,7 +26,11 @@ const K := 0.5   # échelle du monde (320x180) par rapport aux positions du jeu 
 const SONS_RECOLTE := {
 	SourceRessource.Forme.NUAGE: "nuage", SourceRessource.Forme.EOLIENNE: "vent",
 	SourceRessource.Forme.FILON: "cristal", SourceRessource.Forme.BASSIN: "bassin",
+	SourceRessource.Forme.MOULIN: "machine", SourceRessource.Forme.FILET: "machine",
 }
+const FORMES_MACHINES := {"moulin": SourceRessource.Forme.MOULIN, "filet": SourceRessource.Forme.FILET}
+const ZONE_EMPLACEMENT := Vector2(12.0, 16.0)   # demi-taille, centrée 16 px au-dessus du sol
+const RAYON_MACHINE := 16.0
 
 var cloche_visible := true
 
@@ -33,6 +39,8 @@ var _eolienne: SourceRessource
 var _filons: Array[SourceRessource] = []
 var _bassin: SourceRessource            # dans _sources seulement une fois l'îlot relié
 var _survol_ilot := false
+var _survol_emplacement := ""            # emplacement libre sous la souris
+var _machines: Dictionary = {}           # emplacement -> SourceRessource
 var _souris := Vector2(-100.0, -100.0)
 var _survol_cloche := false
 var _survol_cabane := false
@@ -101,6 +109,10 @@ func _sur_fabrication(id: String, genre: String) -> void:
 			actualiser_ilot()
 			_interface.annoncer("Îlot relié : le bassin de lumière donne du cristal de lagon.")
 			Son.jouer("construction")
+		"machine":
+			actualiser_machines()
+			_interface.annoncer("Construit : %s. Un clic dessus récupère sa production." % atelier.nom_machine(id))
+			Son.jouer("construction")
 		_:
 			_interface.annoncer("Fabriqué : %s" % Game.nom_ressource(id))
 			Son.jouer("fabrication")
@@ -150,6 +162,9 @@ func _clic() -> void:
 		_panneau.fermer()
 		_atelier.ouvrir()
 		_atelier.choisir_onglet("construction")
+	elif _survol_emplacement != "":
+		_panneau.fermer()
+		_atelier.ouvrir_machines(_survol_emplacement)
 	elif _survol != null:
 		match _survol.mode:
 			SourceRessource.Mode.CLIC:
@@ -243,13 +258,17 @@ func _mettre_a_jour_survol() -> void:
 	_survol_cabane = sur_cabane
 	_survol_ilot = not panneau_ouvert() and not sur_cloche and not sur_cabane and survol == null \
 		and not ilot_relie() and _souris_sur_ilot()
+	_survol_emplacement = ""
+	if not panneau_ouvert() and not sur_cloche and not sur_cabane and survol == null and not _survol_ilot:
+		_survol_emplacement = _emplacement_sous_souris()
 	if survol != _survol:
 		if is_instance_valid(_survol):
 			_survol.en_survol = false
 		_survol = survol
 		if _survol != null:
 			_survol.en_survol = true
-	var cliquable := _survol_cloche or _survol_cabane or _survol_ilot or (_survol != null and _survol.est_disponible())
+	var cliquable := _survol_cloche or _survol_cabane or _survol_ilot or _survol_emplacement != "" \
+		or (_survol != null and _survol.est_disponible())
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if cliquable else Input.CURSOR_ARROW)
 
 
@@ -260,9 +279,11 @@ func _texte_aide() -> String:
 		return "Atelier : clic sur la cabane (ou C)"
 	if _survol_ilot:
 		return "Îlot isolé : fabrique une passerelle de nuage à l'atelier"
+	if _survol_emplacement != "":
+		return "Emplacement libre : clic pour construire une machine"
 	if _survol != null:
 		var source := _survol
-		var nom := Game.nom_ressource(source.id_ressource)
+		var nom := source.nom if source.nom != "" else Game.nom_ressource(source.id_ressource)
 		if not source.est_disponible():
 			return "%s : se recharge avec le temps" % nom
 		match source.mode:
@@ -299,6 +320,52 @@ func _creer_sources() -> void:
 	_bassin.duree_maintien = float(reglage["duree_maintien"])
 	_bassin.rayon_clic = 13.0
 	actualiser_ilot()
+
+
+# --- Machines et emplacements ------------------------------------------------------
+
+## Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie).
+func actualiser_machines() -> void:
+	var atelier := Game.atelier
+	for lieu: String in _machines.keys():
+		if atelier.machines.get(lieu) != _machines[lieu].get_meta("machine"):
+			_machines[lieu].queue_free()
+			_sources.remove_child(_machines[lieu])
+			_machines.erase(lieu)
+	for lieu: String in atelier.machines:
+		if not _machines.has(lieu):
+			var id: String = atelier.machines[lieu]
+			var reglage: Dictionary = atelier.machine(id)
+			var source := SourceRessource.new()
+			source.id_ressource = str(reglage["ressource"])
+			source.nom = atelier.nom_machine(id)
+			source.mode = SourceRessource.Mode.RESERVE
+			source.forme = FORMES_MACHINES[id]
+			source.plafond = int(reglage["plafond"])
+			source.recharge_s = float(reglage["recharge_s"])
+			source.rayon_clic = RAYON_MACHINE
+			source.position = centre_emplacement(lieu)
+			source.set_meta("machine", id)
+			_sources.add_child(source)
+			_machines[lieu] = source
+
+
+## Machine posée sur un emplacement (null s'il est libre).
+func machine(lieu: String) -> SourceRessource:
+	return _machines.get(lieu)
+
+
+## Centre de la zone cliquable d'un emplacement (640x360), au-dessus du sol.
+func centre_emplacement(lieu: String) -> Vector2:
+	return _vecteur(Game.atelier.emplacement(lieu)["position"]) - Vector2(0.0, ZONE_EMPLACEMENT.y)
+
+
+func _emplacement_sous_souris() -> String:
+	for lieu: String in Game.atelier.emplacements_libres():
+		var centre := centre_emplacement(lieu)
+		if absf(_souris.x - centre.x) <= ZONE_EMPLACEMENT.x and absf(_souris.y - centre.y) <= ZONE_EMPLACEMENT.y:
+			return lieu
+	return ""
 
 
 # --- Îlot ---------------------------------------------------------------------------
@@ -466,7 +533,10 @@ func etat_sources() -> Dictionary:
 	var filons: Array = []
 	for filon in _filons:
 		filons.append(filon.etat())
-	return {"eolienne": _eolienne.etat(), "filons": filons, "bassin": _bassin.etat()}
+	var machines := {}
+	for lieu: String in _machines:
+		machines[lieu] = _machines[lieu].etat()
+	return {"eolienne": _eolienne.etat(), "filons": filons, "bassin": _bassin.etat(), "machines": machines}
 
 
 ## Reprend l'état sauvegardé des sources ; ce qui manque ou est faux garde la valeur de départ.
@@ -482,6 +552,12 @@ func restaurer_sources(donnees: Dictionary) -> void:
 	if donnees.get("bassin") is Dictionary:
 		_bassin.restaurer(donnees["bassin"])
 	actualiser_ilot()
+	actualiser_machines()
+	var machines = donnees.get("machines")
+	if machines is Dictionary:
+		for lieu: String in _machines:
+			if machines.get(lieu) is Dictionary:
+				_machines[lieu].restaurer(machines[lieu])
 	queue_redraw()
 
 
@@ -492,6 +568,9 @@ func reinitialiser_sources() -> void:
 		filon.restaurer({"stock": int(_reglages["filons"]["stock_initial"]), "recharge": 0.0})
 	_bassin.restaurer({"stock": int(_reglages["ilot"]["bassin"]["stock_initial"]), "recharge": 0.0})
 	actualiser_ilot()
+	actualiser_machines()
+	for lieu: String in _machines:
+		_machines[lieu].restaurer({"stock": 0, "recharge": 0.0})
 	_interface.rafraichir_inventaire()
 
 
@@ -519,6 +598,7 @@ func _dessiner_monde(toile: Node2D) -> void:
 			(enfant as SourceRessource).dessiner_monde(toile)
 	_dessiner_cabane(toile)
 	_dessiner_ilot(toile)
+	_dessiner_emplacements(toile)
 	for enfant in _sources.get_children():
 		(enfant as SourceRessource).dessiner_monde(toile)
 	if cloche_visible:
@@ -582,8 +662,29 @@ func _dessiner_ilot(toile: Node2D) -> void:
 		Pixel.cadre(toile, Rect2(VueMonde.vers_monde(centre_ilot()) - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
 
 
+## Emplacements libres : une dalle de pierre et, au-dessus, la silhouette en pointillés or d'une machine.
+func _dessiner_emplacements(toile: Node2D) -> void:
+	for lieu: String in Game.atelier.emplacements_libres():
+		var sol := VueMonde.vers_monde(_vecteur(Game.atelier.emplacement(lieu)["position"]))
+		toile.draw_rect(Rect2(sol.x - 4, sol.y - 1, 9, 2), Palette.couleur(ArtIle.CONTOUR))
+		toile.draw_rect(Rect2(sol.x - 3, sol.y - 1, 7, 1), Palette.couleur("roche.4"))
+		for i in 10:
+			if i % 2 == 0:
+				toile.draw_rect(Rect2(sol.x - 4, sol.y - 3 - i, 1, 1), Palette.couleur("or.3"))
+				toile.draw_rect(Rect2(sol.x + 4, sol.y - 3 - i, 1, 1), Palette.couleur("or.3"))
+		for i in range(-2, 3, 2):
+			toile.draw_rect(Rect2(sol.x + i, sol.y - 12, 1, 1), Palette.couleur("or.3"))
+		if lieu == _survol_emplacement:
+			var zone := (ZONE_EMPLACEMENT * K).round()
+			Pixel.cadre(toile, Rect2(VueMonde.vers_monde(centre_emplacement(lieu)) - zone, zone * 2.0 + Vector2.ONE),
+				Palette.couleur("nuage.4"))
+
+
 func _fabrication_possible() -> bool:
 	var atelier := Game.atelier
+	for id: String in atelier.liste_machines():
+		if atelier.peut_construire_machine(id):
+			return true
 	for id: String in Atelier.CONSTRUCTIONS:
 		if atelier.peut_construire(id):
 			return true

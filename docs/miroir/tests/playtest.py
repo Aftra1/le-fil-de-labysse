@@ -5,7 +5,8 @@
 souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'inventaire.
 
 Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
-→ fils de nuage → câble tressé → plongées dans la Forêt de coraux → lanterne et réservoir →
+→ fils de nuage → câble tressé → moulin à vent (clic sur un emplacement libre) → plongées dans la
+Forêt de coraux → lanterne → filet à nuages → réservoir →
 passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
 (pierre de braise) → lanterne de niveau 2 → récolte du bassin de lumière sur l'îlot.
 
@@ -21,7 +22,8 @@ estime mal ses distances de freinage, garde une marge d'air plus grande et va mo
 
 Mesures (temps de jeu, 60 images par seconde) écrites dans le fichier passé après « -- » :
 godot --headless --path . --fixed-fps 60 --script res://tests/playtest.gd -- --profil=humain --sortie=<fichier.json>
-Mode vidéo (séquence courte d'environ 40 s, pour Movie Maker) : -- --video
+Les machines sont vidées d'un clic quand leur ressource manque (avant l'éolienne et les nuages).
+Mode vidéo (séquence courte avec les machines, pour Movie Maker) : -- --video
 Voir tests/playtest.sh et docs/playtest.md.
 """
 
@@ -73,6 +75,8 @@ class Playtest(SceneTree):
     _manques: 'Dictionary'
     _fabrications: 'Dictionary'
     _bassin_recolte: 'int'
+    _machines_construites: 'Array'
+    _machines_recolte: 'Dictionary'
 
     def _initialize(self) -> 'void':
         Donnees.charger_json(...)
@@ -117,10 +121,12 @@ class Playtest(SceneTree):
 
     def _objectifs_restants(self) -> 'Array':
         Atelier.niveau(...)
+        Atelier.nombre_machines(...)
         Atelier.est_construite(...)
 
     def _ingredients_objectif(self, objectif: 'Array') -> 'Dictionary':
         Atelier.recette_niveau(...)
+        Atelier.machine(...)
         Atelier.ingredients_construction(...)
 
     def _plongee_utile(self, besoins: 'Dictionary') -> 'bool':
@@ -137,8 +143,8 @@ class Playtest(SceneTree):
 
     def _recolter_utile(self, besoins: 'Dictionary') -> 'bool':
         """Récolte ce qui sert aux objectifs et qui est disponible ; vrai si quelque chose a été fait."""
-        self._cliquer(...)
         self._besoins(...)
+        self._cliquer(...)
         self._maintenir_sur(...)
         self._nuage_visible(...)
         self._cliquer_nuage(...)
@@ -169,10 +175,12 @@ class Playtest(SceneTree):
         """Ouvre l'atelier (touche C) et fabrique / installe / construit tout ce qui sert à l'objectif en cours."""
         self._prochaine_fabrication(...)
         self._fin_attente(...)
+        self._deplacer_souris(...)
+        self._cliquer(...)
         self._touche(...)
         self._attendre(...)
-        self._cliquer(...)
         self._centre(...)
+        self._secondes(...)
         self._noter(...)
 
     def _prochaine_fabrication(self) -> 'Array':
@@ -182,6 +190,7 @@ class Playtest(SceneTree):
         Atelier.niveau(...)
         Atelier.peut_ameliorer(...)
         Atelier.peut_construire(...)
+        Atelier.peut_construire_machine(...)
         self._ingredients_objectif(...)
         Atelier.composants(...)
         Atelier.peut_fabriquer(...)
@@ -268,16 +277,17 @@ class Playtest(SceneTree):
         Sauvegarde.ecrire(...)
 
     def _sequence_video(self) -> 'void':
-        """Séquence vidéo (avec le son) : île (nuage, éolienne), descente, plongée à travers le Lagon, la Forêt de
-        coraux et la Faille volcanique, minage de pierres de braise jusqu'à ce que l'air impose de remonter
-        (bips d'oxygène bas pendant la remontée), atelier (lanterne de niveau 2). Les trajets verticaux sont
-        repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh)."""
+        """Séquence vidéo (avec le son) : les machines du palier 1. Sur l'île, le moulin tourne et le filet ondule ;
+        un clic vide chacune ; clic sur l'emplacement libre de l'ouest, atelier (onglet Machines) : un second
+        filet à nuages ; plongée dans le Lagon de lumière ; au retour, le moulin et les filets ont produit
+        pendant la plongée. Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage
+        (tests/playtest.sh)."""
         self._attendre(...)
-        self._nuage_visible(...)
         self._cliquer(...)
-        self._plonger(...)
-        self._touche(...)
+        self._deplacer_souris(...)
         self._centre(...)
+        self._touche(...)
+        self._plonger(...)
 
     def _marque_video(self, nom: 'String') -> 'void':
         """Repère de montage pour la vidéo (temps de jeu = temps du film)."""
