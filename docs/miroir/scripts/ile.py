@@ -3,10 +3,14 @@
 # Régénérer : python3 tests/generer_miroir.py
 """L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire,
 atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace).
-À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île,
-et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons).
+Deux îlots isolés (data/ile.json) : à droite, l'îlot de l'est, relié par la passerelle de nuage (son
+bassin de lumière donne alors du cristal de lagon, maintien du clic comme les filons) ; en haut à
+gauche, l'îlot du nord, relié par le pont suspendu (deux emplacements de machine). Un clic sur un
+îlot isolé ouvre l'atelier, onglet Construction.
 Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ;
 une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne).
+La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit
+rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2.
 Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
@@ -51,7 +55,7 @@ class Ile(Node2D):
     _eolienne: SourceRessource
     _filons: 'Array[SourceRessource]'
     _bassin: SourceRessource
-    _survol_ilot: 'bool'
+    _survol_ilot: 'String'
     _survol_emplacement: 'String'
     _machines: 'Dictionary'
     _souris: 'Vector2'
@@ -81,7 +85,7 @@ class Ile(Node2D):
         InterfaceIle.rafraichir_inventaire(...)
 
     def _notification(self, quoi: 'int') -> 'void':
-        """Le bassin hors de l'arbre (îlot non relié) est libéré avec l'île."""
+        """Le bassin (îlot non relié) et les filons sous une foreuse, hors de l'arbre, sont libérés avec l'île."""
         ...
 
     def panneau_ouvert(self) -> 'bool':
@@ -104,8 +108,10 @@ class Ile(Node2D):
         Atelier.niveau(...)
         Son.jouer(...)
         self.actualiser_ilot(...)
+        Atelier.annonce_construction(...)
         self.actualiser_machines(...)
         Atelier.nom_machine(...)
+        self.machine(...)
         Game.nom_ressource(...)
         InterfaceIle.rafraichir_inventaire(...)
         self.partie_modifiee.emit(...)
@@ -133,6 +139,8 @@ class Ile(Node2D):
         PanneauInventaire.fermer(...)
         PanneauAtelier.ouvrir(...)
         PanneauAtelier.choisir_onglet(...)
+        Atelier.ilot_de(...)
+        PanneauAtelier.selectionner(...)
         PanneauAtelier.ouvrir_machines(...)
         self._recolter(...)
 
@@ -170,25 +178,30 @@ class Ile(Node2D):
         self.panneau_ouvert(...)
         self._souris_sur_cloche(...)
         self._source_sous_souris(...)
-        self.ilot_relie(...)
-        self._souris_sur_ilot(...)
+        self._ilot_isole_sous_souris(...)
         self._emplacement_sous_souris(...)
         SourceRessource.est_disponible(...)
 
     def _texte_aide(self) -> 'String':
+        self._ilot(...)
         Game.nom_ressource(...)
         SourceRessource.est_disponible(...)
 
     def _creer_sources(self) -> 'void':
         self._nouvelle_source(...)
         self._vecteur(...)
+        self._ilot(...)
         self.actualiser_ilot(...)
 
     def actualiser_machines(self) -> 'void':
-        """Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie)."""
+        """Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie),
+        applique leurs améliorations, et retire de l'île les filons couverts par une foreuse."""
         Atelier.machine(...)
         Atelier.nom_machine(...)
         self.centre_emplacement(...)
+        Atelier.recharge_machine(...)
+        Atelier.plafond_machine(...)
+        Atelier.emplacements(...)
 
     def machine(self, lieu: 'String') -> SourceRessource:
         """Machine posée sur un emplacement (null s'il est libre)."""
@@ -203,23 +216,30 @@ class Ile(Node2D):
         Atelier.emplacements_libres(...)
         self.centre_emplacement(...)
 
-    def ilot_relie(self) -> 'bool':
+    def _ilot(self, id: 'String') -> 'Dictionary':
+        """Réglages d'un îlot (data/ile.json)."""
+        ...
+
+    def ilot_relie(self, id: 'String') -> 'bool':
         Atelier.est_relie(...)
 
     def actualiser_ilot(self) -> 'void':
-        """Le bassin n'existe sur l'île (récolte, recharge, dessin) que si l'îlot est relié."""
+        """Le bassin n'existe sur l'île (récolte, recharge, dessin) que si l'îlot de l'est est relié."""
         self.ilot_relie(...)
 
     def bassin(self) -> SourceRessource:
         ...
 
-    def centre_ilot(self) -> 'Vector2':
-        """Centre de la zone de survol de l'îlot (640x360)."""
+    def centre_ilot(self, id: 'String') -> 'Vector2':
+        """Centre de la zone de survol d'un îlot (640x360)."""
         self._vecteur(...)
+        self._ilot(...)
 
-    def _souris_sur_ilot(self) -> 'bool':
+    def _ilot_isole_sous_souris(self) -> 'String':
+        """Îlot non relié sous la souris (vide s'il n'y en a pas)."""
         self._vecteur(...)
         self.centre_ilot(...)
+        self.ilot_relie(...)
 
     def _nouvelle_source(self, reglage: 'Dictionary', mode: 'SourceRessource.Mode', forme: 'SourceRessource.Forme') -> SourceRessource:
         ...
@@ -265,6 +285,11 @@ class Ile(Node2D):
         InterfaceIle.annoncer(...)
         self._unites(...)
         self._sauvees(...)
+        Atelier.decouvrir(...)
+        Atelier.liste_machines(...)
+        Atelier.machine(...)
+        Atelier.nom_machine(...)
+        InterfaceIle.texte_annonce(...)
         InterfaceIle.rafraichir_inventaire(...)
 
     def rattraper(self, secondes: 'float') -> 'void':
@@ -287,6 +312,7 @@ class Ile(Node2D):
     def reinitialiser_sources(self) -> 'void':
         """Sources remises à leur stock de départ (nouvelle partie)."""
         SourceRessource.restaurer(...)
+        self._ilot(...)
         self.actualiser_ilot(...)
         self.actualiser_machines(...)
         InterfaceIle.rafraichir_inventaire(...)
@@ -304,7 +330,7 @@ class Ile(Node2D):
         ArtIle.fond_ile(...)
         SourceRessource.dessiner_monde(...)
         self._dessiner_cabane(...)
-        self._dessiner_ilot(...)
+        self._dessiner_ilots(...)
         self._dessiner_emplacements(...)
         VueMonde.vers_monde(...)
         ArtIle.cloche(...)
@@ -324,8 +350,12 @@ class Ile(Node2D):
         ArtAbysse.temps(...)
         Pixel.cadre(...)
 
-    def _dessiner_ilot(self, toile: 'Node2D') -> 'void':
-        """Îlot (assombri tant qu'il n'est pas relié), puis la passerelle, ou des pointillés or à sa place."""
+    def _dessiner_ilots(self, toile: 'Node2D') -> 'void':
+        """Îlots (assombris tant qu'ils ne sont pas reliés), puis leur passerelle ou leur pont, ou des
+        pointillés or à leur place."""
+        self._dessiner_ilot(...)
+
+    def _dessiner_ilot(self, toile: 'Node2D', donnees: 'Dictionary') -> 'void':
         self.ilot_relie(...)
         ArtIle.ilot(...)
         VueMonde.vers_monde(...)
@@ -348,8 +378,10 @@ class Ile(Node2D):
         self.centre_emplacement(...)
 
     def _fabrication_possible(self) -> 'bool':
-        Atelier.liste_machines(...)
+        Atelier.machines_disponibles(...)
         Atelier.peut_construire_machine(...)
+        Atelier.machine(...)
+        Atelier.peut_ameliorer_machine(...)
         Atelier.peut_construire(...)
         Atelier.composants(...)
         Atelier.peut_fabriquer(...)

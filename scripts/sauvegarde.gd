@@ -5,6 +5,7 @@ extends RefCounted
 ##
 ## Contenu : { "version", "horodatage" (secondes Unix), "inventaire" { id: nombre },
 ## "ameliorations" { id: niveau }, "ilots" [ids reliés], "machines" { emplacement: machine },
+## "machines_ameliorations" { machine: { "vitesse", "capacite" } }, "palier" (1 à 3),
 ## "ile" { état des sources, machines comprises },
 ## "reglages" { "musique", "effets" : volumes de 0 à 1 } }.
 ## Ce module ne connaît que le fichier : la validation des identifiants et des valeurs est faite
@@ -106,8 +107,9 @@ static func migrer(donnees: Dictionary) -> Dictionary:
 		version = 1
 	resultat["version"] = version
 	# Types attendus : tout champ d'un mauvais type est remplacé par une valeur vide.
-	# « machines » est apparu sans changer de version : absent, il vaut une liste vide.
-	for cle: String in ["inventaire", "ameliorations", "ile", "reglages", "machines"]:
+	# « machines » et « machines_ameliorations » sont apparus sans changer de version : absents, ils
+	# valent une liste vide (le palier absent se déduit au chargement, voir Atelier.charger_palier).
+	for cle: String in ["inventaire", "ameliorations", "ile", "reglages", "machines", "machines_ameliorations"]:
 		if not resultat.get(cle) is Dictionary:
 			resultat[cle] = {}
 	if not resultat.get("ilots") is Array:

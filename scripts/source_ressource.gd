@@ -1,7 +1,8 @@
 class_name SourceRessource
 extends Node2D
 ## Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot)
-## ou machine construite sur un emplacement (moulin à vent, filet à nuages).
+## ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt) ou sur un filon
+## (foreuse solaire).
 ## Trois façons de récolter :
 ## - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 ## - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
@@ -9,7 +10,7 @@ extends Node2D
 ## Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 
 enum Mode { CLIC, MAINTIEN, RESERVE }
-enum Forme { EOLIENNE, FILON, NUAGE, BASSIN, MOULIN, FILET }
+enum Forme { EOLIENNE, FILON, NUAGE, BASSIN, MOULIN, FILET, FOREUSE, ENTREPOT }
 
 const VITESSE_PALES := 1.6       # tours d'éolienne (radians par seconde)
 const VITESSE_AILES := 1.1       # ailes du moulin, arrêtées quand sa réserve est pleine
@@ -144,6 +145,10 @@ func dessiner_monde(toile: CanvasItem) -> void:
 			_dessiner_moulin(toile, p)
 		Forme.FILET:
 			_dessiner_filet(toile, p)
+		Forme.FOREUSE:
+			_dessiner_foreuse(toile, p)
+		Forme.ENTREPOT:
+			_dessiner_entrepot(toile, p)
 	var rayon := roundi(rayon_clic * K)
 	if en_survol and est_disponible():
 		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("nuage.4")), p)
@@ -224,6 +229,46 @@ func _dessiner_filet(toile: CanvasItem, centre: Vector2) -> void:
 		var coin: Vector2 = Vector2(x, sol) + places[i]
 		toile.draw_rect(Rect2(coin, Vector2(2, 2)), Palette.couleur("nuage.4"))
 	_dessiner_points(toile, centre + Vector2(0, -12), "nuage.4")
+
+
+## Foreuse solaire : un chevalet de bois au-dessus du filon, dont la mèche tourne et descend dans le
+## cristal tant que la réserve n'est pas pleine.
+func _dessiner_foreuse(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var sol := centre.y + HAUTEUR_MACHINE
+	Pixel.sprite_ombre(toile, ArtIle.filon(K, true), Vector2(x, sol - 3), Palette.couleur("herbe.3"))
+	for rang in 12:
+		var ecart := 6 - rang / 3
+		toile.draw_rect(Rect2(x - ecart, sol - 1 - rang, 1, 1), Palette.couleur("terre.1"))
+		toile.draw_rect(Rect2(x + ecart, sol - 1 - rang, 1, 1), Palette.couleur("terre.1"))
+	toile.draw_rect(Rect2(x - 4, sol - 14, 9, 2), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 3, sol - 14, 7, 1), Palette.couleur("metal.2"))
+	var actif := stock < plafond
+	var t := ArtAbysse.temps()
+	var descente := roundi(1.0 + sin(t * 3.0)) if actif else 0
+	var bas := sol - 8 + descente
+	toile.draw_rect(Rect2(x, sol - 12, 1, bas - (sol - 12)), Palette.couleur("metal.3"))
+	var tour := int(t * 12.0) % 2 if actif else 0
+	toile.draw_rect(Rect2(x - 1, bas, 3, 2), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 1 + tour, bas, 1, 1), Palette.couleur("metal.3"))
+	toile.draw_rect(Rect2(x, bas + 1, 1, 1), Palette.couleur("or.4"))
+	_dessiner_points(toile, centre + Vector2(0, -12), "or.4")
+
+
+## Entrepôt : une petite remise de planches au toit sombre, avec une caisse devant la porte.
+func _dessiner_entrepot(toile: CanvasItem, centre: Vector2) -> void:
+	var x := centre.x
+	var sol := centre.y + HAUTEUR_MACHINE
+	toile.draw_rect(Rect2(x - 6, sol, 13, 1), Palette.couleur("herbe.3"))
+	toile.draw_rect(Rect2(x - 6, sol - 8, 13, 8), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x - 5, sol - 7, 11, 7), Palette.couleur("terre.3"))
+	for rang in [sol - 5, sol - 2]:
+		toile.draw_rect(Rect2(x - 5, rang, 11, 1), Palette.couleur("terre.2"))
+	toile.draw_rect(Rect2(x - 1, sol - 5, 3, 5), Palette.couleur("terre.1"))
+	for rang in 4:
+		toile.draw_rect(Rect2(x - 7 + rang, sol - 9 - rang, 15 - rang * 2, 1), Palette.couleur("terre.1" if rang < 3 else "or.3"))
+	toile.draw_rect(Rect2(x + 4, sol - 3, 4, 3), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x + 5, sol - 2, 2, 2), Palette.couleur("or.2"))
 
 
 func _dessiner_filon(toile: CanvasItem, centre: Vector2) -> void:

@@ -1215,7 +1215,7 @@ func _test_equilibre() -> void:
 		var encore := true
 		while encore:
 			encore = false
-			for id: String in Atelier.AMELIORATIONS:
+			for id: String in ["cable", "lanterne", "reservoir"]:
 				if atelier.ameliorer(id):
 					encore = true
 			var besoins := {
@@ -1340,9 +1340,11 @@ func _test_sauvegarde_contenu() -> void:
 
 	var inventaire := Inventaire.depuis_dictionnaire({"vent": 150, "nuage": -4, "inconnu": 3, "corail": "x"},
 		_jeu.ressources.keys())
-	_verifier(inventaire.quantite("vent") == Inventaire.PLAFOND and inventaire.quantite("nuage") == 0
-		and inventaire.quantite("inconnu") == 0 and inventaire.total() == Inventaire.PLAFOND,
-		"inventaire : quantités bornées, ressources inconnues ignorées")
+	_verifier(inventaire.quantite("vent") == 150 and inventaire.quantite("nuage") == 0
+		and inventaire.quantite("inconnu") == 0 and inventaire.total() == 150,
+		"inventaire lu : quantités bornées à 0..499 (plafond de l'entrepôt), ressources inconnues ignorées")
+	Atelier.new(inventaire).charger_machines({})
+	_verifier(inventaire.quantite("vent") == Inventaire.PLAFOND, "sans entrepôt : quantités ramenées à 99")
 	_verifier(Inventaire.depuis_dictionnaire(Inventaire.depuis_dictionnaire({"vent": 7}, ["vent"]).vers_dictionnaire(),
 		["vent"]).quantite("vent") == 7, "inventaire : aller-retour vers le dictionnaire")
 
@@ -1776,9 +1778,10 @@ func _ingredients_filet(inventaire: Inventaire) -> void:
 func _test_machines_logique() -> void:
 	var inventaire := Inventaire.new()
 	var atelier := Atelier.new(inventaire)
-	_verifier(atelier.liste_machines() == ["moulin", "filet"], "palier 1 : moulin à vent et filet à nuages")
-	_verifier(atelier.emplacements().size() == 3 and atelier.emplacements_libres() == ["ile_ouest", "ile_centre"],
-		"3 emplacements ; celui de l'îlot n'est libre qu'une fois l'îlot relié", str(atelier.emplacements_libres()))
+	_verifier(atelier.machines_disponibles() == ["moulin", "filet"], "palier 1 : moulin à vent et filet à nuages")
+	_verifier(atelier.emplacements_libres() == ["ile_ouest", "ile_centre"],
+		"au départ : les 2 emplacements de l'île ; ceux des îlots attendent qu'ils soient reliés",
+		str(atelier.emplacements_libres()))
 	_verifier(atelier.construire_machine("moulin") == "" and atelier.machines.is_empty(), "moulin refusé sans ingrédients")
 	_ingredients_moulin(inventaire)
 	_verifier(atelier.construire_machine("moulin", "ile_centre") == "ile_centre" and inventaire.total() == 0,

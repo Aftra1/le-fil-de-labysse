@@ -163,6 +163,7 @@ func appliquer_ameliorations() -> void:
 	oxygene = oxygene_max
 	limite_px = minf(atelier.longueur_cable_m() * PIXELS_PAR_METRE, PROFONDEUR_MAX)
 	_cloche.profondeur_limite = limite_px
+	_sac.capacite = atelier.places_sac()
 	_interface.regler_reserve(oxygene_max / OXYGENE_MAX)
 	_regler_obscurite()
 
@@ -275,7 +276,7 @@ func _terminer_unite(gisement: Gisement) -> void:
 
 
 func _rafraichir_sac() -> void:
-	_interface.definir_sac(_texte_butin("Sac %d/%d : " % [_sac.nombre(), Sac.CAPACITE], _sac.compter()))
+	_interface.definir_sac(_texte_butin("Sac %d/%d : " % [_sac.nombre(), _sac.capacite], _sac.compter()))
 	for enfant in _gisements.get_children():
 		var gisement := enfant as Gisement
 		if gisement != null:

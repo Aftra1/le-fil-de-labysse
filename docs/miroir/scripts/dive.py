@@ -115,6 +115,7 @@ class Dive(Node2D):
         """Lit les niveaux installés à l'atelier : longueur du câble, réserve d'oxygène, lanterne."""
         Atelier.oxygene_max(...)
         Atelier.longueur_cable_m(...)
+        Atelier.places_sac(...)
         Interface.regler_reserve(...)
         self._regler_obscurite(...)
 

@@ -1,9 +1,11 @@
 class_name Sac
 extends RefCounted
 ## Le sac de la cloche : une unité de minerai = un emplacement.
+## 8 places au départ ; l'amélioration « Sac de plongée » en donne 12.
 
 const CAPACITE := 8
 
+var capacite := CAPACITE
 var _unites: Array[String] = []
 
 
@@ -12,7 +14,7 @@ func nombre() -> int:
 
 
 func est_plein() -> bool:
-	return _unites.size() >= CAPACITE
+	return _unites.size() >= capacite
 
 
 func ajouter(minerai: String) -> bool:

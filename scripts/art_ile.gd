@@ -211,6 +211,45 @@ const ICONE_FILET: PackedStringArray = [
 	"T.......T",
 	"T.......T",
 ]
+const ICONE_FOREUSE: PackedStringArray = [
+	"TmmmmmT",
+	".T.M.T.",
+	".T.M.T.",
+	"..TMT..",
+	"..TmT..",
+	"..oOo..",
+	".oOOOd.",
+	"oOOOOOd",
+]
+const ICONE_ENTREPOT: PackedStringArray = [
+	"...TTT...",
+	"..TTTTT..",
+	".TTTTTTT.",
+	"TttttttdT",
+	".tTTtTTt.",
+	".tTdddTt.",
+	".tTdddTto",
+	".tttttttO",
+]
+const ICONE_SAC: PackedStringArray = [
+	"..TTTT..",
+	".T....T.",
+	".tttttt.",
+	"tTttttTt",
+	"tttoottt",
+	"tttttttt",
+	"tTttttTt",
+	".tttttt.",
+]
+const ICONE_PONT: PackedStringArray = [
+	"T.......T",
+	"TN.....NT",
+	"T.N...N.T",
+	"T..NNN..T",
+	"Tt.....tT",
+	".tTt.tTt.",
+	"...tTt...",
+]
 const COULEURS_CABANE := {
 	"c": "roche.2", "o": "or.2", "O": "or.3", "w": "terre.1", "W": "terre.2", "d": "interface.1", "f": "or.5",
 }
@@ -615,7 +654,9 @@ static func ilot(relie: bool) -> ImageTexture:
 
 
 ## Icône d'une construction (atelier).
-static func icone_construction(_id: String) -> Texture2D:
+static func icone_construction(id: String) -> Texture2D:
+	if id == "pont":
+		return Pixel.motif(ICONE_PONT, COULEURS_OBJETS, CONTOUR)
 	return Pixel.motif(ICONE_PASSERELLE, COULEURS_OBJETS, CONTOUR)
 
 
@@ -626,6 +667,10 @@ static func icone_machine(id: String) -> Texture2D:
 			return Pixel.motif(ICONE_MOULIN, COULEURS_OBJETS, CONTOUR)
 		"filet":
 			return Pixel.motif(ICONE_FILET, COULEURS_OBJETS, CONTOUR)
+		"foreuse":
+			return Pixel.motif(ICONE_FOREUSE, COULEURS_OBJETS, CONTOUR)
+		"entrepot":
+			return Pixel.motif(ICONE_ENTREPOT, COULEURS_OBJETS, CONTOUR)
 	return Pixel.disque(3, c("roche.3"))
 
 
@@ -638,6 +683,8 @@ static func icone_amelioration(id: String) -> Texture2D:
 			return Pixel.motif(ICONE_LANTERNE, COULEURS_OBJETS, CONTOUR)
 		"reservoir":
 			return Pixel.motif(ICONE_RESERVOIR, COULEURS_OBJETS, CONTOUR)
+		"sac":
+			return Pixel.motif(ICONE_SAC, COULEURS_OBJETS, CONTOUR)
 	return Pixel.disque(3, c("roche.3"))
 
 

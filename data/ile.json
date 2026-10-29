@@ -1,14 +1,30 @@
 {
 	"eolienne": {
 		"ressource": "vent",
-		"position": [206, 150],
+		"position": [
+			206,
+			150
+		],
 		"plafond": 6,
 		"recharge_s": 8.0,
 		"stock_initial": 2
 	},
 	"filons": {
 		"ressource": "cristal_solaire",
-		"positions": [[292, 192], [356, 191], [424, 192]],
+		"positions": [
+			[
+				292,
+				192
+			],
+			[
+				356,
+				191
+			],
+			[
+				424,
+				192
+			]
+		],
 		"plafond": 3,
 		"recharge_s": 20.0,
 		"duree_maintien": 1.0,
@@ -26,18 +42,61 @@
 		"y_min": 34.0,
 		"y_max": 112.0
 	},
-	"ilot": {
-		"id": "ilot_est",
-		"position": [586, 194],
-		"zone": [36, 24],
-		"passerelle": [[492, 196], [554, 194]],
-		"bassin": {
-			"ressource": "cristal_lagon",
-			"position": [604, 194],
-			"plafond": 3,
-			"recharge_s": 45.0,
-			"duree_maintien": 1.0,
-			"stock_initial": 1
+	"ilots": [
+		{
+			"id": "ilot_est",
+			"position": [
+				586,
+				194
+			],
+			"zone": [
+				36,
+				24
+			],
+			"passerelle": [
+				[
+					492,
+					196
+				],
+				[
+					554,
+					194
+				]
+			],
+			"bassin": {
+				"ressource": "cristal_lagon",
+				"position": [
+					604,
+					194
+				],
+				"plafond": 3,
+				"recharge_s": 45.0,
+				"duree_maintien": 1.0,
+				"stock_initial": 1
+			},
+			"aide": "Îlot isolé : fabrique une passerelle de nuage à l'atelier"
+		},
+		{
+			"id": "ilot_nord",
+			"position": [
+				70,
+				142
+			],
+			"zone": [
+				36,
+				24
+			],
+			"passerelle": [
+				[
+					146,
+					197
+				],
+				[
+					104,
+					144
+				]
+			],
+			"aide": "Îlot isolé : construis un pont suspendu à l'atelier"
 		}
-	}
+	]
 }

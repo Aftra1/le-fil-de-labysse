@@ -30,7 +30,7 @@
 | `scripts/pixel.gd` | Pixel | RefCounted | Outils de dessin « pixel art » : tout est dessiné au pixel entier, sans antialiasing. |
 | `scripts/sac.gd` | Sac | RefCounted | Le sac de la cloche : une unité de minerai = un emplacement. |
 | `scripts/sauvegarde.gd` | Sauvegarde | RefCounted | Sauvegarde locale de la partie : un fichier JSON dans user:// (dossier « Le Fil de l'Abysse », voir project.godot : %APPDATA%\Le Fil de l'Abysse sous Windows). |
-| `scripts/source_ressource.gd` | SourceRessource | Node2D | Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot) ou machine construite sur un emplacement (moulin à vent, filet à nuages). |
+| `scripts/source_ressource.gd` | SourceRessource | Node2D | Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot) ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt)… |
 | `scripts/synthe.gd` | Synthe | RefCounted | Sons du jeu, synthétisés en code au démarrage (aucun fichier audio) : chaque son est calculé une fois en échantillons, puis rangé dans un AudioStreamWAV (mono, 16 bits). |
 | `scripts/transition.gd` | Transition | Node2D | Transition entre l'île et la plongée : la cloche descend du ciel jusqu'à l'océan (ou remonte), la caméra la suit à travers 3 calques de nuages en parallaxe. |
 | `scripts/vue_monde.gd` | VueMonde | Node2D | Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360). |
@@ -131,7 +131,7 @@ Pixel art du monde du haut (île, ciel, nuages, cloche, interface), généré en
   - `filon(k, plein)`
   - `cabane(allumee)` : Cabane de l'atelier (monde 320x180) ; fenêtre allumée quand une fabrication est possible.
   - `ilot(relie)`
-  - `icone_construction(_id)` : Icône d'une construction (atelier).
+  - `icone_construction(id)` : Icône d'une construction (atelier).
   - `icone_machine(id)` : Icône d'une machine de l'île (atelier, onglet Machines).
   - `icone_amelioration(id)` : Icône d'une amélioration de la cloche (atelier).
   - `icone(id, k)` : Icône d'une ressource (inventaire, barre de ressources).
@@ -141,7 +141,7 @@ Pixel art du monde du haut (île, ciel, nuages, cloche, interface), généré en
 
 ### `scripts/atelier.gd` : Atelier
 
-Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json) et installe les améliorations de la cloche, niveau par niveau. Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json. Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux). Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié) et les machines de l'île (data/machines.json), chacune sur un emplacement libre.
+Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json) et installe les améliorations de la cloche, niveau par niveau. Les effets des niveaux (longueur du câble, halo, oxygène) sont dans data/ameliorations.json. Les niveaux installés sont gardés ici et enregistrés dans la sauvegarde (voir charger_niveaux). Construit aussi les passerelles qui relient les îlots à l'île (une construction = un îlot relié) et les machines de l'île (data/machines.json), chacune sur un emplacement libre (la foreuse sur un filon). Les machines sont rangées par paliers : le palier 2 s'ouvre au premier corail rapporté, le palier 3 à la première pierre de braise (voir decouvrir). À partir du palier 2, chaque sorte de machine s'améliore : vitesse (production plus rapide) et capacité (réserve plus grande).
 
 - **Hérite de** : RefCounted
 - **Fonctions principales** :
@@ -161,17 +161,17 @@ Atelier de l'île : fabrique des composants à partir des ressources (data/recet
   - `nom_construction(id)`
   - `ingredients_construction(id)`
   - `effet_construction(id)`
+  - `annonce_construction(id)` : Message affiché sur l'île une fois la construction faite.
   - `ilot_de(id)` : Îlot relié par cette construction.
   - `est_construite(id)`
   - `est_relie(ilot)`
-  - `peut_construire(id)`
-  - … et 19 autres
+  - … et 35 autres
 - **Dépend de** : Donnees, Inventaire
 - **Utilisé par** : Captures, Dive, Game, Ile, Jeu, PanneauAtelier, Playtest, RunTests
 
 ### `scripts/atelier_ui.gd` : PanneauAtelier
 
-Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. En haut, quatre onglets (composants, améliorations, construction, machines) ; à gauche, la liste des recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton Fabriquer, Installer ou Construire. Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible), ou à défaut sur le premier emplacement libre. S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
+Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. En haut, quatre onglets (composants, améliorations, construction, machines) ; à gauche, la liste des recettes ; à droite, le détail de la recette choisie : ingrédients « possédé / requis », effet, bouton Fabriquer, Installer ou Construire. Onglet Machines : la machine est construite sur l'emplacement cliqué sur l'île (emplacement_cible), ou à défaut sur le premier emplacement libre. À partir du palier 2, trois boutons en haut du détail choisissent entre Construire et les améliorations de cette sorte de machine (Vitesse, Réserve). S'ouvre et se ferme avec C ou un clic sur la cabane ; Échap ou un clic à côté le ferme.
 
 - **Hérite de** : CanvasLayer
 - **Signaux** : `fabrique(id: String, genre: String)`
@@ -183,6 +183,7 @@ Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. En hau
   - `basculer()`
   - `choisir_onglet(nom)`
   - `selectionner(id)`
+  - `choisir_mode(nom)` : Onglet Machines : construire, ou améliorer la vitesse ou la réserve de cette sorte de machine.
   - `fabriquer_selection()` : Fabrique, installe ou construit la recette sélectionnée, si c'est possible.
   - `peut_fabriquer_selection()`
   - `rafraichir()`
@@ -284,19 +285,19 @@ Interface de l'île (640x360) : bouton d'inventaire, barre des ressources, annon
 
 ### `scripts/ile.gd` : Ile
 
-L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire, atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace). À droite, un îlot isolé : la passerelle de nuage (atelier, onglet Construction) le relie à l'île, et son bassin de lumière donne alors du cristal de lagon (maintien du clic, comme les filons). Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ; une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne). Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()). Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause). Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
+L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire, atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace). Deux îlots isolés (data/ile.json) : à droite, l'îlot de l'est, relié par la passerelle de nuage (son bassin de lumière donne alors du cristal de lagon, maintien du clic comme les filons) ; en haut à gauche, l'îlot du nord, relié par le pont suspendu (deux emplacements de machine). Un clic sur un îlot isolé ouvre l'atelier, onglet Construction. Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ; une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne). La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2. Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()). Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause). Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
 - **Hérite de** : Node2D
 - **Signaux** : `plongee_demandee`, `partie_modifiee`
 - **Fonctions principales** :
   - `panneau_ouvert()` : Un seul panneau ouvert à la fois (inventaire ou atelier).
-  - `actualiser_machines()` : Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie).
+  - `actualiser_machines()` : Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie), applique leurs améliorations, et retire de l'île les filons couverts par une foreuse.
   - `machine(lieu)` : Machine posée sur un emplacement (null s'il est libre).
   - `centre_emplacement(lieu)` : Centre de la zone cliquable d'un emplacement (640x360), au-dessus du sol.
-  - `ilot_relie()`
-  - `actualiser_ilot()` : Le bassin n'existe sur l'île (récolte, recharge, dessin) que si l'îlot est relié.
+  - `ilot_relie(id)`
+  - `actualiser_ilot()` : Le bassin n'existe sur l'île (récolte, recharge, dessin) que si l'îlot de l'est est relié.
   - `bassin()`
-  - `centre_ilot()` : Centre de la zone de survol de l'îlot (640x360).
+  - `centre_ilot(id)` : Centre de la zone de survol d'un îlot (640x360).
   - `preparer_depart()` : Appelé au lancement de la descente : l'île se fige et la cloche part avec la transition.
   - `reprendre()` : L'île redevient active (fin de remontée, ou retour à l'écran titre depuis une plongée).
   - `afficher_interface(afficher)` : Interface de l'île cachée sous l'écran titre (le décor reste visible).
@@ -310,7 +311,7 @@ L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inve
 
 ### `scripts/inventaire.gd` : Inventaire
 
-Inventaire unique : ressources du ciel et minerais de plongée.
+Inventaire unique : ressources du ciel et minerais de plongée. Le plafond par ressource est de 99 ; un entrepôt (machine du palier 2) le porte à 199.
 
 - **Hérite de** : RefCounted
 - **Fonctions principales** :
@@ -318,10 +319,11 @@ Inventaire unique : ressources du ciel et minerais de plongée.
   - `place(id)` : Place restante avant le plafond pour cette ressource.
   - `ajouter(id, nombre)` : Ajoute dans la limite du plafond ; renvoie la quantité réellement ajoutée.
   - `ajouter_tout(butin)` : Ajoute un butin { id: nombre } ; renvoie ce qui n'a pas pu entrer.
+  - `borner()` : Ramène chaque quantité sous le plafond (chargement d'une partie sans entrepôt).
   - `retirer(id, nombre)`
   - `total()`
   - `vers_dictionnaire()` : Quantités non nulles { id: nombre }.
-  - `depuis_dictionnaire(donnees, ids_connus)` : Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND.
+  - `depuis_dictionnaire(donnees, ids_connus)` : Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND_MAX (l'entrepôt, chargé ensuite avec les machines, fixe le vrai plafond).
 - **Dépend de** : aucun script
 - **Utilisé par** : Atelier, Captures, Game, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauInventaire, Playtest, RunTests
 
@@ -427,7 +429,7 @@ Outils de dessin « pixel art » : tout est dessiné au pixel entier, sans antia
 
 ### `scripts/sac.gd` : Sac
 
-Le sac de la cloche : une unité de minerai = un emplacement.
+Le sac de la cloche : une unité de minerai = un emplacement. 8 places au départ ; l'amélioration « Sac de plongée » en donne 12.
 
 - **Hérite de** : RefCounted
 - **Fonctions principales** :
@@ -460,7 +462,7 @@ Sauvegarde locale de la partie : un fichier JSON dans user:// (dossier « Le Fil
 
 ### `scripts/source_ressource.gd` : SourceRessource
 
-Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot) ou machine construite sur un emplacement (moulin à vent, filet à nuages). Trois façons de récolter : - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ; - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ; - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne, machines). Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
+Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot) ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt) ou sur un filon (foreuse solaire). Trois façons de récolter : - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ; - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ; - RESERVE : la source accumule seule, un clic vide toute la réserve (éolienne, machines). Le stock se recharge avec le temps jusqu'au plafond (recharge_s secondes par unité).
 
 - **Hérite de** : Node2D
 - **Fonctions principales** :

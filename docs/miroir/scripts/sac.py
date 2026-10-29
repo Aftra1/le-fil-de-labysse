@@ -2,6 +2,7 @@
 # Source : scripts/sac.gd (le jeu n'utilise que le GDScript).
 # Régénérer : python3 tests/generer_miroir.py
 """Le sac de la cloche : une unité de minerai = un emplacement.
+8 places au départ ; l'amélioration « Sac de plongée » en donne 12.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from ..godot import RefCounted
 
 class Sac(RefCounted):
     CAPACITE = 8
+    capacite: 'int'
     _unites: 'Array[String]'
 
     def nombre(self) -> 'int':

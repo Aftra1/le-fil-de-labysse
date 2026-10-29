@@ -1,5 +1,34 @@
 {
-	"cable": { "longueur_m": [150, 300, 450] },
-	"lanterne": { "rayon_halo": [40, 60, 80], "obscurite_max": [3, 2, 1] },
-	"reservoir": { "oxygene_max": [100, 150, 200] }
+	"cable": {
+		"longueur_m": [
+			150,
+			300,
+			450
+		]
+	},
+	"lanterne": {
+		"rayon_halo": [
+			40,
+			60,
+			80
+		],
+		"obscurite_max": [
+			3,
+			2,
+			1
+		]
+	},
+	"reservoir": {
+		"oxygene_max": [
+			100,
+			150,
+			200
+		]
+	},
+	"sac": {
+		"places": [
+			8,
+			12
+		]
+	}
 }

@@ -2,7 +2,8 @@
 # Source : scripts/source_ressource.gd (le jeu n'utilise que le GDScript).
 # Régénérer : python3 tests/generer_miroir.py
 """Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin de lumière (îlot)
-ou machine construite sur un emplacement (moulin à vent, filet à nuages).
+ou machine construite sur un emplacement (moulin à vent, filet à nuages, entrepôt) ou sur un filon
+(foreuse solaire).
 Trois façons de récolter :
 - CLIC : un clic = une prise (nuages : « rendement » ouates par prise) ;
 - MAINTIEN : maintenir le clic remplit une jauge, une unité par cycle (filons, bassin) ;
@@ -34,6 +35,8 @@ class SourceRessource(Node2D):
         BASSIN = 3
         MOULIN = 4
         FILET = 5
+        FOREUSE = 6
+        ENTREPOT = 7
 
     VITESSE_PALES = 1.6
     VITESSE_AILES = 1.1
@@ -97,6 +100,8 @@ class SourceRessource(Node2D):
         self._dessiner_bassin(...)
         self._dessiner_moulin(...)
         self._dessiner_filet(...)
+        self._dessiner_foreuse(...)
+        self._dessiner_entrepot(...)
         self.est_disponible(...)
         Pixel.sprite(...)
         Pixel.anneau(...)
@@ -127,6 +132,19 @@ class SourceRessource(Node2D):
         Palette.couleur(...)
         ArtAbysse.temps(...)
         self._dessiner_points(...)
+
+    def _dessiner_foreuse(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
+        """Foreuse solaire : un chevalet de bois au-dessus du filon, dont la mèche tourne et descend dans le
+        cristal tant que la réserve n'est pas pleine."""
+        Pixel.sprite_ombre(...)
+        ArtIle.filon(...)
+        Palette.couleur(...)
+        ArtAbysse.temps(...)
+        self._dessiner_points(...)
+
+    def _dessiner_entrepot(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
+        """Entrepôt : une petite remise de planches au toit sombre, avec une caisse devant la porte."""
+        Palette.couleur(...)
 
     def _dessiner_filon(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
         Pixel.sprite_ombre(...)

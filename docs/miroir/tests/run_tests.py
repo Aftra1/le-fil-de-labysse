@@ -472,6 +472,8 @@ class RunTests(SceneTree):
         Sauvegarde.migrer(...)
         self._verifier(...)
         Inventaire.depuis_dictionnaire(...)
+        Atelier()
+        Atelier.charger_machines(...)
         Inventaire.vers_dictionnaire(...)
         Atelier.charger_niveaux(...)
         Atelier.niveau(...)
@@ -602,8 +604,7 @@ class RunTests(SceneTree):
 
     def _test_machines_logique(self) -> 'void':
         self._verifier(...)
-        Atelier.liste_machines(...)
-        Atelier.emplacements(...)
+        Atelier.machines_disponibles(...)
         Atelier.emplacements_libres(...)
         Atelier.construire_machine(...)
         self._ingredients_moulin(...)

@@ -112,6 +112,8 @@ class Jeu(Node2D):
         Atelier.charger_niveaux(...)
         Atelier.charger_ilots(...)
         Atelier.charger_machines(...)
+        Atelier.charger_niveaux_machines(...)
+        Atelier.charger_palier(...)
         Ile.restaurer_sources(...)
         Ile.rattraper(...)
         Sauvegarde.secondes_depuis(...)

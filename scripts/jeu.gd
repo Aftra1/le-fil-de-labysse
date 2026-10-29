@@ -125,6 +125,8 @@ func continuer() -> void:
 	Game.atelier.charger_niveaux(partie["ameliorations"])
 	Game.atelier.charger_ilots(partie["ilots"])
 	Game.atelier.charger_machines(partie["machines"])
+	Game.atelier.charger_niveaux_machines(partie["machines_ameliorations"])
+	Game.atelier.charger_palier(partie.get("palier"))
 	_ile.restaurer_sources(partie["ile"])
 	_ile.rattraper(Sauvegarde.secondes_depuis(partie))
 	_commencer()
@@ -155,6 +157,8 @@ func donnees_partie() -> Dictionary:
 		"ameliorations": Game.atelier.niveaux.duplicate(),
 		"ilots": Game.atelier.ilots_relies.duplicate(),
 		"machines": Game.atelier.machines.duplicate(),
+		"machines_ameliorations": Game.atelier.niveaux_machines.duplicate(true),
+		"palier": Game.atelier.palier,
 		"reglages": Son.reglages(),
 		"ile": _ile.etat_sources(),
 	}

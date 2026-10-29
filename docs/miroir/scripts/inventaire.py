@@ -2,6 +2,7 @@
 # Source : scripts/inventaire.gd (le jeu n'utilise que le GDScript).
 # Régénérer : python3 tests/generer_miroir.py
 """Inventaire unique : ressources du ciel et minerais de plongée.
+Le plafond par ressource est de 99 ; un entrepôt (machine du palier 2) le porte à 199.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ from ..godot import RefCounted
 
 class Inventaire(RefCounted):
     PLAFOND = 99
+    PLAFOND_MAX = 499
+    plafond: 'int'
     _quantites: 'Dictionary'
 
     def quantite(self, id: 'String') -> 'int':
@@ -29,6 +32,10 @@ class Inventaire(RefCounted):
         """Ajoute un butin { id: nombre } ; renvoie ce qui n'a pas pu entrer."""
         self.ajouter(...)
 
+    def borner(self) -> 'void':
+        """Ramène chaque quantité sous le plafond (chargement d'une partie sans entrepôt)."""
+        ...
+
     def retirer(self, id: 'String', nombre: 'int') -> 'bool':
         self.quantite(...)
 
@@ -41,5 +48,6 @@ class Inventaire(RefCounted):
 
     @staticmethod
     def depuis_dictionnaire(donnees: 'Dictionary', ids_connus: 'Array') -> Inventaire:
-        """Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND."""
+        """Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND_MAX
+        (l'entrepôt, chargé ensuite avec les machines, fixe le vrai plafond)."""
         Inventaire.ajouter(...)
