@@ -50,12 +50,13 @@ class ArtAbysse(RefCounted):
     @staticmethod
     def couleur_eau(profondeur: 'float') -> 'Color':
         """Couleur de l'eau à une profondeur (px du monde sous la surface), paliers des zones (data/zones.json)."""
-        ...
+        ArtAbysse._charger(...)
 
     @staticmethod
     def couleur_fond(point: 'Vector2') -> 'Color':
         """Couleur de ce qu'il y a derrière un point de la plongée (ciel au-dessus de la surface, eau dessous)."""
         ArtIle.couleur_ciel_monde(...)
+        ArtAbysse.couleur_eau(...)
 
     @staticmethod
     def contour_cloche(y_plongee: 'float') -> 'String':
@@ -65,24 +66,36 @@ class ArtAbysse(RefCounted):
     @staticmethod
     def dessiner_eau(toile: 'CanvasItem', zone: 'Rect2', profondeur_max: 'float', avec_ciel: 'bool') -> 'void':
         """Dessine le décor de la plongée visible dans « zone » (pixels du monde de la plongée) :
-    ciel au-dessus de la surface, surface animée, eau en paliers à bords en vagues, reflets, particules."""
+        ciel au-dessus de la surface, surface animée, eau en paliers à bords en vagues, reflets, particules."""
+        ArtAbysse._charger(...)
+        ArtAbysse.temps(...)
         ArtIle.dessiner_ciel(...)
+        ArtAbysse._hasard(...)
+        Palette.plus_clair(...)
+        ArtAbysse.couleur_eau(...)
+        ArtAbysse.c(...)
+        ArtAbysse._dessiner_particules(...)
+        ArtAbysse._dessiner_magma(...)
 
     @staticmethod
     def _dessiner_magma(toile: 'CanvasItem', zone: 'Rect2', profondeur_max: 'float', t: 'float') -> 'void':
         """Fond de la Faille : roche sombre crénelée, fissures de magma qui palpitent (lueur jamais assombrie)."""
-        ...
+        ArtAbysse._hasard(...)
+        ArtAbysse.c(...)
 
     @staticmethod
     def _dessiner_particules(toile: 'CanvasItem', zone: 'Rect2', t: 'float') -> 'void':
         """Particules : un point par cellule (ou rien), qui dérive d'un pixel entier à la fois.
-    Lagon : poussière claire ; forêt de coraux : bioluminescence cyan et violette."""
-        ...
+        Lagon : poussière claire ; forêt de coraux : bioluminescence cyan et violette."""
+        ArtAbysse._hasard(...)
+        ArtAbysse._debut_zone(...)
+        ArtAbysse.c(...)
 
     @staticmethod
     def dessiner_reperes(toile: 'CanvasItem', zone: 'Rect2', profondeur_max: 'float') -> 'void':
         """Repères de profondeur tous les 10 m sur les bords."""
         Palette.plus_clair(...)
+        ArtAbysse.couleur_eau(...)
 
     @staticmethod
     def niveau_obscurite(profondeur_m: 'float', obscurite_max: 'int') -> 'int':
@@ -97,17 +110,23 @@ class ArtAbysse(RefCounted):
     @staticmethod
     def assombrir(teinte: 'Color', profondeur_m: 'float', distance: 'float', rayon: 'float', obscurite_max: 'int') -> 'Color':
         """Couleur affichée d'un pixel du monde : son ton, assombri dans sa propre rampe."""
+        ArtAbysse.crans_halo(...)
+        ArtAbysse.niveau_obscurite(...)
+        ArtAbysse.c(...)
         Palette.plus_sombre(...)
 
     @staticmethod
     def materiau_obscurite() -> 'ShaderMaterial':
         """Matériau d'obscurité de la vue du monde de la plongée (ombre « un ton plus sombre » par pixel).
-    Table : ligne k = chaque couleur de la palette assombrie de k tons dans sa rampe."""
+        Table : ligne k = chaque couleur de la palette assombrie de k tons dans sa rampe."""
         Palette.noms(...)
+        ArtAbysse.c(...)
+        Palette.plus_sombre(...)
 
     @staticmethod
     def gisement(minerai: 'String', grise: 'bool') -> 'ImageTexture':
         Pixel.motif(...)
+        ArtIle.couleurs_rampe(...)
 
     @staticmethod
     def lueur(minerai: 'String') -> 'String':
@@ -118,6 +137,7 @@ class ArtAbysse(RefCounted):
     def cadre() -> 'StyleBoxTexture':
         """Cadre des panneaux de l'abysse : liseré bleu nuit, métal sombre en relief, lueur cyan, fond nuit."""
         ArtIle.style_anneaux(...)
+        ArtAbysse.c(...)
 
     @staticmethod
     def vider_cache() -> 'void':
@@ -126,6 +146,7 @@ class ArtAbysse(RefCounted):
     @staticmethod
     def _charger() -> 'void':
         Donnees.charger_json(...)
+        ArtAbysse.c(...)
 
     @staticmethod
     def _debut_zone(indice: 'int') -> 'float':

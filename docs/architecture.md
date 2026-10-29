@@ -12,6 +12,7 @@
 | `scripts/atelier.gd` | Atelier | RefCounted | Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json) et installe les améliorations de la cloche, niveau par niveau. |
 | `scripts/atelier_ui.gd` | PanneauAtelier | CanvasLayer | Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. |
 | `scripts/autoload/game.gd` | Game | Node | Autoload « Game » : point central du jeu. |
+| `scripts/autoload/son.gd` | Son | Node | Autoload « Son » : ambiances et effets sonores, tous synthétisés en code au démarrage (Synthe). |
 | `scripts/bell.gd` | Cloche | CharacterBody2D | La cloche de plongée : déplacement avec inertie et flottabilité douce. |
 | `scripts/dive.gd` | Dive | Node2D | Plongée : décor par zones, câble, oxygène, minage, sac et règles de remontée. |
 | `scripts/donnees.gd` | Donnees | RefCounted | Lecture des fichiers de données du dossier data/. |
@@ -30,6 +31,7 @@
 | `scripts/sac.gd` | Sac | RefCounted | Le sac de la cloche : une unité de minerai = un emplacement. |
 | `scripts/sauvegarde.gd` | Sauvegarde | RefCounted | Sauvegarde locale de la partie : un fichier JSON dans user:// (dossier « Le Fil de l'Abysse », voir project.godot : %APPDATA%\Le Fil de l'Abysse sous Windows). |
 | `scripts/source_ressource.gd` | SourceRessource | Node2D | Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassin de lumière (îlot). |
+| `scripts/synthe.gd` | Synthe | RefCounted | Sons du jeu, synthétisés en code au démarrage (aucun fichier audio) : chaque son est calculé une fois en échantillons, puis rangé dans un AudioStreamWAV (mono, 16 bits). |
 | `scripts/transition.gd` | Transition | Node2D | Transition entre l'île et la plongée : la cloche descend du ciel jusqu'à l'océan (ou remonte), la caméra la suit à travers 3 calques de nuages en parallaxe. |
 | `scripts/vue_monde.gd` | VueMonde | Node2D | Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360). |
 | `tests/captures.gd` | Captures | SceneTree | Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transit… |
@@ -39,6 +41,7 @@
 ## Autoloads
 
 - **Game** : `scripts/autoload/game.gd`
+- **Son** : `scripts/autoload/son.gd`
 
 ## Scènes
 
@@ -60,6 +63,25 @@ Autoload « Game » : point central du jeu. Déclare toutes les actions d'entré
   - `couleur_ressource(id)`
 - **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Inventaire, Palette, Pixel
 - **Utilisé par** : Dive, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauInventaire
+
+### `scripts/autoload/son.gd` : Son
+
+Autoload « Son » : ambiances et effets sonores, tous synthétisés en code au démarrage (Synthe).
+
+- **Hérite de** : Node
+- **Fonctions principales** :
+  - `arreter()` : Coupe tous les sons (avant de quitter : le serveur audio relâche les lectures arrêtées au mixage suivant, il faut donc arrêter quelques images avant la fermeture pour ne rien laisser derrière).
+  - `jouer(id, hauteur)` : Joue un effet (ignoré s'il vient d'être joué : voir REGLAGES_EFFETS) ; hauteur : 1 = normale. Renvoie vrai si l'effet a été lancé.
+  - `a_joue(id)`
+  - `vider_historique()`
+  - `ambiance(id, duree)` : Passe à l'ambiance « id » par un fondu enchaîné de « duree » secondes (rien si elle joue déjà).
+  - `lecteur_ambiance()` : Lecteur d'ambiance au premier plan (tests).
+  - `regler_volumes(musique, effets)`
+  - `appliquer_volumes()`
+  - `reglages()` : Réglages enregistrés dans la sauvegarde.
+  - `charger_reglages(donnees)` : Reprend des réglages sauvegardés ; une valeur absente ou fausse garde la valeur par défaut.
+- **Dépend de** : Synthe
+- **Utilisé par** : Dive, Ile, Jeu, MenuPause
 
 ## Scripts du jeu
 
@@ -189,7 +211,7 @@ Plongée : décor par zones, câble, oxygène, minage, sac et règles de remont�
   - `dessiner_monde(toile, vue, avec_ciel, avec_cloche)` : Décor, gisements, câble et cloche dans « vue » (pixels du monde de la plongée). La transition l'appelle aussi (sans ciel ni cloche) pour que la surface raccorde sans coupure.
   - `cloche_position()` : Position de la cloche et haut de la vue (640x360), pour une remontée qui part de cette image.
   - `haut_camera()`
-- **Dépend de** : ArtAbysse, ArtIle, Atelier, Cloche, Donnees, Game, Gisement, Interface, Palette, Pixel, Sac, VueMonde
+- **Dépend de** : ArtAbysse, ArtIle, Atelier, Cloche, Donnees, Game, Gisement, Interface, Palette, Pixel, Sac, Son, VueMonde
 - **Utilisé par** : Captures, Jeu, RunTests
 
 ### `scripts/donnees.gd` : Donnees
@@ -256,7 +278,7 @@ Interface de l'île (640x360) : bouton d'inventaire, barre des ressources, annon
   - `annoncer(texte, duree)`
   - `texte_annonce()`
   - `definir_aide(texte)`
-- **Dépend de** : ArtIle, Game, Pixel
+- **Dépend de** : ArtIle, Game, Inventaire, Pixel
 - **Utilisé par** : Ile
 
 ### `scripts/ile.gd` : Ile
@@ -279,7 +301,7 @@ L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inve
   - `etat_sources()` : État des sources fixes (les nuages ne sont pas sauvegardés : ils réapparaissent seuls).
   - `restaurer_sources(donnees)` : Reprend l'état sauvegardé des sources ; ce qui manque ou est faux garde la valeur de départ.
   - `reinitialiser_sources()` : Sources remises à leur stock de départ (nouvelle partie).
-- **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Game, InterfaceIle, Inventaire, Palette, PanneauAtelier, PanneauInventaire, Pixel, SourceRessource, VueMonde
+- **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Game, InterfaceIle, Inventaire, Palette, PanneauAtelier, PanneauInventaire, Pixel, Son, SourceRessource, VueMonde
 - **Utilisé par** : Jeu, Playtest, RunTests, Transition
 
 ### `scripts/inventaire.gd` : Inventaire
@@ -297,7 +319,7 @@ Inventaire unique : ressources du ciel et minerais de plongée.
   - `vers_dictionnaire()` : Quantités non nulles { id: nombre }.
   - `depuis_dictionnaire(donnees, ids_connus)` : Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND.
 - **Dépend de** : aucun script
-- **Utilisé par** : Atelier, Captures, Game, Ile, Jeu, PanneauAtelier, PanneauInventaire, Playtest, RunTests
+- **Utilisé par** : Atelier, Captures, Game, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauInventaire, Playtest, RunTests
 
 ### `scripts/inventaire_ui.gd` : PanneauInventaire
 
@@ -330,7 +352,7 @@ Scène principale : enchaîne l'île, la transition et la plongée. L'île reste
   - `fermer_pause()`
   - `retour_au_titre()`
   - `quitter()`
-- **Dépend de** : Atelier, Dive, EcranTitre, Game, Ile, Interface, Inventaire, MenuCadre, MenuPause, Sauvegarde, Transition
+- **Dépend de** : Atelier, Dive, EcranTitre, Game, Ile, Interface, Inventaire, MenuCadre, MenuPause, Sauvegarde, Son, Transition
 - **Utilisé par** : Captures, Playtest, RunTests
 
 ### `scripts/menu_cadre.gd` : MenuCadre
@@ -346,14 +368,15 @@ Base des menus plein écran (écran titre, pause) : un panneau en cadre or et cr
 
 ### `scripts/menu_pause.gd` : MenuPause
 
-Menu pause (Échap sur l'île ou en plongée) : le jeu est figé tant qu'il est ouvert. Reprendre (ou Échap), Retour au titre et Quitter sauvegardent sur l'île ; en plongée, le butin en cours est abandonné (la sauvegarde du départ fait foi), ce que le menu rappelle.
+Menu pause (Échap sur l'île ou en plongée) : le jeu est figé tant qu'il est ouvert. Reprendre (ou Échap), Retour au titre et Quitter sauvegardent sur l'île ; en plongée, le butin en cours est abandonné (la sauvegarde du départ fait foi), ce que le menu rappelle. Deux réglages de volume (musique, effets), par pas de 10 %, appliqués tout de suite ; ils sont enregistrés avec la partie (signal volumes_modifies).
 
 - **Hérite de** : MenuCadre
-- **Signaux** : `reprendre`, `retour_titre`, `quitter`
+- **Signaux** : `reprendre`, `retour_titre`, `quitter`, `volumes_modifies`
 - **Fonctions principales** :
   - `ouvrir(en_plongee)` : en_plongee : rappelle que quitter la plongée abandonne son butin.
   - `note()`
-- **Dépend de** : MenuCadre, Palette
+  - `changer_volume(canal, sens)` : Monte ou baisse un volume d'un pas (« musique » ou « effets »).
+- **Dépend de** : MenuCadre, Palette, Son
 - **Utilisé par** : Jeu
 
 ### `scripts/palette.gd` : Palette
@@ -447,6 +470,21 @@ Une source de ressource sur l'île : éolienne, filon de cristal, nuage ou bassi
 - **Dépend de** : ArtAbysse, ArtIle, Palette, Pixel, VueMonde
 - **Utilisé par** : Ile, Playtest, RunTests
 
+### `scripts/synthe.gd` : Synthe
+
+Sons du jeu, synthétisés en code au démarrage (aucun fichier audio) : chaque son est calculé une fois en échantillons, puis rangé dans un AudioStreamWAV (mono, 16 bits). Les ambiances sont des boucles : toutes leurs fréquences et modulations font un nombre entier de cycles sur la durée de la boucle, et le bruit est rendu circulaire, si bien que la fin raccorde exactement au début. Hasard à graine fixe : les sons sont identiques d'une partie à l'autre.
+
+- **Hérite de** : RefCounted
+- **Fonctions principales** :
+  - `liberer()` : Libère le générateur de hasard partagé (fermeture du jeu : aucune fuite signalée).
+  - `effets()` : Tous les effets : { id: AudioStreamWAV }.
+  - `effet(id)`
+  - `ambiances()` : Ambiances en boucle : { id: AudioStreamWAV }.
+  - `ambiance(id)` : Île : nappe lumineuse (do majeur avec neuvième), vibrato lent et souffle d'air léger. Plongée : drone grave étouffé, de plus en plus sombre (Lagon, Coraux, Faille).
+  - `echantillons(flux)` : Échantillons d'un flux (pour les tests) : valeurs entre -1 et 1.
+- **Dépend de** : aucun script
+- **Utilisé par** : RunTests, Son
+
 ### `scripts/transition.gd` : Transition
 
 Transition entre l'île et la plongée : la cloche descend du ciel jusqu'à l'océan (ou remonte), la caméra la suit à travers 3 calques de nuages en parallaxe.
@@ -503,4 +541,4 @@ Tests de logique (étapes 1 à 5). Lancement : voir tests/lancer.sh ou le README
 
 - **Hérite de** : SceneTree
 - **Fonctions** : `_initialize`, `_lancer`, `_titre`, `_verifier`, `_images`, `_secondes`, `_demarrer`, `_terminer`, `_somme`, `_vers_fenetre`, `_souris`, `_bouton`, `_cliquer`, `_touche`, `_gisements`, `_test_inertie`, `_test_flottabilite`, `_test_bornes`, `_test_oxygene_baisse_et_recharge`, `_test_remontee_automatique`
-- **Dépend de** : ArtAbysse, Atelier, Cloche, Dive, Donnees, Gisement, Ile, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, SourceRessource, VueMonde
+- **Dépend de** : ArtAbysse, Atelier, Cloche, Dive, Donnees, Gisement, Ile, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, SourceRessource, Synthe, VueMonde

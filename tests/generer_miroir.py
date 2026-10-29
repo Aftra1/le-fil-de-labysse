@@ -5,8 +5,8 @@ Lit tous les fichiers .gd du dépôt (scripts/ et tests/) et génère :
 - docs/miroir/ : un fichier .py par script, avec la même arborescence. On y retrouve les classes
   (avec leur héritage), les constantes, les énumérations, les signaux, les variables membres typées et
   les fonctions (paramètres, type de retour, commentaire « ## »). Le corps de chaque fonction ne
-  contient que les appels qu'elle fait vers d'autres scripts (méthodes, constructeurs, signaux),
-  sans la logique du jeu ;
+  contient que ses appels (fonctions du même script, des scripts parents, des autres scripts,
+  constructeurs, signaux), sans la logique du jeu ;
 - docs/architecture.md : la liste des scripts avec leur rôle, leurs fonctions principales et leurs
   dépendances.
 
@@ -342,6 +342,7 @@ class Projet:
                 continue
             segments = []
             debut = pos = m.start()
+            suite = m.end()     # on reprend après le premier nom : les arguments sont analysés aussi
             while True:
                 m = re.compile(IDENT).match(texte, pos)
                 if not m:
@@ -370,10 +371,10 @@ class Projet:
                     continue
                 break
             yield debut, pos, segments
-            i = max(pos, i + 1)
+            i = suite
 
     def resoudre(self, script: Script, portee: dict[str, str], segments, appels=None) -> str:
-        """Type de la chaîne ; ajoute les appels vers d'autres scripts dans « appels »."""
+        """Type de la chaîne ; ajoute les appels trouvés dans « appels »."""
         def noter(genre: str, classe: str, nom: str) -> None:
             if appels is not None and classe and (genre, classe, nom) not in appels:
                 appels.append((genre, classe, nom))
@@ -394,8 +395,7 @@ class Projet:
         elif appel:
             proprietaire, genre, retour = self.trouver(script.classe, nom)
             if genre == "fonction":
-                if proprietaire is not script:
-                    noter("parent", proprietaire.classe, nom)
+                noter("parent" if proprietaire is not script else "interne", proprietaire.classe, nom)
                 type_ = retour
         elif nom in portee:
             type_ = portee[nom]
@@ -405,8 +405,12 @@ class Projet:
             proprietaire, genre, t = self.trouver(script.classe, nom)
             if genre in ("membre", "signal"):
                 type_ = t
-                if genre == "signal" and proprietaire is not script and len(segments) > 1:
-                    noter("signal", proprietaire.classe, nom + "." + segments[1][0])
+                if genre == "signal" and len(segments) > 1:
+                    noter("signal" if proprietaire is not script else "signal_interne",
+                          proprietaire.classe, nom + "." + segments[1][0])
+            elif genre == "fonction":
+                # Fonction passée comme Callable (connect, tween_callback…) : elle sera appelée plus tard.
+                noter("callable", proprietaire.classe, nom)
             elif genre == "enum":
                 type_ = ""
         if index:
@@ -423,12 +427,16 @@ class Projet:
                 type_ = classe
             elif classe in self.par_classe:
                 proprietaire, genre, t = self.trouver(classe, nom)
+                interne = proprietaire is script and segments[0][0] in ("self", script.classe)
                 if genre == "fonction" and appel:
-                    noter("appel", proprietaire.classe, nom)
+                    noter("interne" if interne else "appel", proprietaire.classe, nom)
                     type_ = t
                 elif genre == "signal":
                     suite = segments[k + 1][0] if k + 1 < len(segments) else ""
-                    noter("signal", proprietaire.classe, nom + ("." + suite if suite else ""))
+                    if interne and suite:
+                        noter("signal_interne", proprietaire.classe, nom + "." + suite)
+                    else:
+                        noter("signal", proprietaire.classe, nom + ("." + suite if suite else ""))
                     type_ = "signal"
                 elif genre == "membre":
                     type_ = t
@@ -656,8 +664,18 @@ def miroir(projet: Projet, s: Script, ressources: list[str]) -> str:
             elif genre == "signal":
                 signal, _, methode = nom.partition(".")
                 corps.append(f"    {classe}.{nom_python(signal)}" + (f".{methode}(...)" if methode else ""))
+            elif genre == "signal_interne":
+                signal, _, methode = nom.partition(".")
+                corps.append(f"    self.{nom_python(signal)}.{methode}(...)")
+            elif genre == "interne":
+                appele = s.fonction(nom)
+                cible = s.classe if appele is not None and appele.statique else "self"
+                corps.append(f"    {cible}.{nom_python(nom)}(...)")
             elif genre == "parent":
                 corps.append(f"    {classe}.{nom_python(nom)}(self, ...)")
+            elif genre == "callable":
+                cible = "self" if classe == s.classe else classe
+                corps.append(f"    {cible}.{nom_python(nom)}  # passée comme Callable")
             else:
                 corps.append(f"    {classe}.{nom_python(nom)}(...)")
         corps.append("")
@@ -665,7 +683,7 @@ def miroir(projet: Projet, s: Script, ressources: list[str]) -> str:
         corps.pop()
     if not corps:
         corps = ["..."]
-    sortie += ["    " + l if l else "" for l in corps]
+    sortie += ["    " + l if l else "" for bloc in corps for l in bloc.split("\n")]
     return "\n".join(sortie) + "\n"
 
 

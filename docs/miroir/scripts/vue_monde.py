@@ -32,7 +32,7 @@ class VueMonde(Node2D):
         Pixel.activer_motifs(...)
 
     def _process(self, _delta: 'float') -> 'void':
-        ...
+        self.origine_monde(...)
 
     def _draw(self) -> 'void':
         ...
@@ -43,12 +43,12 @@ class VueMonde(Node2D):
 
     def decalage_ecran(self) -> 'Vector2i':
         """Décalage de l'image en pixels d'écran (0 ou 1 sur chaque axe) : les pixels du monde commencent
-    à ce décalage modulo 2 (sert à la vérification des blocs 2x2)."""
-        ...
+        à ce décalage modulo 2 (sert à la vérification des blocs 2x2)."""
+        self.origine_monde(...)
 
     def vue_monde(self) -> 'Rect2':
         """Rectangle visible, en pixels du monde (avec la marge)."""
-        ...
+        self.origine_monde(...)
 
     def taille_monde(self) -> 'Vector2i':
         ...

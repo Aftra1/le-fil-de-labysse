@@ -10,6 +10,7 @@ from __future__ import annotations
 from ..godot import CanvasLayer
 from ..scripts.art_ile import ArtIle
 from ..scripts.autoload.game import Game
+from ..scripts.inventaire import Inventaire
 from ..scripts.pixel import Pixel
 
 
@@ -28,15 +29,18 @@ class InterfaceIle(CanvasLayer):
 
     def _ready(self) -> 'void':
         ArtIle.styler_bouton(...)
+        self._panneau(...)
         Game.ids(...)
         ArtIle.icone(...)
+        self._etiquette(...)
         ArtIle.ancrer(...)
+        self.rafraichir_inventaire(...)
 
     def _process(self, delta: 'float') -> 'void':
         ...
 
     def rafraichir_inventaire(self) -> 'void':
-        ...
+        Inventaire.quantite(...)
 
     def annoncer(self, texte: 'String', duree: 'float') -> 'void':
         ...
@@ -49,7 +53,7 @@ class InterfaceIle(CanvasLayer):
 
     def _panneau(self) -> 'PanelContainer':
         """Panneau d'information : il ne capte pas la souris (on peut cliquer le monde dessous)."""
-        ...
+        ArtIle.cadre(...)
 
     def _etiquette(self) -> 'Label':
         Pixel.texte(...)

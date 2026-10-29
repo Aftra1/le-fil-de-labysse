@@ -38,3 +38,4 @@ class Cloche(CharacterBody2D):
     def dessiner(toile: 'CanvasItem', centre: 'Vector2') -> 'void':
         """Dessin de la cloche, réutilisé par l'île et la transition."""
         Pixel.sprite(...)
+        Pixel.motif(...)

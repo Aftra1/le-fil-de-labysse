@@ -20,7 +20,7 @@ class Sac(RefCounted):
         ...
 
     def ajouter(self, minerai: 'String') -> 'bool':
-        ...
+        self.est_plein(...)
 
     def compter(self) -> 'Dictionary':
         """Nombre d'unités par minerai : { "cristal": 3, "corail": 1 }"""
@@ -28,9 +28,9 @@ class Sac(RefCounted):
 
     def vider(self) -> 'Dictionary':
         """Vide le sac et renvoie son contenu."""
-        ...
+        self.compter(...)
 
     def perdre(self, fraction: 'float', hasard: 'RandomNumberGenerator') -> 'Dictionary':
         """Perd une fraction des unités, tirées au hasard (arrondi à l'inférieur).
-    Renvoie ce qui a été perdu."""
+        Renvoie ce qui a été perdu."""
         ...

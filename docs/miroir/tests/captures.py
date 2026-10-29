@@ -42,41 +42,88 @@ class Captures(SceneTree):
     _captures_hors_palette: 'int'
 
     def _initialize(self) -> 'void':
-        ...
+        self._scenarios(...)
 
     def _scenarios(self) -> 'void':
+        self._effacer_sauvegarde(...)
         Palette.noms(...)
+        Palette.couleur(...)
+        self._planche_palette(...)
+        self._scenario_plongee(...)
+        self._scenario_jeu(...)
+        self._scenario_ameliorations(...)
+        self._scenario_ilot(...)
+        self._scenario_menus(...)
+        self._couper_son_et_quitter(...)
 
     def _planche_palette(self) -> 'void':
         Palette.couleur(...)
         Pixel.texte(...)
         Palette.rampe(...)
+        self._images(...)
+        self._capturer(...)
 
     def _scenario_plongee(self) -> 'void':
+        self._atelier(...)
         Dive()  # instantiate()
+        self._images(...)
+        self._capturer(...)
+        self._gisement_proche(...)
+        self._placer_pres_de(...)
+        self._verifier_grille_plongee(...)
         Sac.ajouter(...)
         Dive._rafraichir_sac(...)
 
     def _scenario_jeu(self) -> 'void':
         Jeu()  # instantiate()
+        self._images(...)
+        self._capturer(...)
+        self._verifier_grille_monde(...)
+        self._cliquer(...)
+        self._souris(...)
+        self._bouton(...)
+        self._touche(...)
+        self._verifier_grille(...)
+        self._verifier_raccord_descente(...)
+        self._verifier_raccord_remontee(...)
+        self._atelier(...)
         Inventaire.ajouter(...)
 
     def _scenario_ameliorations(self) -> 'void':
-        ...
+        self._atelier(...)
+        self._nouvelle_plongee(...)
+        self._images(...)
+        self._capturer(...)
+        self._fermer_plongee(...)
+        self._verifier_obscurite(...)
 
     def _scenario_ilot(self) -> 'void':
         Inventaire()
         Jeu()  # instantiate()
+        self._images(...)
+        self._souris(...)
+        self._capturer(...)
+        self._verifier_grille_monde(...)
         Inventaire.ajouter(...)
+        self._cliquer(...)
+        self._fermer_jeu(...)
 
     def _scenario_menus(self) -> 'void':
+        self._atelier(...)
+        self._effacer_sauvegarde(...)
+        self._ouvrir_jeu_titre(...)
+        self._capturer(...)
         Inventaire.ajouter(...)
+        self._fermer_jeu(...)
+        self._images(...)
+        self._touche(...)
 
     def _ouvrir_jeu_titre(self) -> 'Node':
         Jeu()  # instantiate()
+        self._images(...)
 
     def _fermer_jeu(self, jeu: 'Node') -> 'void':
-        ...
+        self._images(...)
 
     def _effacer_sauvegarde(self) -> 'void':
         ...
@@ -86,14 +133,18 @@ class Captures(SceneTree):
 
     def _nouvelle_plongee(self) -> 'Node':
         Dive()  # instantiate()
+        self._images(...)
 
     def _fermer_plongee(self, plongee: 'Node') -> 'void':
-        ...
+        self._images(...)
 
     def _verifier_obscurite(self, plongee: 'Node') -> 'void':
         """Compare l'image avec obscurité à l'image sans (shader retiré) : chaque pixel doit être exactement
-    celui que prévoit la règle (ArtAbysse.assombrir), interface masquée."""
+        celui que prévoit la règle (ArtAbysse.assombrir), interface masquée."""
+        self._images(...)
+        self._image_ecran(...)
         VueMonde.vers_monde(...)
+        self._atelier(...)
         ArtAbysse.assombrir(...)
         Atelier.rayon_halo(...)
         Atelier.obscurite_max(...)
@@ -112,35 +163,38 @@ class Captures(SceneTree):
         ...
 
     def _souris(self, point: 'Vector2') -> 'void':
-        ...
+        self._vers_fenetre(...)
 
     def _bouton(self, point: 'Vector2', appuye: 'bool') -> 'void':
-        ...
+        self._vers_fenetre(...)
 
     def _cliquer(self, point: 'Vector2') -> 'void':
-        ...
+        self._souris(...)
+        self._images(...)
+        self._bouton(...)
 
     def _touche(self, code: 'Key') -> 'void':
         ...
 
     def _capturer(self, nom: 'String') -> 'void':
-        ...
+        self._verifier_palette(...)
 
     def _verifier_palette(self, nom: 'String', image: 'Image') -> 'void':
         ...
 
     def _verifier_grille_monde(self, ile: 'Node') -> 'void':
-        ...
+        self._verifier_grille(...)
 
     def _verifier_grille_plongee(self, plongee: 'Node') -> 'void':
         """Plongée : on attend une image où la caméra est décalée d'un pixel d'écran (cas le plus délicat),
-    puis on vérifie aussi une image sans décalage."""
-        ...
+        puis on vérifie aussi une image sans décalage."""
+        self._images(...)
+        self._verifier_grille(...)
 
     def _verifier_grille(self, decalage: 'Callable', nom: 'String') -> 'void':
         """decalage : Callable() -> Vector2i, lu juste après le rendu de l'image vérifiée (la caméra bouge
-    pendant la vérification : un décalage lu une image trop tôt fausserait le résultat)."""
-        ...
+        pendant la vérification : un décalage lu une image trop tôt fausserait le résultat)."""
+        self._blocs_non_uniformes(...)
 
     def _blocs_non_uniformes(self, image: 'Image', decalage: 'Vector2i') -> 'int':
         """Les pixels du monde commencent au décalage d'écran (0 ou 1) : on compte les blocs 2x2 bigarrés."""
@@ -148,14 +202,23 @@ class Captures(SceneTree):
 
     def _verifier_raccord_descente(self, jeu: 'Node', transition: 'Node') -> 'void':
         """Fin de la descente (image figée à 100 %) contre première image de la plongée."""
-        ...
+        self._images(...)
+        self._image_ecran(...)
+        self._comparer(...)
 
     def _verifier_raccord_remontee(self, jeu: 'Node', transition: 'Node', plongee: 'Node') -> 'void':
         """Dernière image de la plongée (cloche revenue en surface) contre première image de la remontée."""
-        ...
+        self._images(...)
+        self._image_ecran(...)
+        self._comparer(...)
+        self._capturer(...)
 
     def _image_ecran(self) -> 'Image':
         ...
 
     def _comparer(self, a: 'Image', b: 'Image', nom: 'String') -> 'void':
+        ...
+
+    def _couper_son_et_quitter(self, code: 'int') -> 'void':
+        """Coupe le son quelques images avant de quitter (le serveur audio relâche alors ses lectures)."""
         ...

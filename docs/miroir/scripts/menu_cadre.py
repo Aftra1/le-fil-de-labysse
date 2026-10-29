@@ -23,7 +23,9 @@ class MenuCadre(CanvasLayer):
     _panneau: 'PanelContainer'
 
     def _ready(self) -> 'void':
-        ...
+        ArtIle.cadre(...)
+        self._construire(...)
+        self._recentrer(...)
 
     def _construire(self) -> 'void':
         """À compléter par chaque menu : remplit _colonne."""

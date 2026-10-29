@@ -62,17 +62,21 @@ class ArtIle(RefCounted):
     @staticmethod
     def couleur_ciel_monde(y: 'float') -> 'Color':
         """Couleur du ciel à une hauteur de la colonne (sans les créneaux) : sert aux ombres des objets qui volent."""
-        ...
+        ArtIle.c(...)
+        ArtIle._palier_ciel(...)
 
     @staticmethod
     def couleur_ciel_pixel(x: 'int', y: 'int') -> 'Color':
         """Couleur exacte d'un pixel du ciel (x, y en pixels du monde de la colonne), créneaux compris."""
-        ...
+        ArtIle._palier_ciel(...)
+        ArtIle._creneau(...)
+        ArtIle.c(...)
 
     @staticmethod
     def dessiner_ciel(toile: 'CanvasItem', zone: 'Rect2', dx: 'int', dy: 'int') -> 'void':
         """Dessine le ciel sur une toile ; un point de la toile (x, y) est le pixel (x + dx, y + dy) de la colonne."""
-        ...
+        ArtIle.c(...)
+        ArtIle._creneau(...)
 
     @staticmethod
     def _palier_ciel(y: 'float') -> 'int':
@@ -84,31 +88,37 @@ class ArtIle(RefCounted):
 
     @staticmethod
     def fond_ile(k: 'float') -> 'ImageTexture':
-        ...
+        ArtIle.peindre_ciel(...)
+        ArtIle.peindre_soleil(...)
+        ArtIle.peindre_ile(...)
 
     @staticmethod
     def peindre_ciel(image: 'Image') -> 'void':
-        ...
+        ArtIle.couleur_ciel_pixel(...)
 
     @staticmethod
     def peindre_soleil(image: 'Image', centre: 'Vector2i', rayon: 'int') -> 'void':
-        ...
+        ArtIle.c(...)
 
     @staticmethod
     def peindre_ile(image: 'Image', k: 'float') -> 'void':
         """L'île : herbe en touffes, couche de terre, roche en pavés avec cristaux incrustés,
-    contour brun, ombre portée d'un ton plus sombre sur le ciel, treuil dessous."""
-        ...
+        contour brun, ombre portée d'un ton plus sombre sur le ciel, treuil dessous."""
+        Palette.plus_sombre(...)
+        ArtIle.c(...)
+        Palette.rampe(...)
 
     @staticmethod
     def nuage(largeur: 'int', hauteur: 'int') -> 'ImageTexture':
         """Nuage en volume : lumière chaude en haut à gauche, ombre bleutée en bas, contour bleu-gris."""
-        ...
+        ArtIle.c(...)
+        Pixel.contourner(...)
 
     @staticmethod
     def pales(k: 'float', angle: 'float') -> 'ImageTexture':
         """Pales de l'éolienne (voiles crème bordées de brun), pour un angle donné (12 images par tiers de tour)."""
-        ...
+        ArtIle.c(...)
+        Pixel.contourner(...)
 
     @staticmethod
     def cloche(k: 'float', contour: 'String') -> 'ImageTexture':
@@ -117,6 +127,7 @@ class ArtIle(RefCounted):
     @staticmethod
     def filon(k: 'float', plein: 'bool') -> 'ImageTexture':
         Pixel.motif(...)
+        ArtIle.couleurs_rampe(...)
 
     @staticmethod
     def cabane(allumee: 'bool') -> 'ImageTexture':
@@ -125,7 +136,9 @@ class ArtIle(RefCounted):
 
     @staticmethod
     def ilot(relie: 'bool') -> 'ImageTexture':
+        ArtIle.c(...)
         Pixel.contourner(...)
+        Palette.plus_sombre(...)
 
     @staticmethod
     def icone_construction(_id: 'String') -> 'Texture2D':
@@ -137,22 +150,28 @@ class ArtIle(RefCounted):
         """Icône d'une amélioration de la cloche (atelier)."""
         Pixel.motif(...)
         Pixel.disque(...)
+        ArtIle.c(...)
 
     @staticmethod
     def icone(id: 'String', k: 'float') -> 'Texture2D':
         """Icône d'une ressource (inventaire, barre de ressources)."""
         Pixel.motif(...)
+        ArtIle.couleurs_rampe(...)
+        ArtIle.nuage(...)
+        ArtIle.filon(...)
         Pixel.disque(...)
+        ArtIle.c(...)
 
     @staticmethod
     def cadre(k: 'float', fond: 'String', bord: 'String') -> 'StyleBoxTexture':
         """fond : ton de crème du centre (« interface.4 » normal, « .5 » survol, « .3 » appui)."""
-        ...
+        ArtIle.style_anneaux(...)
+        ArtIle.c(...)
 
     @staticmethod
     def style_anneaux(anneaux: 'Array', fond: 'Color') -> 'StyleBoxTexture':
         """Cadre épais en 9 parties à partir d'anneaux [couleur haut/gauche, couleur bas/droite], de l'extérieur
-    vers l'intérieur : le relief vient de l'opposition clair en haut à gauche / sombre en bas à droite."""
+        vers l'intérieur : le relief vient de l'opposition clair en haut à gauche / sombre en bas à droite."""
         ...
 
     @staticmethod
@@ -163,4 +182,5 @@ class ArtIle(RefCounted):
     @staticmethod
     def styler_bouton(bouton: 'Button') -> 'void':
         """Style des boutons de l'interface du haut (cadre or et crème, relief inversé à l'appui)."""
-        ...
+        ArtIle.cadre(...)
+        ArtIle.c(...)

@@ -18,18 +18,19 @@ class Inventaire(RefCounted):
 
     def place(self, id: 'String') -> 'int':
         """Place restante avant le plafond pour cette ressource."""
-        ...
+        self.quantite(...)
 
     def ajouter(self, id: 'String', nombre: 'int') -> 'int':
         """Ajoute dans la limite du plafond ; renvoie la quantité réellement ajoutée."""
-        ...
+        self.place(...)
+        self.quantite(...)
 
     def ajouter_tout(self, butin: 'Dictionary') -> 'Dictionary':
         """Ajoute un butin { id: nombre } ; renvoie ce qui n'a pas pu entrer."""
-        ...
+        self.ajouter(...)
 
     def retirer(self, id: 'String', nombre: 'int') -> 'bool':
-        ...
+        self.quantite(...)
 
     def total(self) -> 'int':
         ...

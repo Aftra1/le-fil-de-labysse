@@ -34,9 +34,14 @@ class Atelier(RefCounted):
         ...
 
     def peut_fabriquer(self, id: 'String') -> 'bool':
+        self.manquants(...)
+        self.ingredients_composant(...)
         Inventaire.place(...)
 
     def fabriquer(self, id: 'String') -> 'bool':
+        self.peut_fabriquer(...)
+        self._payer(...)
+        self.ingredients_composant(...)
         Inventaire.ajouter(...)
 
     def nom_amelioration(self, id: 'String') -> 'String':
@@ -49,25 +54,32 @@ class Atelier(RefCounted):
         ...
 
     def est_au_maximum(self, id: 'String') -> 'bool':
-        ...
+        self.niveau(...)
+        self.niveau_max(...)
 
     def prochain_niveau(self, id: 'String') -> 'Dictionary':
         """Recette du prochain niveau (vide si l'amélioration est au maximum)."""
-        ...
+        self.est_au_maximum(...)
+        self.recette_niveau(...)
+        self.niveau(...)
 
     def recette_niveau(self, id: 'String', cible: 'int') -> 'Dictionary':
         """Recette d'un niveau donné (1 = premier niveau), vide s'il n'existe pas."""
         ...
 
     def peut_ameliorer(self, id: 'String') -> 'bool':
-        ...
+        self.prochain_niveau(...)
+        self.manquants(...)
 
     def ameliorer(self, id: 'String') -> 'bool':
-        ...
+        self.peut_ameliorer(...)
+        self._payer(...)
+        self.prochain_niveau(...)
+        self.niveau(...)
 
     def charger_niveaux(self, donnees: 'Dictionary') -> 'void':
         """Niveaux lus depuis une sauvegarde : améliorations inconnues ignorées, niveaux bornés à 0..max."""
-        ...
+        self.niveau_max(...)
 
     def nom_construction(self, id: 'String') -> 'String':
         ...
@@ -83,32 +95,38 @@ class Atelier(RefCounted):
         ...
 
     def est_construite(self, id: 'String') -> 'bool':
-        ...
+        self.est_relie(...)
+        self.ilot_de(...)
 
     def est_relie(self, ilot: 'String') -> 'bool':
         ...
 
     def peut_construire(self, id: 'String') -> 'bool':
-        ...
+        self.est_construite(...)
+        self.manquants(...)
+        self.ingredients_construction(...)
 
     def construire(self, id: 'String') -> 'bool':
-        ...
+        self.peut_construire(...)
+        self._payer(...)
+        self.ingredients_construction(...)
+        self.ilot_de(...)
 
     def charger_ilots(self, donnees: 'Array') -> 'void':
         """Îlots lus depuis une sauvegarde : seuls les îlots connus sont gardés, sans doublon."""
-        ...
+        self.ilot_de(...)
 
     def longueur_cable_m(self) -> 'float':
-        ...
+        self._effet(...)
 
     def rayon_halo(self) -> 'float':
-        ...
+        self._effet(...)
 
     def obscurite_max(self) -> 'int':
-        ...
+        self._effet(...)
 
     def oxygene_max(self) -> 'float':
-        ...
+        self._effet(...)
 
     def manquants(self, ingredients: 'Dictionary') -> 'Dictionary':
         """Ce qui manque pour une recette : { id: quantité manquante }."""
@@ -118,4 +136,4 @@ class Atelier(RefCounted):
         Inventaire.retirer(...)
 
     def _effet(self, id: 'String', cle: 'String') -> 'float':
-        ...
+        self.niveau(...)

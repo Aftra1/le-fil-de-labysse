@@ -40,6 +40,9 @@ class Interface(CanvasLayer):
     _bases: 'Dictionary'
 
     def _ready(self) -> 'void':
+        self._panneau(...)
+        self._etiquette(...)
+        self._barre(...)
         ArtIle.ancrer(...)
 
     def _process(self, delta: 'float') -> 'void':
@@ -50,8 +53,8 @@ class Interface(CanvasLayer):
 
     def glisser(self, progression: 'float') -> 'void':
         """progression : 0 = panneaux hors de l'écran, 1 = en place. Chacun sort par son bord le plus proche :
-    l'état par la gauche, l'annonce par le haut, le message par le bas. Pas de transparence."""
-        ...
+        l'état par la gauche, l'annonce par le haut, le message par le bas. Pas de transparence."""
+        self._decaler(...)
 
     def progression_glissement(self) -> 'float':
         ...
@@ -82,7 +85,7 @@ class Interface(CanvasLayer):
 
     def _panneau(self) -> 'PanelContainer':
         """Panneau d'information : il ne capte pas la souris."""
-        ...
+        ArtAbysse.cadre(...)
 
     def _etiquette(self, texte: 'String') -> 'Label':
         Pixel.texte(...)

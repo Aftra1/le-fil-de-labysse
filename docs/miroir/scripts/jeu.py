@@ -19,6 +19,7 @@ from enum import IntEnum
 from ..godot import Node2D
 from ..scripts.atelier import Atelier
 from ..scripts.autoload.game import Game
+from ..scripts.autoload.son import Son
 from ..scripts.dive import Dive
 from ..scripts.ecran_titre import EcranTitre
 from ..scripts.hud import Interface
@@ -57,26 +58,39 @@ class Jeu(Node2D):
 
     def _ready(self) -> 'void':
         Ile.plongee_demandee.connect(...)
+        self._lancer_descente  # passée comme Callable
         Ile.partie_modifiee.connect(...)
+        self.sauvegarder  # passée comme Callable
         Transition.terminee.connect(...)
+        self._fin_transition  # passée comme Callable
         EcranTitre.continuer.connect(...)
+        self.continuer  # passée comme Callable
         EcranTitre.nouvelle_partie.connect(...)
+        self.nouvelle_partie  # passée comme Callable
         EcranTitre.quitter.connect(...)
         MenuPause.reprendre.connect(...)
+        self.fermer_pause  # passée comme Callable
         MenuPause.retour_titre.connect(...)
+        self.retour_au_titre  # passée comme Callable
         MenuPause.quitter.connect(...)
+        self.quitter  # passée comme Callable
+        MenuPause.volumes_modifies.connect(...)
+        self.montrer_titre(...)
 
     def _exit_tree(self) -> 'void':
         ...
 
     def _notification(self, quoi: 'int') -> 'void':
-        ...
+        self.sauvegarder(...)
 
     def _unhandled_input(self, evenement: 'InputEvent') -> 'void':
-        ...
+        self.peut_mettre_en_pause(...)
+        self.ouvrir_pause(...)
 
     def _process(self, delta: 'float') -> 'void':
-        ...
+        self._glisser_hud(...)
+        Transition.temps_restant(...)
+        Transition.temps_ecoule(...)
 
     def _glisser_hud(self, progression: 'float') -> 'void':
         Interface.glisser(...)
@@ -87,7 +101,9 @@ class Jeu(Node2D):
     def montrer_titre(self) -> 'void':
         """Affiche l'écran titre au-dessus de l'île figée, d'après la sauvegarde trouvée."""
         Sauvegarde.lire(...)
+        Son.charger_reglages(...)
         Ile.afficher_interface(...)
+        Son.ambiance(...)
         EcranTitre.ouvrir(...)
 
     def continuer(self) -> 'void':
@@ -97,11 +113,16 @@ class Jeu(Node2D):
         Atelier.charger_ilots(...)
         Ile.restaurer_sources(...)
         Ile.rattraper(...)
+        Sauvegarde.secondes_depuis(...)
+        self._commencer(...)
+        self.sauvegarder(...)
 
     def nouvelle_partie(self) -> 'void':
         Sauvegarde.mettre_de_cote_version_recente(...)
         Inventaire()
         Ile.reinitialiser_sources(...)
+        self._commencer(...)
+        self.sauvegarder(...)
 
     def _commencer(self) -> 'void':
         MenuCadre.fermer(...)
@@ -110,11 +131,13 @@ class Jeu(Node2D):
     def donnees_partie(self) -> 'Dictionary':
         """Données de la partie à sauvegarder."""
         Inventaire.vers_dictionnaire(...)
+        Son.reglages(...)
         Ile.etat_sources(...)
 
     def sauvegarder(self) -> 'bool':
         """Sauvegarde sur l'île seulement : en plongée, la sauvegarde du départ fait foi."""
         Sauvegarde.ecrire(...)
+        self.donnees_partie(...)
 
     def peut_mettre_en_pause(self) -> 'bool':
         MenuCadre.est_ouvert(...)
@@ -127,30 +150,46 @@ class Jeu(Node2D):
 
     def retour_au_titre(self) -> 'void':
         MenuCadre.fermer(...)
+        self._abandonner_plongee(...)
+        self.sauvegarder(...)
+        self.montrer_titre(...)
 
     def quitter(self) -> 'void':
-        ...
+        self.sauvegarder(...)
 
     def _abandonner_plongee(self) -> 'void':
         """Plongée abandonnée par le menu pause : son butin est perdu, l'île reprend comme au départ."""
+        Son.ambiance(...)
         Ile.reprendre(...)
 
     def _lancer_descente(self) -> 'void':
+        self.sauvegarder(...)
+        Son.jouer(...)
+        Son.ambiance(...)
         Ile.preparer_depart(...)
         Dive()  # instantiate()
         Dive.retour_ile.connect(...)
+        self._sur_retour_ile  # passée comme Callable
+        self._figer_plongee(...)
         Dive.rafraichir_interface(...)
         Transition.lancer(...)
 
     def _fin_transition(self) -> 'void':
+        self._figer_plongee(...)
         Interface.glisser(...)
         Ile.arriver(...)
+        self.sauvegarder(...)
 
     def _sur_retour_ile(self, gardees: 'Dictionary', perdues: 'Dictionary', urgence: 'bool') -> 'void':
-        ...
+        self._lancer_remontee  # passée comme Callable
 
     def _lancer_remontee(self) -> 'void':
+        Son.jouer(...)
+        Son.ambiance(...)
+        self._figer_plongee(...)
         Transition.lancer(...)
+        Dive.cloche_position(...)
+        Dive.haut_camera(...)
 
     def _figer_plongee(self, figee: 'bool') -> 'void':
         """Plongée figée et cachée (pendant les transitions) ou active et visible."""

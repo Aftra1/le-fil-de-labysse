@@ -21,29 +21,37 @@ class PanneauInventaire(CanvasLayer):
     _quantites: 'Dictionary'
 
     def _ready(self) -> 'void':
+        self._sur_clic_a_cote  # passée comme Callable
+        ArtIle.cadre(...)
+        self._etiquette(...)
         Game.ids(...)
+        self._case(...)
         ArtIle.ancrer(...)
 
     def _case(self, id: 'String') -> 'PanelContainer':
+        ArtIle.cadre(...)
         ArtIle.icone(...)
+        self._etiquette(...)
+        Game.nom_ressource(...)
 
     def est_ouvert(self) -> 'bool':
         ...
 
     def ouvrir(self) -> 'void':
-        ...
+        self.rafraichir(...)
 
     def fermer(self) -> 'void':
         ...
 
     def basculer(self) -> 'void':
-        ...
+        self.fermer(...)
+        self.ouvrir(...)
 
     def rafraichir(self) -> 'void':
         Inventaire.quantite(...)
 
     def _sur_clic_a_cote(self, evenement: 'InputEvent') -> 'void':
-        ...
+        self.fermer(...)
 
     def _etiquette(self, texte: 'String') -> 'Label':
         Pixel.texte(...)

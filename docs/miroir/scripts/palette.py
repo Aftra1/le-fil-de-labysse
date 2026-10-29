@@ -22,31 +22,31 @@ class Palette(RefCounted):
 
     @staticmethod
     def couleur(nom: 'String') -> 'Color':
-        ...
+        Palette._charger(...)
 
     @staticmethod
     def rampe(nom: 'String') -> 'Array':
         """Tons d'une rampe, du plus sombre au plus clair."""
-        ...
+        Palette._charger(...)
 
     @staticmethod
     def noms() -> 'Array':
         """Noms de toutes les couleurs (une par entrée de rampe, sans les alias)."""
-        ...
+        Palette._charger(...)
 
     @staticmethod
     def contient(nom: 'String') -> 'bool':
-        ...
+        Palette._charger(...)
 
     @staticmethod
     def plus_sombre(teinte: 'Color', crans: 'int') -> 'Color':
         """Le ton juste en dessous dans la même rampe (ombre portée « un ton plus sombre »)."""
-        ...
+        Palette._charger(...)
 
     @staticmethod
     def plus_clair(teinte: 'Color', crans: 'int') -> 'Color':
         """Le ton juste au-dessus dans la même rampe (reflets, repères)."""
-        ...
+        Palette._charger(...)
 
     @staticmethod
     def _charger() -> 'void':

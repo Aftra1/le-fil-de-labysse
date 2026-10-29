@@ -127,6 +127,6 @@ Elle est utilisée à sa taille native (16 px), sans antialiasing, pour l'interf
 - `tests/` : tests de logique et captures d'écran
 - `docs/captures/` : captures générées par `tests/captures.sh` (dossier ignoré par Godot grâce à `docs/.gdignore`)
 - `docs/miroir/` et `docs/architecture.md` : générés par `python3 tests/generer_miroir.py`. Le miroir est un fichier `.py` par
-  script (classes, fonctions, signaux, constantes et appels entre scripts, sans la logique) pour les outils d'analyse
+  script (classes, fonctions, signaux, constantes et appels, internes comme entre scripts, sans la logique) pour les outils d'analyse
   qui ne lisent pas le GDScript, comme Graphify ; l'architecture liste les scripts, leur rôle et leurs dépendances.
 - `builds/` : exports (ignorés par git)

@@ -57,20 +57,22 @@ class Transition(Node2D):
     _avant: VueMonde
 
     def _ready(self) -> 'void':
-        ...
+        self._dessiner_fond  # passée comme Callable
+        self._dessiner_avant  # passée comme Callable
+        self._placer_nuages(...)
 
     def est_active(self) -> 'bool':
         ...
 
     def lancer(self, descente: 'bool', ile: 'Node2D', plongee: 'Node2D', cloche_bas: 'Vector2', haut_camera_bas: 'float') -> 'void':
         """descente : île → océan ; sinon océan → île.
-    plongee : la scène de plongée (dessinée sous la surface) ; cloche_bas : position de sa cloche
-    (640x360) ; haut_camera_bas : haut de sa vue (pour une remontée qui part de la vue exacte)."""
-        ...
+        plongee : la scène de plongée (dessinée sous la surface) ; cloche_bas : position de sa cloche
+        (640x360) ; haut_camera_bas : haut de sa vue (pour une remontée qui part de la vue exacte)."""
+        self._appliquer(...)
 
     def afficher_image(self, avancement: 'float') -> 'void':
         """Fige la transition à un instant donné (0 → 1), pour les captures d'écran."""
-        ...
+        self._appliquer(...)
 
     def reprendre(self) -> 'void':
         ...
@@ -88,14 +90,15 @@ class Transition(Node2D):
         VueMonde.decalage_ecran(...)
 
     def _unhandled_input(self, evenement: 'InputEvent') -> 'void':
-        ...
+        self.passer(...)
 
     def passer(self) -> 'void':
         """Passe la transition : la fin est jouée en DUREE_SAUT avec un fondu."""
         ...
 
     def _process(self, delta: 'float') -> 'void':
-        ...
+        self._appliquer(...)
+        self.terminee.emit(...)
 
     def _profondeur_visuelle(self) -> 'float':
         """e : 0 = vue de l'île, 1 = vue de la plongée en surface."""
@@ -110,25 +113,38 @@ class Transition(Node2D):
         ...
 
     def _appliquer(self) -> 'void':
-        ...
+        self._haut_camera(...)
+        self._profondeur_visuelle(...)
 
     def _dessiner_fond(self, toile: 'Node2D') -> 'void':
         VueMonde.vue_monde(...)
         ArtIle.dessiner_ciel(...)
+        self._dessiner_calque(...)
 
     def _dessiner_avant(self, toile: 'Node2D') -> 'void':
         VueMonde.vers_monde(...)
+        self._cloche(...)
+        self._profondeur_visuelle(...)
         ArtIle.cloche(...)
+        ArtAbysse.contour_cloche(...)
+        Palette.couleur(...)
         Pixel.ligne(...)
         Pixel.sprite_ombre(...)
+        Palette.plus_sombre(...)
+        ArtAbysse.couleur_fond(...)
+        self._dessiner_calque(...)
+        Pixel.trame(...)
+        VueMonde.vue_monde(...)
 
     def _dessiner_calque(self, toile: 'Node2D', calque: 'int') -> 'void':
         """Un calque de nuages : position à l'écran = y - haut × facteur, ramenée au pixel du monde."""
         ArtIle.nuage(...)
         VueMonde.vers_monde(...)
         Pixel.sprite_ombre(...)
+        Palette.plus_sombre(...)
+        ArtIle.couleur_ciel_monde(...)
 
     def _placer_nuages(self) -> 'void':
         """Les nuages sont placés pour être hors écran au début et à la fin :
-    ils n'apparaissent que pendant le trajet, quel que soit le sens."""
+        ils n'apparaissent que pendant le trajet, quel que soit le sens."""
         ...

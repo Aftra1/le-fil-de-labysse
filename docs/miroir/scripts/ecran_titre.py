@@ -30,17 +30,24 @@ class EcranTitre(MenuCadre):
     def _construire(self) -> 'void':
         MenuCadre._etiquette(self, ...)
         MenuCadre._bouton(self, ...)
+        self.continuer.emit(...)
+        self.demander_nouvelle_partie  # passée comme Callable
+        self.quitter.emit(...)
+        self._montrer_confirmation(...)
+        self.nouvelle_partie.emit(...)
+        self.annuler_confirmation  # passée comme Callable
 
     def ouvrir(self, peut_continuer: 'bool', partie_existante: 'bool', message: 'String') -> 'void':
         """peut_continuer : une sauvegarde utilisable existe ; partie_existante : Nouvelle partie demande
-    confirmation ; message : vide si tout va bien."""
-        ...
+        confirmation ; message : vide si tout va bien."""
+        self._montrer_confirmation(...)
 
     def demander_nouvelle_partie(self) -> 'void':
-        ...
+        self._montrer_confirmation(...)
+        self.nouvelle_partie.emit(...)
 
     def annuler_confirmation(self) -> 'void':
-        ...
+        self._montrer_confirmation(...)
 
     def confirmation_ouverte(self) -> 'bool':
         ...
@@ -52,4 +59,5 @@ class EcranTitre(MenuCadre):
         MenuCadre._recentrer(self, ...)
 
     def _unhandled_input(self, evenement: 'InputEvent') -> 'void':
-        ...
+        self.confirmation_ouverte(...)
+        self.annuler_confirmation(...)

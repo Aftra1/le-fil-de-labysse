@@ -50,21 +50,23 @@ class Pixel(RefCounted):
     @staticmethod
     def bandes(toile: 'CanvasItem', x: 'float', largeur: 'float', y_haut: 'float', y_bas: 'float', decalage: 'int', palier: 'Callable') -> 'void':
         """Dégradé vertical en paliers nets. Chaque changement de palier passe par trois bandes tramées
-    (Bayer 25 %, 50 %, 75 %) au lieu d'un fondu lisse.
-    palier : Callable(y_monde: float) -> Color ; decalage : y_monde = y_ecran + decalage (entier)."""
-        ...
+        (Bayer 25 %, 50 %, 75 %) au lieu d'un fondu lisse.
+        palier : Callable(y_monde: float) -> Color ; decalage : y_monde = y_ecran + decalage (entier)."""
+        Pixel.trame(...)
 
     @staticmethod
     def texte(etiquette: 'Label', couleur: 'String', ombre: 'String') -> 'void':
         """Style commun des textes : police pixel (thème du projet), couleur et ombre portée de 1 px."""
-        ...
+        Palette.couleur(...)
 
     @staticmethod
     def motif(lignes: 'PackedStringArray', couleurs: 'Dictionary', contour: 'String') -> 'ImageTexture':
         """Texture à partir d'un dessin en caractères : chaque caractère renvoie à un nom de la palette,
-    « . » est transparent. contour : nom d'une couleur pour un contour de 1 px tout autour (l'image
-    grandit alors de 2 px), vide pour aucun."""
-        ...
+        « . » est transparent. contour : nom d'une couleur pour un contour de 1 px tout autour (l'image
+        grandit alors de 2 px), vide pour aucun."""
+        Palette.couleur(...)
+        Pixel.contourner(...)
+        Pixel._memoriser(...)
 
     @staticmethod
     def contourner(image: 'Image', couleur: 'Color') -> 'Image':
@@ -74,41 +76,45 @@ class Pixel(RefCounted):
     @staticmethod
     def silhouette(texture: 'Texture2D', couleur: 'Color') -> 'ImageTexture':
         """Silhouette pleine d'une texture (pour les ombres portées d'un ton plus sombre)."""
-        ...
+        Pixel._memoriser(...)
 
     @staticmethod
     def sprite_ombre(toile: 'CanvasItem', texture: 'Texture2D', centre: 'Vector2', ombre: 'Color', decalage: 'Vector2') -> 'void':
         """Sprite avec ombre portée : la silhouette d'abord, décalée, puis le sprite."""
-        ...
+        Pixel.sprite(...)
+        Pixel.silhouette(...)
 
     @staticmethod
     def disque(rayon: 'int', couleur: 'Color') -> 'ImageTexture':
-        ...
+        Pixel._image_carree(...)
+        Pixel._memoriser(...)
 
     @staticmethod
     def anneau(rayon: 'int', couleur: 'Color', pointille: 'bool') -> 'ImageTexture':
         """Anneau de 1 px ; pointille : un pixel sur deux (effet de halo tramé)."""
-        ...
+        Pixel._image_carree(...)
+        Pixel._memoriser(...)
 
     @staticmethod
     def jauge(rayon: 'int', progression: 'float', couleur: 'Color') -> 'ImageTexture':
         """Jauge circulaire de 2 px d'épaisseur, remplie dans le sens horaire depuis le haut (24 crans)."""
-        ...
+        Pixel._image_carree(...)
+        Pixel._memoriser(...)
 
     @staticmethod
     def damier(a: 'Color', b: 'Color') -> 'ImageTexture':
         """Damier 2x2 de deux couleurs (trame à 50 %)."""
-        ...
+        Pixel._memoriser(...)
 
     @staticmethod
     def trame(niveau: 'int', couleur: 'Color') -> 'ImageTexture':
         """Trame ordonnée (Bayer 4x4) : niveau 0 = transparent, 16 = plein."""
-        ...
+        Pixel._memoriser(...)
 
     @staticmethod
     def nuage(largeur: 'int', hauteur: 'int', couleur: 'Color', ombre: 'Color') -> 'ImageTexture':
         """Nuage arrondi (trois bosses), ombré en bas."""
-        ...
+        Pixel._memoriser(...)
 
     @staticmethod
     def _image_carree(rayon: 'int') -> 'Image':

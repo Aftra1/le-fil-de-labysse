@@ -36,8 +36,14 @@ class Gisement(Node2D):
 
     def dessiner_monde(self, toile: 'CanvasItem') -> 'void':
         """Dessin dans le monde 320x180 (appelé par la plongée) : sprite avec contour bleu nuit et ombre
-    d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan."""
+        d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan."""
         VueMonde.vers_monde(...)
         Pixel.sprite_ombre(...)
+        ArtAbysse.gisement(...)
+        Palette.plus_sombre(...)
+        ArtAbysse.couleur_eau(...)
         Palette.couleur(...)
+        ArtAbysse.lueur(...)
         Pixel.sprite(...)
+        Pixel.anneau(...)
+        Pixel.jauge(...)

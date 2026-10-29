@@ -27,6 +27,7 @@ class Game(Node):
     atelier: Atelier
 
     def _ready(self) -> 'void':
+        self._declarer_actions(...)
         Donnees.charger_json(...)
 
     def ids(self, categorie: 'String') -> 'Array':
@@ -46,7 +47,7 @@ class Game(Node):
         Palette.couleur(...)
 
     def _declarer_actions(self) -> 'void':
-        ...
+        self._ajouter_action(...)
 
     def _ajouter_action(self, nom: 'StringName', touches: 'Array[Key]') -> 'void':
         ...

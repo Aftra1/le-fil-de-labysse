@@ -56,7 +56,7 @@ class SourceRessource(Node2D):
     _compteur_pas: 'int'
 
     def _process(self, delta: 'float') -> 'void':
-        ...
+        self.recharger(...)
 
     def _physics_process(self, _delta: 'float') -> 'void':
         ...
@@ -85,22 +85,43 @@ class SourceRessource(Node2D):
 
     def dessiner_monde(self, toile: 'CanvasItem') -> 'void':
         VueMonde.vers_monde(...)
+        self._dessiner_eolienne(...)
+        self._dessiner_filon(...)
+        self._dessiner_nuage(...)
+        self._dessiner_bassin(...)
+        self.est_disponible(...)
         Pixel.sprite(...)
+        Pixel.anneau(...)
+        Palette.couleur(...)
+        Pixel.jauge(...)
 
     def _dessiner_eolienne(self, toile: 'CanvasItem', moyeu: 'Vector2') -> 'void':
+        Palette.couleur(...)
         Pixel.sprite(...)
+        ArtIle.pales(...)
+        self._dessiner_points(...)
 
     def _dessiner_bassin(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
         """Bassin de lumière : une flaque du lagon creusée dans l'herbe, qui scintille quand elle est pleine."""
-        ...
+        Palette.couleur(...)
+        self.est_disponible(...)
+        ArtAbysse.temps(...)
+        self._dessiner_points(...)
 
     def _dessiner_filon(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
         Pixel.sprite_ombre(...)
+        ArtIle.filon(...)
+        self.est_disponible(...)
+        Palette.couleur(...)
+        self._dessiner_points(...)
 
     def _dessiner_nuage(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
         Palette.plus_sombre(...)
+        ArtIle.couleur_ciel_monde(...)
         Pixel.sprite_ombre(...)
+        ArtIle.nuage(...)
+        self._dessiner_points(...)
 
     def _dessiner_points(self, toile: 'CanvasItem', centre: 'Vector2', couleur: 'String') -> 'void':
         """Un pixel du monde par unité de plafond, espacés d'un pixel : plein si disponible, sombre sinon."""
-        ...
+        Palette.couleur(...)
