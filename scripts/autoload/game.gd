@@ -54,6 +54,7 @@ func _declarer_actions() -> void:
 	_ajouter_action("pause", [KEY_ESCAPE])
 	_ajouter_action("inventaire", [KEY_I, KEY_TAB])
 	_ajouter_action("atelier", [KEY_C])
+	_ajouter_action("carnet", [KEY_K])
 	_ajouter_action("clic", [])
 	var clic_gauche := InputEventMouseButton.new()
 	clic_gauche.button_index = MOUSE_BUTTON_LEFT

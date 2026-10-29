@@ -12,7 +12,7 @@ const DUREE_BOUCLE := 8.0    # secondes
 const CRETE := 0.9           # niveau maximal d'un son (marge avant saturation)
 
 const EFFETS := ["clic", "nuage", "vent", "cristal", "bassin", "minage", "unite", "sac_plein",
-	"oxygene_bas", "craquement", "remontee_auto", "fabrication", "installation", "construction", "souffle", "machine", "foreuse", "fourneau", "sonde"]
+	"oxygene_bas", "craquement", "remontee_auto", "fabrication", "installation", "construction", "souffle", "machine", "foreuse", "fourneau", "sonde", "trouvaille"]
 const AMBIANCES := ["ile", "lagon", "coraux", "faille"]
 
 static var _hasard := RandomNumberGenerator.new()
@@ -80,6 +80,11 @@ static func effet(id: String) -> AudioStreamWAV:
 			var feu := _bruit_filtre(0.25, 420.0, 0.02, 0.2, 0.4)
 			feu.append_array(_cloche([659.3, 1318.5], 0.35, 0.3))
 			return _wav(feu, FREQ)
+		"trouvaille":
+			# Trouvaille rare : arpège lumineux qui monte, puis un tintement.
+			var trouvee := _arpege([783.99, 987.77, 1174.66, 1567.98], 0.09, 0.6, 0.45)
+			trouvee.append_array(_cloche([2093.0, 3136.0], 0.5, 0.25))
+			return _wav(trouvee, FREQ)
 		"sonde":
 			# Sonde : bulle qui remonte et petit bip de capsule.
 			var bulle := _bulle(0.16, 300.0, 700.0, 0.45)

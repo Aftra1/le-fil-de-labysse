@@ -25,7 +25,7 @@ const REGLAGES_EFFETS := {
 	"oxygene_bas": [-12.0, 1.2], "craquement": [-6.0, 2.5], "remontee_auto": [-6.0, 2.0],
 	"fabrication": [-7.0, 0.2], "installation": [-6.0, 0.3], "construction": [-6.0, 0.3], "souffle": [-9.0, 1.0],
 	"machine": [-9.0, 0.15], "foreuse": [-9.0, 0.15], "fourneau": [-9.0, 0.2],
-	"sonde": [-9.0, 0.15],
+	"sonde": [-9.0, 0.15], "trouvaille": [-6.0, 1.0],
 }
 
 var volume_musique: float = VOLUME_DEFAUT["musique"]

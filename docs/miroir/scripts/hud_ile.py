@@ -20,6 +20,7 @@ class InterfaceIle(CanvasLayer):
     HAUT_ANNONCE = 96.0
     HAUT_AIDE = 46.0
     bouton_inventaire: 'Button'
+    bouton_carnet: 'Button'
     _quantites: 'Dictionary'
     _annonce_panneau: 'PanelContainer'
     _annonce: 'Label'

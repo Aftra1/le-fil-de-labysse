@@ -142,6 +142,12 @@ func _lancer() -> void:
 	_titre("Clics : un nuage qui passe devant ne vole jamais le clic")
 	await _test_nuages_devant()
 
+	_titre("Trouvailles rares et carnet de collection")
+	_test_carnet_logique()
+	await _test_trouvailles_plongee()
+	await _test_carnet_panneau()
+	await _test_carnet_sauvegarde()
+
 	_titre("Palier 3 : fourneau et raffinés, sonde, arche de braise, sac à 16 places, niveaux 2")
 	_test_palier3_logique()
 	await _test_palier3_ile()
@@ -453,6 +459,8 @@ func _test_placement() -> void:
 			y_min = minf(y_min, gisement.position.y)
 			y_max = maxf(y_max, gisement.position.y)
 			x_max = maxf(x_max, absf(gisement.position.x))
+			if gisement.minerai == "trouvaille":
+				continue    # les éclats de trouvaille sont vérifiés à part (espacement et marges ci-dessus)
 			if gisement.minerai == "cristal_lagon":
 				cristaux += 1
 				y_min_cristal = minf(y_min_cristal, gisement.position.y)
@@ -2167,6 +2175,173 @@ func _test_sac_12() -> void:
 	_verifier(_plongee._sac.capacite == 12 and texte.contains("/12"), "sac de plongée installé : 12 places en plongée", texte)
 	await _terminer()
 	_jeu.atelier.niveaux["sac"] = 0
+
+
+# --- Trouvailles et carnet ------------------------------------------------------------------------
+
+func _test_carnet_logique() -> void:
+	var carnet := Carnet.new()
+	var total := 0
+	var noms := {}
+	var descriptions_ok := true
+	var motifs_ok := true
+	for page: Dictionary in carnet.pages():
+		total += carnet.cases(str(page["id"])).size()
+	for zone: String in Carnet.PAGES_TROUVAILLES:
+		for id: String in carnet.cases(zone):
+			var donnees := carnet.trouvaille(id)
+			noms[str(donnees["nom"])] = true
+			descriptions_ok = descriptions_ok and str(donnees["description"]).length() >= 40
+			motifs_ok = motifs_ok and ArtTrouvailles.MOTIFS.has(id)
+	_verifier(carnet.pages().size() == 4 and carnet.cases("lagon").size() == 6 and carnet.cases("coraux").size() == 6
+		and carnet.cases("faille").size() == 6 and carnet.cases("machines").size() == 6 and total == 24,
+		"carnet : 6 perles, 6 fossiles, 6 reliques et 6 machines (24 cases)")
+	_verifier(noms.size() == 18 and descriptions_ok and motifs_ok,
+		"18 trouvailles : chacune son nom, sa description (une histoire) et son pixel art")
+	_verifier(not carnet.trouver("inconnue") and carnet.trouver("perle_lune") and not carnet.trouver("perle_lune")
+		and carnet.pourcentage() == 4, "trouver : une seule fois ; 1/24 = 4 %")
+	for id: String in carnet.cases("lagon"):
+		carnet.trouver(id)
+	_verifier(carnet.page_complete("lagon") and is_equal_approx(carnet.facteur_minage("lagon"), 1.25)
+		and carnet.facteur_minage("coraux") == 1.0 and carnet.restantes("lagon").is_empty(),
+		"page des perles complète : le Lagon se mine 25 % plus vite")
+	for id: String in carnet.cases("faille"):
+		carnet.trouver(id)
+	_verifier(is_equal_approx(carnet.facteur_oxygene("faille"), 0.8) and carnet.facteur_oxygene("lagon") == 1.0,
+		"page des reliques complète : 20 % d'air en moins dans la Faille")
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	for id: String in atelier.liste_machines():
+		atelier.carnet.voir_machine(id)
+	_verifier(atelier.carnet.page_complete("machines") and is_equal_approx(atelier.recharge_machine("moulin"), 10.0 / 1.1),
+		"page des machines complète : toutes les machines produisent 10 % plus vite")
+	carnet.charger({"trouvailles": ["ammonite", "inconnue", "ammonite"], "machines": ["moulin", "fusee"]})
+	_verifier(carnet.trouvees == ["ammonite"] and carnet.machines_vues == ["moulin"], "carnet lu : inconnus et doublons ignorés")
+
+
+func _trouvailles_generees() -> Array[Gisement]:
+	return _gisements().filter(func(g: Gisement) -> bool: return g.trouvaille != "")
+
+
+func _test_trouvailles_plongee() -> void:
+	await _demarrer()
+	var zones: Array = Donnees.charger_json("res://data/zones.json")
+	var une_par_zone := true
+	var dans_le_bas := true
+	var vues := 0
+	for tirage in 30:
+		_plongee._generer_gisements()
+		await physics_frame
+		var par_zone := {}
+		for eclat in _trouvailles_generees():
+			vues += 1
+			par_zone[eclat.zone] = int(par_zone.get(eclat.zone, 0)) + 1
+			for zone: Dictionary in zones:
+				if str(zone["id"]) == eclat.zone:
+					var milieu := (float(zone["debut_m"]) + float(zone["fin_m"])) / 2.0 * 10.0
+					dans_le_bas = dans_le_bas and eclat.position.y >= milieu - 1.0 and eclat.position.y <= float(zone["fin_m"]) * 10.0
+					dans_le_bas = dans_le_bas and _jeu.atelier.carnet.cases(eclat.zone).has(eclat.trouvaille)
+		for zone: String in par_zone:
+			une_par_zone = une_par_zone and int(par_zone[zone]) <= 1
+	_verifier(une_par_zone and vues >= 45 and vues < 90, "au plus une trouvaille par zone et par plongée (environ 3 sur 4)",
+		"%d sur 30 plongées" % vues)
+	_verifier(dans_le_bas, "trouvailles dans la moitié basse de leur zone, parmi celles de la zone")
+
+	# Ramassage, sac plein : la trouvaille ne prend pas de place et va droit au carnet.
+	_jeu.atelier.niveaux["cable"] = 2
+	_plongee.appliquer_ameliorations()
+	while _trouvailles_generees().is_empty():
+		_plongee._generer_gisements()
+		await physics_frame
+	var eclat: Gisement = _trouvailles_generees()[0]
+	var id_eclat := eclat.trouvaille
+	for i in _plongee._sac.capacite:
+		_plongee._sac.ajouter("cristal_lagon")
+	_plongee._rafraichir_sac()
+	_bell.position = eclat.position + Vector2(0.0, -10.0)
+	_bell.velocity = Vector2.ZERO
+	await _images(2)
+	var message: String = _plongee._message_bas(true)
+	_son().vider_historique()
+	Input.action_press("interact")
+	await _secondes(2.3)
+	Input.action_release("interact")
+	var annonce: String = _plongee.get_node("HUD")._annonce.text
+	_verifier(_jeu.atelier.carnet.a_trouve(id_eclat) and _plongee.trouvailles_plongee == [id_eclat]
+		and _plongee._sac.nombre() == _plongee._sac.capacite and _son().a_joue("trouvaille"),
+		"sac plein : la trouvaille se ramasse quand même (2 s), va au carnet, avec son")
+	_verifier(message.contains("trouvaille") and annonce.contains("Trouvaille"), "message et annonce de la trouvaille", annonce)
+
+	# Dernière perle : page complète, plus de perle dans le Lagon, minage plus rapide.
+	var carnet: Carnet = _jeu.atelier.carnet
+	for id: String in carnet.cases("lagon").slice(0, 5):
+		carnet.trouver(id)
+	var derniere: String = carnet.restantes("lagon")[0] if not carnet.restantes("lagon").is_empty() else ""
+	if derniere != "":
+		_plongee._ramasser_trouvaille(derniere)
+	annonce = _plongee.get_node("HUD")._annonce.text
+	_verifier(carnet.page_complete("lagon") and annonce.contains("Page complète"), "dernière perle : page complète annoncée", annonce)
+	var duree_lagon := 0.0
+	var perle := false
+	for tirage in 10:
+		_plongee._generer_gisements()
+		await physics_frame
+		for gisement in _gisements():
+			if gisement.minerai == "cristal_lagon":
+				duree_lagon = gisement.duree_minage
+			perle = perle or gisement.zone == "lagon"
+	_verifier(is_equal_approx(duree_lagon, 1.0 / 1.25) and not perle,
+		"page des perles complète : plus de perle à trouver, cristal de lagon miné en 0,8 s")
+	_jeu.atelier.niveaux["cable"] = 0
+	await _terminer()
+
+
+func _test_carnet_panneau() -> void:
+	var ile := await _ouvrir_ile()
+	var carnet: Carnet = _jeu.atelier.carnet
+	var panneau: Node = ile.get_node("Carnet")
+	_touche(KEY_K)
+	await _images(2)
+	_verifier(panneau.est_ouvert() and ile.panneau_ouvert() and panneau._titre.text == "Carnet : 0 %",
+		"K ouvre le carnet (0 %)")
+	_verifier(panneau._nom.text == "Pas encore trouvée" and panneau._bonus.text.contains("0/6"),
+		"case vide : silhouette, « Pas encore trouvée », page 0/6 et son bonus", panneau._bonus.text)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(not panneau.est_ouvert(), "Échap ferme le carnet")
+	carnet.trouver("ammonite")
+	await _cliquer(_centre(ile.get_node("HUD").bouton_carnet))
+	await _cliquer(_centre(panneau._onglets["coraux"]))
+	panneau.selectionner("ammonite")
+	_verifier(panneau.est_ouvert() and panneau._nom.text == "Ammonite spiralée" and panneau._description.text.contains("spirale")
+		and panneau._titre.text == "Carnet : 4 %", "bouton Carnet, page des fossiles : l'ammonite, son nom et son histoire")
+	await _cliquer(_centre(panneau._onglets["machines"]))
+	_verifier(panneau.page == "machines" and panneau._grille.get_child_count() == 6, "page des machines : 6 cases")
+	panneau.fermer()
+	await _fermer_ile(ile)
+
+
+func _test_carnet_sauvegarde() -> void:
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	_jeu.atelier.carnet.trouver("cle_braise")
+	_jeu.atelier.carnet.trouver("perle_noire")
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("moulin")["ingredients"])
+	_jeu.atelier.construire_machine("moulin")
+	jeu.sauvegarder()
+	await _fermer_jeu(jeu)
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	_verifier(_jeu.atelier.carnet.trouvees == ["cle_braise", "perle_noire"] and _jeu.atelier.carnet.machines_vues == ["moulin"],
+		"Continuer : le carnet est retrouvé (2 trouvailles, le moulin)")
+	await _fermer_jeu(jeu)
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_nouvelle))
+	await _cliquer(_centre(jeu._titre.bouton_remplacer))
+	_verifier(_jeu.atelier.carnet.trouvees.is_empty(), "Nouvelle partie : carnet vide")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
 
 
 # --- Nuages devant les éléments de l'île --------------------------------------------------------

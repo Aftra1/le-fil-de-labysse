@@ -17,6 +17,7 @@ avec les ingrédients de l'inventaire (voir consommer_fourneau).
 from __future__ import annotations
 
 from ..godot import RefCounted
+from ..scripts.carnet import Carnet
 from ..scripts.donnees import Donnees
 from ..scripts.inventaire import Inventaire
 
@@ -35,6 +36,7 @@ class Atelier(RefCounted):
     recettes_fourneau: 'Dictionary'
     depenses: 'Dictionary'
     consomme_fourneau: 'Dictionary'
+    carnet: Carnet
     _recettes: 'Dictionary'
     _effets: 'Dictionary'
     _machines: 'Dictionary'
@@ -213,6 +215,7 @@ class Atelier(RefCounted):
         self.emplacements_libres(...)
         self._payer(...)
         self.machine(...)
+        Carnet.voir_machine(...)
         self._appliquer_entrepot(...)
 
     def charger_machines(self, donnees: 'Dictionary') -> 'void':
@@ -221,6 +224,7 @@ class Atelier(RefCounted):
         self.emplacement_libre(...)
         self.est_filon(...)
         self.sur_filon(...)
+        Carnet.voir_machine(...)
         self._appliquer_entrepot(...)
 
     def _appliquer_entrepot(self) -> 'void':
@@ -271,6 +275,7 @@ class Atelier(RefCounted):
         """Secondes par unité produite, vitesse comprise."""
         self.machine(...)
         self.niveau_machine(...)
+        Carnet.facteur_machines(...)
 
     def plafond_machine(self, id: 'String') -> 'int':
         """Réserve d'une machine, capacité comprise."""

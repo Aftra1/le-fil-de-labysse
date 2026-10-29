@@ -9,6 +9,7 @@ const HAUT_ANNONCE := 96.0
 const HAUT_AIDE := 46.0   # sous le bouton : le bas de l'écran reste libre pour la cloche
 
 var bouton_inventaire := Button.new()
+var bouton_carnet := Button.new()
 
 var _quantites: Dictionary = {}   # id -> Label
 var _annonce_panneau: PanelContainer
@@ -21,8 +22,14 @@ var _annonce_restante := 0.0
 func _ready() -> void:
 	bouton_inventaire.text = "Inventaire (I)"
 	ArtIle.styler_bouton(bouton_inventaire)
-	bouton_inventaire.position = Vector2(MARGE, MARGE)
-	add_child(bouton_inventaire)
+	bouton_carnet.text = "Carnet (K)"
+	ArtIle.styler_bouton(bouton_carnet)
+	var boutons := HBoxContainer.new()
+	boutons.add_theme_constant_override("separation", 4)
+	boutons.position = Vector2(MARGE, MARGE)
+	boutons.add_child(bouton_inventaire)
+	boutons.add_child(bouton_carnet)
+	add_child(boutons)
 
 	var barre := _panneau()
 	var ligne := HBoxContainer.new()

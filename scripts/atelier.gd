@@ -34,6 +34,8 @@ var recettes_fourneau: Dictionary = {}
 ## Mesures : ressources dépensées à l'atelier et par les fourneaux depuis le début de la partie.
 var depenses: Dictionary = {}
 var consomme_fourneau: Dictionary = {}
+## Carnet de collection de la partie (trouvailles et machines déjà construites).
+var carnet := Carnet.new()
 
 var _recettes: Dictionary = {}
 var _effets: Dictionary = {}
@@ -295,6 +297,7 @@ func construire_machine(id: String, cible: String = "") -> String:
 	var lieu := cible if libres.has(cible) else str(libres[0])
 	_payer(machine(id)["ingredients"])
 	machines[lieu] = id
+	carnet.voir_machine(id)
 	if machine(id).has("recettes"):
 		recettes_fourneau[lieu] = ""
 	_appliquer_entrepot()
@@ -310,6 +313,7 @@ func charger_machines(donnees: Dictionary) -> void:
 		if id is String and _machines["machines"].has(id) and emplacement_libre(lieu) \
 				and est_filon(lieu) == sur_filon(id):
 			machines[lieu] = id
+			carnet.voir_machine(id)
 	_appliquer_entrepot()
 
 
@@ -383,7 +387,8 @@ func ameliorer_machine(id: String, genre: String) -> bool:
 ## Secondes par unité produite, vitesse comprise.
 func recharge_machine(id: String) -> float:
 	var facteurs: Array = _machines["facteurs"]["vitesse"]
-	return float(machine(id)["recharge_s"]) / float(facteurs[mini(niveau_machine(id, "vitesse"), facteurs.size() - 1)])
+	return float(machine(id)["recharge_s"]) / float(facteurs[mini(niveau_machine(id, "vitesse"), facteurs.size() - 1)]) \
+		/ carnet.facteur_machines()
 
 
 ## Réserve d'une machine, capacité comprise.
