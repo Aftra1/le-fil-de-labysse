@@ -1,3 +1,6 @@
 .godot/
 builds/*
 !builds/.gitkeep
+
+# Identifiants d'export Godot (clés, mots de passe) : jamais dans le dépôt
+export_credentials.cfg
