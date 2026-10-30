@@ -12,8 +12,10 @@ une machine construite produit seule jusqu'à sa réserve et un clic vide la ré
 La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit
 rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première
 pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il
-fabrique en boucle avec les ingrédients de l'inventaire) et la sonde (qui ne produit qu'en plongée).
+fabrique en boucle avec les ingrédients de l'inventaire), la sonde (qui ne produit qu'en plongée) et l'entrepôt.
 Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
+Le marchand de vent (Marchand, data/marchand.json) passe de temps en temps : son dirigeable arrive par la
+droite, reste 60 s au-dessus de l'île et repart ; un clic dessus ouvre ses échanges (PanneauMarchand).
 Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 """
@@ -32,6 +34,8 @@ from ..scripts.donnees import Donnees
 from ..scripts.hud_ile import InterfaceIle
 from ..scripts.inventaire import Inventaire
 from ..scripts.inventaire_ui import PanneauInventaire
+from ..scripts.marchand import Marchand
+from ..scripts.marchand_ui import PanneauMarchand
 from ..scripts.palette import Palette
 from ..scripts.pixel import Pixel
 from ..scripts.source_ressource import SourceRessource
@@ -51,6 +55,10 @@ class Ile(Node2D):
     FORMES_MACHINES = ...
     ZONE_EMPLACEMENT = ...
     RAYON_MACHINE = 16.0
+    POSITION_MARCHAND = ...
+    ZONE_MARCHAND = ...
+    DUREE_VOL = 4.0
+    DEPART_MARCHAND_X = 700.0
     plongee_demandee = Signal('')
     partie_modifiee = Signal('')
     cloche_visible: 'bool'
@@ -64,6 +72,7 @@ class Ile(Node2D):
     _souris: 'Vector2'
     _survol_cloche: 'bool'
     _survol_cabane: 'bool'
+    _survol_marchand: 'bool'
     _survol: SourceRessource
     _maintien: SourceRessource
     _progres_maintien: 'float'
@@ -77,12 +86,15 @@ class Ile(Node2D):
     _panneau: PanneauInventaire
     _atelier: PanneauAtelier
     _carnet: PanneauCarnet
+    _marchand: PanneauMarchand
 
     def _ready(self) -> 'void':
         self._dessiner_monde  # passée comme Callable
         Donnees.charger_json(...)
         self._creer_sources(...)
         self._creer_nuage(...)
+        PanneauMarchand.echange_fait.connect(...)
+        self._sur_echange  # passée comme Callable
         self._basculer_inventaire  # passée comme Callable
         self.basculer_carnet  # passée comme Callable
         PanneauAtelier.fabrique.connect(...)
@@ -94,31 +106,41 @@ class Ile(Node2D):
         ...
 
     def panneau_ouvert(self) -> 'bool':
-        """Un seul panneau ouvert à la fois (inventaire, atelier ou carnet)."""
+        """Un seul panneau ouvert à la fois (inventaire, atelier, carnet ou marchand)."""
         PanneauInventaire.est_ouvert(...)
         PanneauAtelier.est_ouvert(...)
         PanneauCarnet.est_ouvert(...)
+        PanneauMarchand.est_ouvert(...)
 
     def _fermer_panneaux(self) -> 'void':
         PanneauInventaire.fermer(...)
         PanneauAtelier.fermer(...)
         PanneauCarnet.fermer(...)
+        PanneauMarchand.fermer(...)
 
     def _basculer_inventaire(self) -> 'void':
         PanneauAtelier.fermer(...)
         PanneauCarnet.fermer(...)
+        PanneauMarchand.fermer(...)
         PanneauInventaire.basculer(...)
 
     def _basculer_atelier(self) -> 'void':
         PanneauInventaire.fermer(...)
         PanneauCarnet.fermer(...)
+        PanneauMarchand.fermer(...)
         PanneauAtelier.basculer(...)
 
     def basculer_carnet(self) -> 'void':
         """Carnet de collection (K ou le bouton « Carnet »)."""
         PanneauInventaire.fermer(...)
         PanneauAtelier.fermer(...)
+        PanneauMarchand.fermer(...)
         PanneauCarnet.basculer(...)
+
+    def ouvrir_marchand(self) -> 'void':
+        """Échanges du marchand (clic sur son dirigeable, tant qu'il est là)."""
+        self._fermer_panneaux(...)
+        PanneauMarchand.ouvrir(...)
 
     def _sur_fabrication(self, id: 'String', genre: 'String') -> 'void':
         """genre : « composant », « amelioration » ou « construction » (voir PanneauAtelier.fabrique)."""
@@ -130,11 +152,41 @@ class Ile(Node2D):
         Atelier.annonce_construction(...)
         self.actualiser_machines(...)
         Atelier.nom_machine(...)
-        self.machine(...)
+        self._conseil_machine(...)
         self._vider_fourneau(...)
         Game.nom_ressource(...)
         InterfaceIle.rafraichir_inventaire(...)
         self.partie_modifiee.emit(...)
+
+    def _conseil_machine(self, id: 'String', lieu: 'String') -> 'String':
+        """Ce que l'annonce dit après la construction d'une machine."""
+        self.machine(...)
+        Atelier.nombre_machines(...)
+
+    def _sur_echange(self, id: 'String') -> 'void':
+        """Un échange chez le marchand : annonce de ce qui est reçu, son et sauvegarde."""
+        Marchand.echange(...)
+        Game.nom_ressource(...)
+        InterfaceIle.annoncer(...)
+        Son.jouer(...)
+        InterfaceIle.rafraichir_inventaire(...)
+        self.partie_modifiee.emit(...)
+
+    def _avancer_marchand(self, secondes: 'float') -> 'void':
+        """Temps du marchand sur l'île : arrivée (annonce et corne) et départ (son panneau se ferme)."""
+        Marchand.avancer(...)
+        InterfaceIle.annoncer(...)
+        Son.jouer(...)
+        PanneauMarchand.fermer(...)
+
+    def position_marchand(self) -> 'Vector2':
+        """Position du dirigeable (640x360) : il glisse depuis le bord droit, se balance doucement, puis y repart."""
+        Marchand.temps_present(...)
+        ArtAbysse.temps(...)
+
+    def _souris_sur_marchand(self) -> 'bool':
+        Marchand.est_present(...)
+        self.position_marchand(...)
 
     def _unhandled_input(self, evenement: 'InputEvent') -> 'void':
         self._basculer_inventaire(...)
@@ -147,6 +199,8 @@ class Ile(Node2D):
         self.plongee_demandee.emit(...)
 
     def _process(self, delta: 'float') -> 'void':
+        self._avancer_marchand(...)
+        InterfaceIle.marquer_carnet(...)
         self._gerer_nuages(...)
         self._mettre_a_jour_survol(...)
         self._gerer_maintien(...)
@@ -156,6 +210,7 @@ class Ile(Node2D):
     def _clic(self) -> 'void':
         self.plongee_demandee.emit(...)
         self._basculer_atelier(...)
+        self.ouvrir_marchand(...)
         PanneauInventaire.fermer(...)
         PanneauAtelier.ouvrir(...)
         PanneauAtelier.choisir_onglet(...)
@@ -199,6 +254,7 @@ class Ile(Node2D):
     def _mettre_a_jour_survol(self) -> 'void':
         self.panneau_ouvert(...)
         self._souris_sur_cloche(...)
+        self._souris_sur_marchand(...)
         self._source_sous_souris(...)
         self._ilot_isole_sous_souris(...)
         self._emplacement_sous_souris(...)
@@ -321,6 +377,7 @@ class Ile(Node2D):
         """Appelé à la fin de la remontée : rattrape la recharge, range le butin, annonce le résultat."""
         self.reprendre(...)
         self.rattraper(...)
+        Marchand.avancer(...)
         SourceRessource.recharger_plongee(...)
         Inventaire.ajouter_tout(...)
         self._total(...)
@@ -371,6 +428,7 @@ class Ile(Node2D):
     def _dessiner_monde(self, toile: 'Node2D') -> 'void':
         ArtIle.fond_ile(...)
         SourceRessource.dessiner_monde(...)
+        self._dessiner_marchand(...)
         self._dessiner_cabane(...)
         self._dessiner_ilots(...)
         self._dessiner_emplacements(...)
@@ -380,6 +438,19 @@ class Ile(Node2D):
         Pixel.sprite_ombre(...)
         Palette.plus_sombre(...)
         ArtIle.couleur_ciel_monde(...)
+        Pixel.cadre(...)
+
+    def _dessiner_marchand(self, toile: 'Node2D') -> 'void':
+        """Dirigeable du marchand (devant les nuages, derrière les îlots) et son hélice qui tourne."""
+        Marchand.est_present(...)
+        VueMonde.vers_monde(...)
+        self.position_marchand(...)
+        ArtIle.dirigeable(...)
+        Pixel.sprite_ombre(...)
+        Palette.plus_sombre(...)
+        ArtIle.couleur_ciel_monde(...)
+        Palette.couleur(...)
+        ArtAbysse.temps(...)
         Pixel.cadre(...)
 
     def _dessiner_cabane(self, toile: 'Node2D') -> 'void':

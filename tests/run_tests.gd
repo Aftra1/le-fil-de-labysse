@@ -153,6 +153,16 @@ func _lancer() -> void:
 	await _test_palier3_ile()
 	await _test_palier3_sauvegarde()
 
+	_titre("Marchand de vent : passages, échanges, répliques")
+	_test_marchand_logique()
+	await _test_marchand_ile()
+	await _test_marchand_plongee_et_sauvegarde()
+
+	_titre("Équilibrage final et confort (PR E)")
+	_test_equilibrage_final()
+	await _test_confort_carnet()
+	await _test_confort_interface()
+
 	_titre("Audio : synthèse, bus, volumes, sauvegarde")
 	_test_synthese()
 	_test_bus_et_volumes()
@@ -688,10 +698,10 @@ func _fermer_ile(ile: Node) -> void:
 	await _images(2)
 
 
-## Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 34 et 112 :
-## l'un d'eux peut se trouver sous le bouton « Inventaire » (en haut à gauche), et un clic ouvrirait alors
-## l'inventaire, qui bloque tous les clics suivants. On le déplace dans ce cas (c'est le premier des
-## nuages parcourus au survol : un autre nuage au même endroit ne gêne pas).
+## Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 94 et 128, sous
+## les boutons et l'aide du haut ; par prudence, s'il touchait le bouton « Inventaire » (un clic ouvrirait alors
+## l'inventaire, qui bloque tous les clics suivants), on le déplace (c'est le premier des nuages parcourus
+## au survol : un autre nuage au même endroit ne gêne pas).
 func _nuage_degage(ile: Node) -> SourceRessource:
 	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
 	nuage.derive = 0.0
@@ -1981,8 +1991,8 @@ func _test_palier2_logique() -> void:
 	_ingredients(inventaire, atelier.machine("foreuse")["ingredients"])
 	_verifier(not atelier.peut_construire_machine("foreuse"), "palier 1 : la foreuse n'est pas encore proposée")
 	_verifier(atelier.decouvrir(["corail"]) and atelier.palier == 2
-		and atelier.machines_disponibles() == ["moulin", "filet", "foreuse", "entrepot"],
-		"premier corail rapporté : palier 2, foreuse solaire et entrepôt proposés")
+		and atelier.machines_disponibles() == ["moulin", "filet", "foreuse"],
+		"premier corail rapporté : palier 2, foreuse solaire proposée (l'entrepôt attend le palier 3)")
 	_verifier(atelier.construire_machine("foreuse", "ile_ouest") == "filon_1" and inventaire.total() == 0,
 		"foreuse : 1 lentille, 4 coraux, 4 cristaux solaires ; toujours posée sur un filon (le premier libre)")
 	_verifier(atelier.emplacements_libres() == ["ile_ouest", "ile_centre"] and atelier.emplacements_libres("foreuse") == ["filon_2", "filon_3"],
@@ -1997,8 +2007,11 @@ func _test_palier2_logique() -> void:
 	atelier = Atelier.new(inventaire)
 	atelier.palier = 2
 	_ingredients(inventaire, atelier.machine("entrepot")["ingredients"])
+	_verifier(not atelier.peut_construire_machine("entrepot"), "palier 2 : pas encore d'entrepôt")
+	atelier.palier = 3
 	_verifier(atelier.construire_machine("entrepot") != "" and inventaire.plafond == 199 and inventaire.ajouter("vent", 150) == 150,
-		"entrepôt : 5 coraux, 4 fils de nuage, 4 cristaux de lagon ; l'inventaire garde jusqu'à 199")
+		"entrepôt (palier 3) : 5 coraux, 4 fils de nuage, 4 cristaux de lagon ; l'inventaire garde jusqu'à 199")
+	atelier.palier = 2
 	_ingredients(inventaire, {"corail": 4, "fil_nuage": 4})
 	_verifier(atelier.construire("pont") and atelier.est_relie("ilot_nord")
 		and atelier.emplacements_libres().has("nord_ouest") and atelier.emplacements_libres().has("nord_est"),
@@ -2075,6 +2088,7 @@ func _test_palier2_ile() -> void:
 	await _images(2)
 	var annonce: String = ile.get_node("HUD").texte_annonce()
 	_verifier(ile.ilot_relie("ilot_nord") and annonce.contains("nord"), "pont construit : l'îlot du nord est relié", annonce)
+	_jeu.atelier.palier = 3   # l'entrepôt arrive au palier 3
 	_ingredients(_jeu.inventaire, _jeu.atelier.machine("entrepot")["ingredients"])
 	await _cliquer(ile.centre_emplacement("nord_est"))
 	_verifier(atelier.est_ouvert() and atelier.emplacement_cible == "nord_est", "clic sur un emplacement de l'îlot du nord")
@@ -2084,7 +2098,7 @@ func _test_palier2_ile() -> void:
 	await _images(2)
 	var entrepot: SourceRessource = ile.machine("nord_est")
 	_verifier(entrepot != null and entrepot.forme == SourceRessource.Forme.ENTREPOT and _jeu.inventaire.plafond == 199,
-		"entrepôt sur l'îlot du nord : inventaire jusqu'à 199")
+		"entrepôt (palier 3) sur l'îlot du nord : inventaire jusqu'à 199")
 	_souris(entrepot.position)
 	await _images(2)
 	_souris(entrepot.position + Vector2(1, 0))
@@ -2127,7 +2141,7 @@ func _test_palier2_sauvegarde() -> void:
 	var jeu := await _ouvrir_jeu()
 	var ile: Node = jeu.get_node("Ile")
 	var atelier: Atelier = _jeu.atelier
-	atelier.palier = 2
+	atelier.palier = 3   # entrepôt compris
 	_ingredients(_jeu.inventaire, atelier.machine("foreuse")["ingredients"])
 	atelier.construire_machine("foreuse", "filon_2")
 	_ingredients(_jeu.inventaire, {"corail": 4, "fil_nuage": 4})
@@ -2148,9 +2162,9 @@ func _test_palier2_sauvegarde() -> void:
 	await _images(2)
 	ile = jeu.get_node("Ile")
 	var foreuse: SourceRessource = ile.machine("filon_2")
-	_verifier(_jeu.atelier.palier == 2 and foreuse != null and foreuse.plafond == 12 and foreuse.stock == 9
+	_verifier(_jeu.atelier.palier == 3 and foreuse != null and foreuse.plafond == 12 and foreuse.stock == 9
 		and ile._filons[1].get_parent() == null,
-		"Continuer : palier 2, foreuse sur le filon du milieu, réserve améliorée (12) et son stock")
+		"Continuer : palier 3, foreuse sur le filon du milieu, réserve améliorée (12) et son stock")
 	_verifier(_jeu.atelier.est_relie("ilot_nord") and ile.machine("nord_ouest") != null
 		and _jeu.inventaire.plafond == 199 and _jeu.inventaire.quantite("vent") == 150,
 		"Continuer : îlot du nord, entrepôt, 150 vents gardés")
@@ -2202,15 +2216,18 @@ func _test_carnet_logique() -> void:
 		and carnet.pourcentage() == 4, "trouver : une seule fois ; 1/24 = 4 %")
 	for id: String in carnet.cases("lagon"):
 		carnet.trouver(id)
-	_verifier(carnet.page_complete("lagon") and is_equal_approx(carnet.facteur_minage("lagon"), 1.25)
-		and carnet.facteur_minage("coraux") == 1.0 and carnet.restantes("lagon").is_empty(),
-		"page des perles complète : le Lagon se mine 25 % plus vite")
+	_verifier(carnet.page_complete("lagon") and carnet.places_sac_bonus() == 1
+		and carnet.facteur_minage("lagon") == 1.0 and carnet.restantes("lagon").is_empty(),
+		"page des perles complète : une place de sac en plus")
 	for id: String in carnet.cases("faille"):
 		carnet.trouver(id)
 	_verifier(is_equal_approx(carnet.facteur_oxygene("faille"), 0.8) and carnet.facteur_oxygene("lagon") == 1.0,
 		"page des reliques complète : 20 % d'air en moins dans la Faille")
 	var inventaire := Inventaire.new()
 	var atelier := Atelier.new(inventaire)
+	for id: String in carnet.cases("lagon"):
+		atelier.carnet.trouver(id)
+	_verifier(atelier.places_sac() == 9, "page des perles : sac de 9 places au lieu de 8", str(atelier.places_sac()))
 	for id: String in atelier.liste_machines():
 		atelier.carnet.voir_machine(id)
 	_verifier(atelier.carnet.page_complete("machines") and is_equal_approx(atelier.recharge_machine("moulin"), 10.0 / 1.1),
@@ -2281,17 +2298,15 @@ func _test_trouvailles_plongee() -> void:
 		_plongee._ramasser_trouvaille(derniere)
 	annonce = _plongee.get_node("HUD")._annonce.text
 	_verifier(carnet.page_complete("lagon") and annonce.contains("Page complète"), "dernière perle : page complète annoncée", annonce)
-	var duree_lagon := 0.0
 	var perle := false
 	for tirage in 10:
 		_plongee._generer_gisements()
 		await physics_frame
 		for gisement in _gisements():
-			if gisement.minerai == "cristal_lagon":
-				duree_lagon = gisement.duree_minage
 			perle = perle or gisement.zone == "lagon"
-	_verifier(is_equal_approx(duree_lagon, 1.0 / 1.25) and not perle,
-		"page des perles complète : plus de perle à trouver, cristal de lagon miné en 0,8 s")
+	_verifier(_plongee._sac.capacite == _jeu.atelier.places_sac() and _jeu.atelier.places_sac() == 9 and not perle,
+		"page des perles complète : plus de perle à trouver, une place de sac en plus tout de suite",
+		"sac %d" % _plongee._sac.capacite)
 	_jeu.atelier.niveaux["cable"] = 0
 	await _terminer()
 
@@ -2555,6 +2570,328 @@ func _test_palier3_sauvegarde() -> void:
 		"stock %d" % fourneau.stock)
 	await _fermer_jeu(jeu)
 	_effacer_sauvegarde()
+
+
+# --- Marchand de vent -------------------------------------------------------------------------
+
+## Ressources de l'abysse (minerais des zones) et tout ce qui en est fabriqué (composants, raffinés).
+func _issus_de_l_abysse() -> Array:
+	var atelier := Atelier.new(Inventaire.new())
+	var issus: Array = []
+	for zone: Dictionary in Donnees.charger_json("res://data/zones.json"):
+		issus.append(str(zone["minerai"]))
+	for id: String in atelier.composants():
+		for ingredient: String in atelier.ingredients_composant(id):
+			if issus.has(ingredient) and not issus.has(id):
+				issus.append(id)
+	for id: String in atelier.raffines():
+		for ingredient: String in atelier.recette_raffine(id):
+			if issus.has(ingredient) and not issus.has(id):
+				issus.append(id)
+	return issus
+
+
+func _test_marchand_logique() -> void:
+	var marchand := Marchand.new()
+	_verifier(not marchand.est_present() and is_equal_approx(marchand.attente, 240.0) and is_equal_approx(marchand.duree(), 60.0),
+		"marchand : premier passage après 4 min de jeu, il reste 60 s")
+	var issus := _issus_de_l_abysse()
+	var jamais_abysse := true
+	var surplus_seulement := true
+	var par_palier := {1: 0, 2: 0, 3: 0}
+	var ouates := {1: false, 2: false, 3: false}
+	for donnees: Dictionary in marchand.echanges():
+		for id: String in donnees["recoit"]:
+			jamais_abysse = jamais_abysse and not issus.has(id) and not marchand.interdits().has(id)
+		for id: String in donnees["donne"]:
+			surplus_seulement = surplus_seulement and (id == "nuage" or id == "vent")
+		par_palier[int(donnees["palier"])] += 1
+		ouates[int(donnees["palier"])] = ouates[int(donnees["palier"])] or donnees["donne"].has("nuage")
+	_verifier(jamais_abysse and issus.has("lentille") and issus.has("nacre") and issus.has("verre_lagon"),
+		"aucun échange ne donne un minerai de l'abysse ni ce qui en est fait (aucune plongée rendue inutile)", str(issus))
+	_verifier(surplus_seulement, "il ne rachète que des surplus : ouates et vents")
+	_verifier(par_palier[1] >= 4 and par_palier[2] >= 4 and par_palier[3] >= 4 and ouates[1] and ouates[2] and ouates[3],
+		"au moins 4 échanges par palier (3 tirés à chaque passage), chacun avec des ouates", str(par_palier))
+
+	_verifier(marchand.avancer(239.0, true, 1) == "" and not marchand.est_present()
+		and marchand.avancer(1.0, true, 1) == "arrivee" and marchand.est_present(), "4 min sur l'île : il arrive")
+	var palier_1 := true
+	for id: String in marchand.offres:
+		palier_1 = palier_1 and int(marchand.echange(id)["palier"]) == 1
+	_verifier(marchand.offres.size() == 3 and palier_1 and marchand.replique() == str(marchand.repliques()[0]),
+		"3 échanges du palier 1 et sa première réplique", str(marchand.offres))
+	var inventaire := Inventaire.new()
+	var id_echange: String = marchand.offres[0]
+	var donnees_echange := marchand.echange(id_echange)
+	_verifier(not marchand.peut_echanger(id_echange, inventaire), "sans les ouates demandées : pas d'échange")
+	for id: String in donnees_echange["donne"]:
+		inventaire.ajouter(id, int(donnees_echange["donne"][id]))
+	var recu: String = donnees_echange["recoit"].keys()[0]
+	_verifier(marchand.echanger(id_echange, inventaire) and inventaire.quantite(recu) == int(donnees_echange["recoit"][recu])
+		and inventaire.quantite("nuage") == 0 and marchand.faits == [id_echange]
+		and int(marchand.vendu.get("nuage", 0)) == int(donnees_echange["donne"].get("nuage", 0)),
+		"échange : les ouates partent, la ressource arrive, mesures comptées")
+	for id: String in donnees_echange["donne"]:
+		inventaire.ajouter(id, int(donnees_echange["donne"][id]))
+	_verifier(not marchand.echanger(id_echange, inventaire), "chaque échange une seule fois par passage")
+	var plein := Inventaire.new()
+	var autre: String = marchand.offres[1]
+	for id: String in marchand.echange(autre)["donne"]:
+		plein.ajouter(id, int(marchand.echange(autre)["donne"][id]))
+	for id: String in marchand.echange(autre)["recoit"]:
+		plein.ajouter(id, 99)
+	_verifier(not marchand.peut_echanger(autre, plein), "inventaire plein pour ce qu'il donne : pas d'échange")
+	_verifier(marchand.avancer(59.0, true, 1) == "" and marchand.avancer(1.0, true, 1) == "depart"
+		and not marchand.est_present() and marchand.offres.is_empty() and is_equal_approx(marchand.attente, 240.0),
+		"après 60 s, il repart et revient 4 min plus tard")
+
+	# Passage pendant une plongée : il attend le retour sur l'île, puis reste ses 60 s.
+	_verifier(marchand.avancer(300.0, false, 2) == "" and not marchand.est_present() and marchand.attente == 0.0,
+		"il arrive pendant une plongée : il attend le retour")
+	_verifier(marchand.avancer(0.0, true, 2) == "arrivee" and is_equal_approx(marchand.restant, 60.0)
+		and marchand.replique() != str(marchand.repliques()[0]), "retour sur l'île : il est là pour 60 s, avec une autre réplique")
+	marchand.avancer(20.0, true, 2)
+	marchand.avancer(10.0, false, 2)
+	var apres_10 := marchand.restant
+	marchand.avancer(500.0, false, 2)
+	_verifier(is_equal_approx(apres_10, 30.0) and marchand.est_present() and is_equal_approx(marchand.restant, 20.0),
+		"en plongée, son passage avance, mais il ne repart pas : encore 20 s au retour", "%.0f puis %.0f" % [apres_10, marchand.restant])
+	var paires := {}
+	var repliques := {}
+	var palier_ok := true
+	for visite in 12:
+		marchand.arriver(2)
+		paires[str(marchand.offres)] = true
+		repliques[marchand.replique()] = true
+		for id: String in marchand.offres:
+			palier_ok = palier_ok and int(marchand.echange(id)["palier"]) == 2
+	_verifier(paires.size() >= 3 and repliques.size() == 12 and palier_ok,
+		"les échanges changent d'un passage à l'autre ; une réplique différente à chaque visite",
+		"%d tirages, %d répliques" % [paires.size(), repliques.size()])
+	var copie := Marchand.new()
+	copie.charger(marchand.vers_dictionnaire())
+	_verifier(copie.offres == marchand.offres and is_equal_approx(copie.restant, marchand.restant) and copie.visites == marchand.visites,
+		"marchand relu tel quel")
+	copie.charger({"attente": -5, "restant": 900, "offres": ["fusee", 3], "faits": "x", "visites": "y"})
+	_verifier(copie.attente == 0.0 and not copie.est_present() and copie.offres.is_empty() and copie.visites == 0,
+		"marchand lu : valeurs fausses bornées ou ignorées")
+	copie.charger({})
+	_verifier(is_equal_approx(copie.attente, 240.0) and not copie.est_present(), "sauvegarde d'avant le marchand : premier passage après 4 min")
+
+
+func _test_marchand_ile() -> void:
+	var son := _son()
+	son.vider_historique()
+	var ile := await _ouvrir_ile()
+	var marchand: Marchand = _jeu.atelier.marchand
+	var panneau: Node = ile.get_node("Marchand")
+	marchand.attente = 0.05
+	await _images(6)
+	var annonce: String = ile.get_node("HUD").texte_annonce()
+	_verifier(marchand.est_present() and annonce.contains("marchand") and son.a_joue("marchand"),
+		"il arrive : annonce et corne", annonce)
+	var debut: Vector2 = ile.position_marchand()
+	await _secondes(4.5)
+	var arret: Vector2 = ile.position_marchand()
+	_verifier(debut.x > arret.x + 100.0 and absf(arret.x - _ile_script.POSITION_MARCHAND.x) < 1.0
+		and absf(arret.y - _ile_script.POSITION_MARCHAND.y) <= 2.0, "le dirigeable glisse depuis la droite et s'arrête au-dessus de l'île",
+		"%s puis %s" % [debut, arret])
+	_souris(arret)
+	await _images(2)
+	var aide: String = ile._texte_aide()
+	_verifier(aide.contains("Marchand") and aide.contains("repart"), "survol du dirigeable : l'aide", aide)
+	# Un nuage devant le dirigeable ne prend pas le clic.
+	var nuage := _nuage_degage(ile)
+	var prises := nuage.stock
+	nuage.position = arret
+	await _cliquer(ile.position_marchand())
+	_verifier(panneau.est_ouvert() and ile.panneau_ouvert() and nuage.stock == prises
+		and panneau._replique.text.contains(marchand.replique()) and panneau._lignes.get_child_count() == 3,
+		"clic sur le dirigeable (même avec un nuage devant) : sa réplique et 3 échanges", panneau._replique.text)
+	var id_echange: String = marchand.offres[0]
+	var donnees := marchand.echange(id_echange)
+	var bouton: Button = panneau.bouton(id_echange)
+	_verifier(bouton.disabled and bouton.text == "Échanger", "sans ouates : bouton Échanger grisé")
+	for id: String in donnees["donne"]:
+		_jeu.inventaire.ajouter(id, int(donnees["donne"][id]))
+	await _images(2)
+	var recu: String = donnees["recoit"].keys()[0]
+	var avant: int = _jeu.inventaire.quantite(recu)
+	await _cliquer(_centre(bouton))
+	annonce = ile.get_node("HUD").texte_annonce()
+	_verifier(_jeu.inventaire.quantite(recu) == avant + int(donnees["recoit"][recu]) and bouton.text == "Fait" and bouton.disabled
+		and son.a_joue("echange") and annonce.contains("Échangé"), "clic sur Échanger : ressource reçue, « Fait », son et annonce", annonce)
+	_touche(KEY_ESCAPE)
+	await _images(2)
+	_verifier(not panneau.est_ouvert(), "Échap ferme le panneau du marchand")
+	await _cliquer(ile.position_marchand())
+	marchand.restant = 0.2
+	await _secondes(0.5)
+	annonce = ile.get_node("HUD").texte_annonce()
+	_verifier(not marchand.est_present() and not panneau.est_ouvert() and annonce.contains("repart"),
+		"fin de son passage : il repart, son panneau se ferme", annonce)
+	await _cliquer(arret)
+	_verifier(not panneau.est_ouvert(), "parti : un clic au même endroit n'ouvre plus rien")
+	await _fermer_ile(ile)
+
+
+func _test_marchand_plongee_et_sauvegarde() -> void:
+	var ile := await _ouvrir_ile()
+	var marchand: Marchand = _jeu.atelier.marchand
+	marchand.attente = 100.0
+	ile.preparer_depart()
+	await _images(3)
+	ile.arriver(150.0, {}, {}, false)
+	_verifier(not marchand.est_present() and marchand.attente == 0.0, "passage pendant la plongée : il n'est pas encore là")
+	await _images(2)
+	_verifier(marchand.est_present() and marchand.restant > 59.0, "retour sur l'île : il arrive, pour 60 s entières")
+	await _fermer_ile(ile)
+
+	_effacer_sauvegarde()
+	var jeu := await _ouvrir_jeu()
+	_jeu.atelier.marchand.arriver(1)
+	_jeu.atelier.marchand.restant = 30.0
+	var offres: Array = _jeu.atelier.marchand.offres.duplicate()
+	_jeu.atelier.marchand.faits.append(offres[1])
+	jeu.sauvegarder()
+	await _fermer_jeu(jeu)
+	jeu = await _ouvrir_jeu(true)
+	jeu.continuer()
+	await _images(2)
+	var relu: Marchand = _jeu.atelier.marchand
+	_verifier(relu.est_present() and relu.offres == offres and relu.faits == [offres[1]] and relu.restant > 29.0
+		and relu.restant <= 30.0, "Continuer : le marchand est toujours là, mêmes échanges, celui déjà fait reste fait")
+	await _fermer_jeu(jeu)
+	jeu = await _ouvrir_jeu(true)
+	await _cliquer(_centre(jeu._titre.bouton_nouvelle))
+	await _cliquer(_centre(jeu._titre.bouton_remplacer))
+	_verifier(not _jeu.atelier.marchand.est_present() and _jeu.atelier.marchand.attente > 239.0,
+		"Nouvelle partie : le marchand repassera dans 4 min")
+	await _fermer_jeu(jeu)
+	_effacer_sauvegarde()
+
+
+# --- Équilibrage final et confort --------------------------------------------------------------
+
+func _test_equilibrage_final() -> void:
+	var inventaire := Inventaire.new()
+	var atelier := Atelier.new(inventaire)
+	_verifier(int(atelier.machine("entrepot")["palier"]) == 3 and is_equal_approx(atelier.recharge_machine("fourneau"), 15.0)
+		and int(atelier.machine("filet")["recharge_s"]) == 6,
+		"entrepôt au palier 3, fourneau : 1 raffiné toutes les 15 s, filet inchangé (6 s)")
+	atelier.palier = 3
+	_ingredients(inventaire, atelier.machine("fourneau")["ingredients"])
+	atelier.construire_machine("fourneau")
+	_ingredients(inventaire, atelier.machine("fourneau")["ingredients"])
+	_verifier(atelier.construire_machine("fourneau") != "" and atelier.nombre_machines("fourneau") == 2
+		and atelier.recettes_fourneau.size() == 2, "deux fourneaux possibles, chacun sa recette")
+
+
+func _test_confort_carnet() -> void:
+	var ile := await _ouvrir_ile()
+	var carnet: Carnet = _jeu.atelier.carnet
+	var hud: Node = ile.get_node("HUD")
+	var panneau: Node = ile.get_node("Carnet")
+	await _images(2)
+	_verifier(hud.bouton_carnet.text == "Carnet (K)", "rien de nouveau : « Carnet (K) »")
+	var police: Font = hud.bouton_carnet.get_theme_font("font")
+	_verifier(police.has_char("•".unicode_at(0)), "la police a le point « • »")
+	carnet.trouver("perle_aube")
+	carnet.trouver("dent_abysse")
+	await _images(2)
+	_verifier(hud.bouton_carnet.text == "Carnet (K) •" and carnet.a_voir == "dent_abysse",
+		"nouvelle trouvaille : « Carnet (K) • »", hud.bouton_carnet.text)
+	_touche(KEY_K)
+	await _images(2)
+	_verifier(panneau.page == "coraux" and panneau.selection == "dent_abysse" and panneau._nom.text == "Dent de l'abysse",
+		"le carnet s'ouvre sur la dernière trouvaille", "%s / %s" % [panneau.page, panneau.selection])
+	await _images(2)
+	_verifier(hud.bouton_carnet.text == "Carnet (K)" and carnet.a_voir == "", "vue : le point disparaît")
+	await _cliquer(_centre(panneau._onglets["lagon"]))
+	panneau.selectionner("perle_aube")
+	_touche(KEY_K)
+	await _images(2)
+	_touche(KEY_K)
+	await _images(2)
+	_verifier(panneau.page == "lagon" and panneau.selection == "perle_aube", "rien de nouveau : il se rouvre là où on l'a laissé")
+	panneau.fermer()
+	carnet.trouver("cle_braise")
+	var copie := Carnet.new()
+	copie.charger(carnet.vers_dictionnaire())
+	_verifier(copie.a_voir == "cle_braise", "trouvaille pas encore vue : gardée dans la sauvegarde")
+	copie.charger({"trouvailles": ["ammonite"], "a_voir": "perle_noire"})
+	_verifier(copie.a_voir == "", "a_voir inconnu du carnet : ignoré")
+	await _fermer_ile(ile)
+
+
+func _test_confort_interface() -> void:
+	# Nuages : toujours sous les boutons et l'aide du haut (ni cachés ni impossibles à cliquer), derrière les îlots.
+	var ile := await _ouvrir_ile()
+	var hud: Node = ile.get_node("HUD")
+	var reglage: Dictionary = Donnees.charger_json("res://data/ile.json")["nuages"]
+	var haut_nuage := float(reglage["y_min"]) - SourceRessource.TAILLE_NUAGE.y
+	var bas_hud: float = maxf(hud.bouton_inventaire.get_global_rect().end.y, hud._aide_panneau.get_global_rect().end.y)
+	_verifier(haut_nuage >= bas_hud + 2.0, "nuages : jamais sous les boutons Inventaire et Carnet ni sous l'aide",
+		"haut %.0f, interface %.0f" % [haut_nuage, bas_hud])
+	var nuages_ok := true
+	for i in 30:
+		ile._creer_nuage(320.0)
+	for enfant in ile.get_node("Nuages").get_children():
+		var y: float = (enfant as Node2D).position.y
+		nuages_ok = nuages_ok and y >= float(reglage["y_min"]) and y <= float(reglage["y_max"])
+	_verifier(nuages_ok, "nuages : tous dans la bande du ciel")
+	var bas_nuage := float(reglage["y_max"]) + SourceRessource.TAILLE_NUAGE.y
+	_verifier(bas_nuage < float(ile._ilot("ilot_nord")["position"][1]) and bas_nuage < _ile_script.POSITION_CABANE.y,
+		"nuages : au-dessus des îlots et de la cabane (ils passent derrière les machines)", "bas %.0f" % bas_nuage)
+	# Moulin plus grand, réserve en jauge au-delà de 10.
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("moulin")["ingredients"])
+	_jeu.atelier.construire_machine("moulin", "ile_ouest")
+	_jeu.atelier.niveaux_machines["moulin"] = {"capacite": 2}
+	ile.actualiser_machines()
+	_verifier(ile.machine("ile_ouest").plafond == 24 and SourceRessource.POINTS_MAX == 10,
+		"réserve ×3 du moulin (24) : affichée en jauge au-delà de 10")
+	# Atelier resserré : une marge en haut et en bas, même avec le texte le plus long (arche).
+	var atelier: Node = ile.get_node("Atelier")
+	_jeu.atelier.palier = 3
+	atelier.ouvrir()
+	atelier.choisir_onglet("construction")
+	atelier.selectionner("arche")
+	await _images(3)
+	var rect: Rect2 = (atelier.get_child(1) as Control).get_global_rect()
+	_verifier(rect.position.y >= 16.0 and rect.end.y <= 344.0, "atelier : au moins 16 px de marge en haut et en bas",
+		"de %.0f à %.0f" % [rect.position.y, rect.end.y])
+	# Deuxième fourneau : l'atelier et l'annonce le suggèrent.
+	_ingredients(_jeu.inventaire, _jeu.atelier.machine("fourneau")["ingredients"])
+	atelier.ouvrir_machines("ile_centre")
+	atelier.selectionner("fourneau")
+	atelier.fabriquer_selection()
+	await _images(2)
+	var annonce: String = hud.texte_annonce()
+	atelier.selectionner("fourneau")
+	var effet_fourneau: String = atelier._effet.text
+	atelier.fermer()
+	_verifier(annonce.contains("deuxième fourneau") and effet_fourneau.contains("deuxième fourneau"),
+		"premier fourneau : l'annonce et l'atelier suggèrent un deuxième", annonce)
+	await _cliquer(ile.machine("ile_centre").position)
+	atelier.selectionner("verre_lagon")
+	_verifier(atelier._effet.text.contains("15 s"), "panneau du fourneau : 1 toutes les 15 s", atelier._effet.text)
+	atelier.fermer()
+	# Annonce du palier 3 : la liste se lit bien (virgule, puis « et »).
+	_jeu.atelier.palier = 2
+	ile.arriver(0.0, {"pierre_braise": 1}, {}, false)
+	await _secondes(4.2)
+	annonce = hud.texte_annonce()
+	_verifier(annonce.contains("entrepôt, fourneau et sonde de plongée"), "palier 3 : entrepôt, fourneau et sonde annoncés", annonce)
+	await _fermer_ile(ile)
+
+	# Plongée : une longue annonce passe sous le panneau d'air, sans le chevaucher.
+	await _demarrer()
+	var interface: Node = _plongee.get_node("HUD")
+	interface.annoncer("Page complète : La Faille volcanique consomme 20 % d'air en moins.")
+	await _images(3)
+	_verifier(not interface.rect_etat().intersects(interface.rect_annonce()) and interface.rect_annonce().end.x <= 640.0,
+		"plongée : l'annonce passe sous le panneau d'air", "%s / %s" % [interface.rect_etat(), interface.rect_annonce()])
+	await _terminer()
 
 
 # --- Étape 4 (partie 2) : Faille volcanique ----------------------------------------------

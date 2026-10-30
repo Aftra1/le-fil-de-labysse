@@ -19,6 +19,7 @@ from ..scripts.gisement import Gisement
 from ..scripts.ile import Ile
 from ..scripts.inventaire import Inventaire
 from ..scripts.jeu import Jeu
+from ..scripts.marchand import Marchand
 from ..scripts.palette import Palette
 from ..scripts.pixel import Pixel
 from ..scripts.sac import Sac
@@ -111,6 +112,12 @@ class RunTests(SceneTree):
         self._test_palier3_logique(...)
         self._test_palier3_ile(...)
         self._test_palier3_sauvegarde(...)
+        self._test_marchand_logique(...)
+        self._test_marchand_ile(...)
+        self._test_marchand_plongee_et_sauvegarde(...)
+        self._test_equilibrage_final(...)
+        self._test_confort_carnet(...)
+        self._test_confort_interface(...)
         self._test_synthese(...)
         self._test_bus_et_volumes(...)
         self._test_ambiances(...)
@@ -284,10 +291,10 @@ class RunTests(SceneTree):
         self._images(...)
 
     def _nuage_degage(self, ile: 'Node') -> SourceRessource:
-        """Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 34 et 112 :
-        l'un d'eux peut se trouver sous le bouton « Inventaire » (en haut à gauche), et un clic ouvrirait alors
-        l'inventaire, qui bloque tous les clics suivants. On le déplace dans ce cas (c'est le premier des
-        nuages parcourus au survol : un autre nuage au même endroit ne gêne pas)."""
+        """Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 94 et 128, sous
+        les boutons et l'aide du haut ; par prudence, s'il touchait le bouton « Inventaire » (un clic ouvrirait alors
+        l'inventaire, qui bloque tous les clics suivants), on le déplace (c'est le premier des nuages parcourus
+        au survol : un autre nuage au même endroit ne gêne pas)."""
         ...
 
     def _test_recolte(self) -> 'void':
@@ -725,9 +732,11 @@ class RunTests(SceneTree):
         Carnet.trouver(...)
         Carnet.pourcentage(...)
         Carnet.page_complete(...)
+        Carnet.places_sac_bonus(...)
         Carnet.facteur_minage(...)
         Carnet.restantes(...)
         Carnet.facteur_oxygene(...)
+        Atelier.places_sac(...)
         Atelier.liste_machines(...)
         Carnet.voir_machine(...)
         Atelier.recharge_machine(...)
@@ -834,6 +843,93 @@ class RunTests(SceneTree):
         self._fermer_jeu(...)
         self._images(...)
         self._verifier(...)
+
+    def _issus_de_l_abysse(self) -> 'Array':
+        """Ressources de l'abysse (minerais des zones) et tout ce qui en est fabriqué (composants, raffinés)."""
+        Donnees.charger_json(...)
+        Atelier.composants(...)
+        Atelier.ingredients_composant(...)
+        Atelier.raffines(...)
+        Atelier.recette_raffine(...)
+
+    def _test_marchand_logique(self) -> 'void':
+        self._verifier(...)
+        Marchand.est_present(...)
+        Marchand.duree(...)
+        self._issus_de_l_abysse(...)
+        Marchand.echanges(...)
+        Marchand.interdits(...)
+        Marchand.avancer(...)
+        Marchand.echange(...)
+        Marchand.replique(...)
+        Marchand.repliques(...)
+        Marchand.peut_echanger(...)
+        Inventaire.ajouter(...)
+        Marchand.echanger(...)
+        Inventaire.quantite(...)
+        Marchand.arriver(...)
+        Marchand.charger(...)
+        Marchand.vers_dictionnaire(...)
+
+    def _test_marchand_ile(self) -> 'void':
+        self._son(...)
+        self._ouvrir_ile(...)
+        self._images(...)
+        self._verifier(...)
+        Marchand.est_present(...)
+        self._secondes(...)
+        self._souris(...)
+        self._nuage_degage(...)
+        self._cliquer(...)
+        Marchand.replique(...)
+        Marchand.echange(...)
+        self._centre(...)
+        self._touche(...)
+        self._fermer_ile(...)
+
+    def _test_marchand_plongee_et_sauvegarde(self) -> 'void':
+        self._ouvrir_ile(...)
+        self._images(...)
+        self._verifier(...)
+        Marchand.est_present(...)
+        self._fermer_ile(...)
+        self._effacer_sauvegarde(...)
+        self._ouvrir_jeu(...)
+        self._fermer_jeu(...)
+        self._cliquer(...)
+        self._centre(...)
+
+    def _test_equilibrage_final(self) -> 'void':
+        self._verifier(...)
+        Atelier.machine(...)
+        Atelier.recharge_machine(...)
+        self._ingredients(...)
+        Atelier.construire_machine(...)
+        Atelier.nombre_machines(...)
+
+    def _test_confort_carnet(self) -> 'void':
+        self._ouvrir_ile(...)
+        self._images(...)
+        self._verifier(...)
+        Carnet.trouver(...)
+        self._touche(...)
+        self._cliquer(...)
+        self._centre(...)
+        Carnet.charger(...)
+        Carnet.vers_dictionnaire(...)
+        self._fermer_ile(...)
+
+    def _test_confort_interface(self) -> 'void':
+        self._ouvrir_ile(...)
+        Donnees.charger_json(...)
+        self._verifier(...)
+        self._ingredients(...)
+        self._images(...)
+        self._cliquer(...)
+        self._secondes(...)
+        self._fermer_ile(...)
+        self._demarrer(...)
+        self._terminer(...)
 
     def _aller_retour(self, fond: 'float') -> 'Array':
         """Aller-retour à pleine vitesse jusqu'à « fond » px ; renvoie [oxygène à 300 m, au fond, en surface, remontée auto]."""

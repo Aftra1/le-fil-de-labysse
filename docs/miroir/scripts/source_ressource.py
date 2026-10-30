@@ -50,6 +50,8 @@ class SourceRessource(Node2D):
     FILON = ...
     TAILLE_NUAGE = ...
     HAUTEUR_MAT = 25
+    POINTS_MAX = 10
+    LARGEUR_JAUGE = 15
     id_ressource: 'String'
     nom: 'String'
     mode: 'Mode'
@@ -138,8 +140,9 @@ class SourceRessource(Node2D):
         self._dessiner_points(...)
 
     def _dessiner_moulin(self, toile: 'CanvasItem', centre: 'Vector2') -> 'void':
-        """Moulin à vent : petite tour de bois au toit sombre, quatre ailes de toile sur une armature, qui
-        tournent tant qu'il produit (elles s'arrêtent quand la réserve est pleine : il est temps de la vider)."""
+        """Moulin à vent : tour de bois à deux étages au toit sombre, avec une porte, et quatre grandes ailes de
+        toile sur une armature, qui tournent tant qu'il produit (elles s'arrêtent quand la réserve est pleine :
+        il est temps de la vider)."""
         Palette.couleur(...)
         self._dessiner_points(...)
 
@@ -190,5 +193,6 @@ class SourceRessource(Node2D):
         self._dessiner_points(...)
 
     def _dessiner_points(self, toile: 'CanvasItem', centre: 'Vector2', couleur: 'String') -> 'void':
-        """Un pixel du monde par unité de plafond, espacés d'un pixel : plein si disponible, sombre sinon."""
+        """Un pixel du monde par unité de plafond, espacés d'un pixel : plein si disponible, sombre sinon.
+        Au-delà de POINTS_MAX (réserves améliorées), une petite jauge remplie selon le stock."""
         Palette.couleur(...)

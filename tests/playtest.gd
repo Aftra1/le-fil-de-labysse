@@ -5,10 +5,16 @@ extends SceneTree
 ## Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
 ## → fils de nuage → câble tressé → moulin à vent (clic sur un emplacement libre) → plongées dans la
 ## Forêt de coraux (le premier corail ouvre le palier 2) → lanterne → filet à nuages → réservoir → sac à 12 places →
-## pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → entrepôt → … → lanterne 2 →
+## pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → … → lanterne 2 →
 ## palier 3 : fourneau (le robot règle sa recette d'un clic sur le fourneau selon le raffiné qui manque, et
-## l'arrête quand rien ne manque) → sonde → arche de braise (100 vents : entrepôt) → sac à 16 places →
+## l'arrête quand rien ne manque) → sonde → entrepôt → arche de braise (100 vents) → deuxième fourneau
+## (comme l'atelier le suggère : chaque fourneau prend un raffiné qui manque) → sac à 16 places →
 ## niveaux 2 du moulin, de la foreuse et du filet → entrepôt à 499.
+## Carnet à 100 % (facultatif, après les objectifs) : le robot plonge encore pour les trouvailles qui manquent,
+## en commençant par la page la plus profonde ; le joueur humain explore la moitié basse de la zone (là où
+## elles se cachent). La durée de la partie principale et celle du carnet complet sont mesurées à part.
+## Marchand de vent : quand son dirigeable est là, le robot fait les échanges qui lui donnent une ressource
+## utile aux prochains objectifs contre des ouates ou des vents qu'il n'utilisera pas (ses surplus).
 ## Trouvailles : en plongée, le robot ramasse les éclats rares qu'il connaît (parfait) ou qu'il a aperçus
 ## (humain) et qui sont à portée du câble ; il ne plonge pas exprès pour eux (le carnet reste facultatif).
 ## Mesures d'économie : origine de chaque ressource (machines, sources de l'île, plongées, fourneau) et où elle
@@ -33,7 +39,8 @@ extends SceneTree
 ## Voir tests/playtest.sh et docs/playtest.md.
 
 const IPS := 60.0                         # images de physique par seconde
-const SAUVEGARDE := "user://playtest_sauvegarde.json"
+## Une sauvegarde par partie (numéro du processus) : plusieurs parties et la vidéo tournent en même temps.
+var _chemin_sauvegarde := "user://playtest_sauvegarde_%d.json" % OS.get_process_id()
 const DUREE_MAX_S := 3600.0               # garde-fou : une partie ne doit pas dépasser une heure
 const ATTENTE_SIGNALEE_S := 10.0          # attentes « sans rien à faire » rapportées
 
@@ -76,7 +83,6 @@ const OBJECTIFS := [
 	["construction", "pont", 1],
 	["machine", "foreuse", 1],
 	["construction", "passerelle", 1],
-	["machine", "entrepot", 1],
 	["amelioration", "reservoir", 2],
 	["amelioration", "cable", 2],
 	["amelioration_machine", "moulin", "vitesse", 1],
@@ -84,7 +90,9 @@ const OBJECTIFS := [
 	["amelioration", "lanterne", 2],
 	["machine", "fourneau", 1],
 	["machine", "sonde", 1],
+	["machine", "entrepot", 1],
 	["construction", "arche", 1],
+	["machine", "fourneau", 2],
 	["amelioration", "sac", 2],
 	["amelioration_machine", "moulin", "vitesse", 2],
 	["amelioration_machine", "moulin", "capacite", 1],
@@ -129,6 +137,13 @@ var _ile_recolte := {}                    # ressource -> unités récoltées sur
 var _plongee_recolte := {}                # ressource -> unités rapportées des plongées
 var _fourneau_recolte := {}               # raffiné -> unités récupérées au fourneau
 var _inventaire_max := {}                 # ressource -> plus haute quantité vue (au-delà de 99 : grâce à l'entrepôt)
+var _marchand_vus := 0                    # passages du marchand vus sur l'île
+var _marchand_echanges: Array = []        # [temps_s, échange]
+var _marchand_vu_passage := -1            # numéro du dernier passage vu
+var _nuages_ignores: Array = []           # nuages devant autre chose (le clic irait ailleurs), pour cette récolte
+var _zone_recherche := ""                 # carnet : zone dont on cherche la trouvaille pendant cette plongée
+var _fin_objectifs_s := -1.0
+var _carnet_complet_s := -1.0
 
 
 func _initialize() -> void:
@@ -149,7 +164,7 @@ func _lancer() -> void:
 	await process_frame
 	_game = root.get_node("Game")
 	_ile_script = load("res://scripts/ile.gd")
-	Sauvegarde.chemin = SAUVEGARDE
+	Sauvegarde.chemin = _chemin_sauvegarde
 	_effacer_sauvegarde()
 	if _video:
 		_preparer_sauvegarde_video()
@@ -184,6 +199,7 @@ func _partie_complete() -> void:
 			break
 		var besoins := _besoins()
 		var a_fait := await _gerer_fourneaux()
+		a_fait = await _commercer() or a_fait
 		a_fait = await _recolter_utile(besoins) or a_fait
 		besoins = _besoins()
 		if _plongee_utile(besoins):
@@ -197,13 +213,50 @@ func _partie_complete() -> void:
 			await _attendre(0.5)
 			_compter_manques(besoins, 0.5)
 	_fin_attente()
+	_fin_objectifs_s = _secondes()
 	_noter("Toutes les améliorations et la passerelle sont installées")
+	await _completer_carnet()
 	await _recolter_bassin()
 	_ecrire_mesures()
 
 
+## Carnet à 100 % : une plongée par trouvaille manquante, la page la plus profonde d'abord (le minerai de la zone
+## sert d'excuse pour y descendre ; on en rapporte une unité).
+func _completer_carnet() -> void:
+	var carnet: Carnet = _game.atelier.carnet
+	var minerais := {"lagon": "cristal_lagon", "coraux": "corail", "faille": "pierre_braise"}
+	while _secondes() < DUREE_MAX_S:
+		var zone := ""
+		for id: String in ["faille", "coraux", "lagon"]:
+			if not carnet.restantes(id).is_empty():
+				zone = id
+				break
+		if zone == "":
+			break
+		_zone_recherche = zone
+		await _plonger({minerais[zone]: 1})
+		_zone_recherche = ""
+		await _gerer_fourneaux()
+		await _commercer()
+	if carnet.pourcentage() >= 100:
+		_carnet_complet_s = _secondes()
+		_noter("Carnet complet : 100 %")
+
+
 ## Matières premières encore nécessaires pour les prochains objectifs (inventaire déduit).
 func _besoins() -> Dictionary:
+	var brut := _besoins_bruts()
+	var resultat := {}
+	for id: String in brut:
+		var manque: int = int(brut[id]) - _game.inventaire.quantite(id)
+		if manque > 0:
+			resultat[id] = manque
+	return resultat
+
+
+## Matières premières que demandent les prochains objectifs (composants et raffinés qui manquent, comptés
+## en ingrédients), sans déduire l'inventaire.
+func _besoins_bruts() -> Dictionary:
 	var atelier: Atelier = _game.atelier
 	var inventaire: Inventaire = _game.inventaire
 	var composants := {}
@@ -228,12 +281,15 @@ func _besoins() -> Dictionary:
 		var recette := atelier.ingredients_composant(id)
 		for ingredient: String in recette:
 			brut[ingredient] = int(brut.get(ingredient, 0)) + manque * int(recette[ingredient])
-	var resultat := {}
-	for id: String in brut:
-		var manque := int(brut[id]) - inventaire.quantite(id)
-		if manque > 0:
-			resultat[id] = manque
-	return resultat
+	return brut
+
+
+## Composants ou raffinés qui manquent directement aux prochains objectifs (inventaire et fourneaux déduits).
+func _manque_direct(id: String) -> int:
+	var voulu := 0
+	for objectif: Array in _objectifs_proches():
+		voulu += int(_ingredients_objectif(objectif).get(id, 0))
+	return voulu - int(_game.inventaire.quantite(id)) - _en_reserve_fourneaux(id)
 
 
 ## Raffinés encore à fabriquer pour les prochains objectifs : { raffiné: nombre }, dans l'ordre des objectifs.
@@ -262,13 +318,16 @@ func _en_reserve_fourneaux(raffine: String) -> int:
 	return total
 
 
-## Fourneaux : un clic récupère la réserve si ce raffiné sert, et règle la recette sur le premier raffiné
-## qui manque (ou les arrête quand plus rien ne manque, pour ne pas gaspiller).
+## Fourneaux : un clic récupère la réserve si ce raffiné sert, et règle la recette sur un raffiné qui manque
+## (ou les arrête quand plus rien ne manque, pour ne pas gaspiller).
 func _gerer_fourneaux() -> bool:
 	var a_fait := false
-	var manquants := _raffines_manquants()
-	var voulu: String = "" if manquants.is_empty() else str(manquants.keys()[0])
+	var manquants: Array = _raffines_manquants().keys()
+	var rang := 0
 	for lieu: String in _game.atelier.recettes_fourneau.keys():
+		# Deux fourneaux : chacun le sien parmi les raffinés qui manquent (le même s'il n'en manque qu'un).
+		var voulu: String = "" if manquants.is_empty() else str(manquants[mini(rang, manquants.size() - 1)])
+		rang += 1
 		var fourneau: SourceRessource = _ile.machine(lieu)
 		var actuel: String = _game.atelier.recette_fourneau(lieu)
 		var a_vider: bool = fourneau.stock > 0 and (_besoin_raffine(actuel) or voulu != actuel)
@@ -291,6 +350,60 @@ func _gerer_fourneaux() -> bool:
 		await _attendre(_profil["geste"])
 		a_fait = true
 	return a_fait
+
+
+## Marchand de vent : s'il est là, échange les surplus (ressources que les prochains objectifs ne demandent
+## pas) contre ce qui leur manque. Un clic sur son dirigeable, puis sur Échanger pour chaque échange utile.
+func _commercer() -> bool:
+	var marchand: Marchand = _game.atelier.marchand
+	if not marchand.est_present():
+		return false
+	if _marchand_vu_passage != marchand.visites:
+		_marchand_vu_passage = marchand.visites
+		_marchand_vus += 1
+		_noter("Marchand de vent : passage %d" % marchand.visites)
+	var voulus: Array = []
+	for id: String in marchand.offres:
+		if _echange_utile(id):
+			voulus.append(id)
+	if voulus.is_empty():
+		return false
+	_fin_attente()
+	# Il arrive en glissant : on attend qu'il soit arrêté pour viser son dirigeable.
+	while marchand.est_present() and marchand.temps_present() < _ile_script.DUREE_VOL:
+		await _image()
+	if not marchand.est_present():
+		return false
+	await _cliquer(_ile.position_marchand())
+	var panneau: Node = _ile.get_node("Marchand")
+	await _attendre(_profil["reflexion"])
+	for id: String in voulus:
+		if panneau.est_ouvert() and _echange_utile(id):
+			await _cliquer(_centre(panneau.bouton(id)))
+			if marchand.faits.has(id):
+				_marchand_echanges.append([_secondes(), id])
+				_noter("Marchand : %s" % id)
+	if panneau.est_ouvert():
+		await _touche(KEY_ESCAPE)
+	await _attendre(_profil["geste"])
+	return true
+
+
+## Échange utile : possible, il donne ce qui manque aux prochains objectifs, et ce qu'il prend est un surplus.
+func _echange_utile(id: String) -> bool:
+	var marchand: Marchand = _game.atelier.marchand
+	if not marchand.peut_echanger(id, _game.inventaire):
+		return false
+	var donnees := marchand.echange(id)
+	var brut := _besoins_bruts()
+	for ressource: String in donnees["donne"]:
+		if _game.inventaire.quantite(ressource) - int(donnees["donne"][ressource]) < int(brut.get(ressource, 0)):
+			return false
+	var besoins := _besoins()
+	for ressource: String in donnees["recoit"]:
+		if besoins.has(ressource) or _manque_direct(ressource) > 0:
+			return true
+	return false
 
 
 func _besoin_raffine(raffine: String) -> bool:
@@ -342,6 +455,13 @@ func _plongee_utile(besoins: Dictionary) -> bool:
 		if besoins.has(minerai) and _atteignable(minerai, _game.atelier.longueur_cable_m() * 10.0):
 			return true
 	return false
+
+
+func _zone_par_id(id: String) -> Dictionary:
+	for zone: Dictionary in _zones:
+		if zone["id"] == id:
+			return zone
+	return {}
 
 
 ## Zone (data/zones.json) où l'on trouve ce minerai.
@@ -401,6 +521,7 @@ func _recolter_utile(besoins: Dictionary) -> bool:
 		_compter(_ile_recolte, "cristal_lagon", _game.inventaire.quantite("cristal_lagon") - avant)
 		a_fait = true
 	var essais := 0
+	_nuages_ignores.clear()
 	while _besoins().has("nuage") and essais < 30:
 		var nuage := _nuage_visible()
 		if nuage == null:
@@ -422,7 +543,7 @@ func _nuage_visible() -> SourceRessource:
 	var meilleur: SourceRessource = null
 	for enfant in _ile.get_node("Nuages").get_children():
 		var nuage := enfant as SourceRessource
-		if nuage == null or nuage.is_queued_for_deletion() or nuage.stock <= 0:
+		if nuage == null or nuage.is_queued_for_deletion() or nuage.stock <= 0 or _nuages_ignores.has(nuage):
 			continue
 		if nuage.position.x < 40.0 or nuage.position.x > 600.0:
 			continue
@@ -434,11 +555,15 @@ func _nuage_visible() -> SourceRessource:
 	return meilleur
 
 
-## Clique un nuage jusqu'à l'épuiser (ou jusqu'à ne plus en avoir besoin), en suivant sa dérive.
+## Clique un nuage jusqu'à l'épuiser (ou jusqu'à ne plus en avoir besoin), en suivant sa dérive. Un nuage
+## qui passe derrière une machine, un îlot ou le dirigeable ne prend pas le clic : on en choisit un autre.
 func _cliquer_nuage(nuage: SourceRessource) -> void:
 	await _deplacer_souris(nuage.position)
 	while is_instance_valid(nuage) and not nuage.is_queued_for_deletion() and nuage.stock > 0 \
 			and _besoins().has("nuage") and nuage.position.x < 600.0:
+		if _ile._survol != nuage:
+			_nuages_ignores.append(nuage)
+			return
 		await _cliquer(nuage.position, false)
 
 
@@ -638,7 +763,7 @@ func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 		en_exploration = false
 		var sac: Dictionary = plongee._sac.compter()
 		var voulus := _voulus(besoins, sac)
-		if _trouvaille_connue(plongee, vus):
+		if _trouvaille_connue(plongee, vus) or _cherche_encore(plongee):
 			voulus["trouvaille"] = 1
 		if not remonter:
 			remonter = plongee._sac.est_plein() or voulus.is_empty() \
@@ -715,10 +840,14 @@ func _point_exploration(plongee: Node, cloche: Node2D, voulus: Dictionary, etat:
 		if voulus.has(candidat) and _atteignable(candidat, plongee.limite_px):
 			minerai = candidat
 			break
+	if _zone_recherche != "" and voulus.has("trouvaille"):
+		minerai = str(_zone_par_id(_zone_recherche)["minerai"])
 	if minerai == "":
 		return Vector2.INF
 	var zone := _zone_de(minerai)
 	var haut := float(zone.get("gisements_des_m", zone["debut_m"])) * 10.0
+	if _zone_recherche != "" and voulus.has("trouvaille"):
+		haut = (float(zone["debut_m"]) + float(zone["fin_m"])) * 5.0   # moitié basse : là où se cachent les trouvailles
 	var bas := minf(float(zone["fin_m"]) * 10.0, plongee.limite_px)
 	var sombre := ArtAbysse.niveau_obscurite(haut / 10.0, _game.atelier.obscurite_max()) > 0
 	var ecart: float = (_game.atelier.rayon_halo() * 2.0 + 20.0) * 1.6 if sombre else 260.0
@@ -744,6 +873,17 @@ func _voulus(besoins: Dictionary, sac: Dictionary) -> Dictionary:
 		if manque > 0 and (id != "pierre_braise" or _game.atelier.oxygene_max() >= 200.0):
 			voulus[id] = manque
 	return voulus
+
+
+## Carnet : la trouvaille de la zone cherchée manque encore et cette plongée en a peut-être une (le robot parfait
+## sait s'il y en a une ; le joueur humain cherche jusqu'au bout de son exploration).
+func _cherche_encore(plongee: Node) -> bool:
+	if _zone_recherche == "":
+		return false
+	if _profil["connait_gisements"]:
+		return false
+	return not plongee.trouvailles_plongee.any(func(id: String) -> bool:
+		return str(_game.atelier.carnet.trouvaille(id)["zone"]) == _zone_recherche)
 
 
 ## Vrai si un éclat de trouvaille connu (ou aperçu) est à portée du câble.
@@ -825,52 +965,57 @@ func _pousser(distance: float, vitesse: float) -> bool:
 	return distance > freinage + 4.0
 
 
-# --- Séquence vidéo (environ 40 s) -----------------------------------------------------
+# --- Séquence vidéo (environ 1 min 20) ---------------------------------------------------------
 
-## Partie préparée pour la vidéo : câble de 450 m, réservoir de niveau 1 seulement (150 : l'air devient
-## juste en remontant de la Faille, on entend les bips), lanterne de niveau 1, îlot relié, deux lentilles et
-## deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2).
+## Partie préparée pour la vidéo : palier 3, câble de 450 m, réservoir de 200, lanterne de niveau 2, îlots de
+## l'est et du nord reliés, moulin (réserve ×3 : sa jauge), filet, foreuse, entrepôt et fourneau ; des ouates
+## en surplus (le filet en produit trop) ; le marchand de vent arrive 3 s après le début.
 func _preparer_sauvegarde_video() -> void:
 	Sauvegarde.ecrire({
-		"inventaire": {"vent": 20, "nuage": 10, "cristal_solaire": 8},
+		"inventaire": {"vent": 20, "nuage": 62, "cristal_solaire": 8},
 		"ameliorations": {"cable": 2, "lanterne": 2, "reservoir": 2, "sac": 1},
 		"ilots": ["ilot_est", "ilot_nord"],
-		"machines": {"ile_ouest": "moulin", "ile_centre": "filet", "filon_2": "foreuse", "nord_est": "entrepot"},
+		"machines": {"ile_ouest": "moulin", "ile_centre": "filet", "filon_2": "foreuse", "nord_est": "entrepot",
+			"nord_ouest": "fourneau"},
+		"machines_ameliorations": {"moulin": {"capacite": 2}},
+		"ile": {"machines": {"ile_ouest": {"stock": 15}, "ile_centre": {"stock": 7}}},
 		"palier": 3,
+		"marchand": {"attente": 3.0, "visites": 3},
 		"carnet": {"trouvailles": ["perle_aube", "perle_lune", "perle_vent", "ammonite", "feuille_pierre", "cle_braise"],
-			"machines": ["moulin", "filet", "foreuse", "entrepot"]},
+			"machines": ["moulin", "filet", "foreuse", "entrepot", "fourneau"]},
 	})
 
 
-## Séquence vidéo (avec le son) : les trouvailles. Le carnet (K) : perles, fossiles, reliques, avec leur
-## histoire et le bonus de chaque page ; plongée jusqu'à la Faille, où un éclat doré brille dans le noir :
-## la cloche le ramasse (une relique : son et annonce) ; au retour, la relique est dans le carnet.
+## Séquence vidéo (avec le son) : le marchand de vent et le confort. Son dirigeable arrive (corne), on clique
+## dessus : sa réplique et ses trois échanges ; deux échanges d'ouates (le surplus du filet). Puis plongée
+## jusqu'à la Faille, où un éclat doré brille dans le noir : la cloche ramasse la relique ; au retour, le bouton
+## affiche « Carnet (K) • » et le carnet s'ouvre directement sur la nouvelle relique.
 ## Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh).
 func _sequence_video() -> void:
-	await _attendre(2.0)
-	await _touche(KEY_K)
-	await _attendre(1.5)
-	var carnet_ui: Node = _ile.get_node("Carnet")
-	carnet_ui.selectionner("perle_lune")
-	await _attendre(2.5)
-	await _cliquer(_centre(carnet_ui._onglets["coraux"]))
-	carnet_ui.selectionner("ammonite")
-	await _attendre(2.5)
-	await _cliquer(_centre(carnet_ui._onglets["faille"]))
-	carnet_ui.selectionner("cle_braise")
-	await _attendre(2.5)
-	await _touche(KEY_K)
+	var marchand: Marchand = _game.atelier.marchand
+	while not marchand.est_present():
+		await _image()
+	await _attendre(_ile_script.DUREE_VOL + 1.0)
+	await _deplacer_souris(_ile.position_marchand())
 	await _attendre(1.0)
-	await _plonger({"pierre_braise": 2})
+	await _cliquer(_ile.position_marchand())
+	await _attendre(3.5)
+	var panneau: Node = _ile.get_node("Marchand")
+	var faits := 0
+	for id: String in marchand.offres:
+		if faits < 2 and marchand.peut_echanger(id, _game.inventaire):
+			await _cliquer(_centre(panneau.bouton(id)))
+			faits += 1
+			await _attendre(2.0)
+	await _attendre(1.0)
+	await _touche(KEY_ESCAPE)
 	await _attendre(1.5)
+	await _plonger({"pierre_braise": 2})
+	await _attendre(2.5)
+	await _deplacer_souris(_centre(_ile.get_node("HUD").bouton_carnet))
+	await _attendre(1.0)
 	await _touche(KEY_K)
-	await _attendre(0.8)
-	await _cliquer(_centre(carnet_ui._onglets["faille"]))
-	var nouvelle: Array = _plongees[-1]["trouvailles"] if not _plongees.is_empty() else []
-	if not nouvelle.is_empty():
-		carnet_ui.choisir_page(str(_game.atelier.carnet.trouvaille(nouvelle[0])["zone"]))
-		carnet_ui.selectionner(nouvelle[0])
-	await _attendre(4.0)
+	await _attendre(5.0)
 	await _touche(KEY_K)
 	await _attendre(1.5)
 
@@ -935,8 +1080,12 @@ func _ecrire_mesures() -> void:
 		"carnet": {"pourcentage": _game.atelier.carnet.pourcentage(), "trouvailles": _game.atelier.carnet.trouvees,
 			"machines": _game.atelier.carnet.machines_vues},
 		"niveaux_machines": _game.atelier.niveaux_machines,
+		"marchand": {"passages": _game.atelier.marchand.visites, "passages_vus": _marchand_vus,
+			"echanges": _marchand_echanges, "vendu": _game.atelier.marchand.vendu, "recu": _game.atelier.marchand.recu},
 		"evenements": _evenements,
 		"termine": _objectifs_restants().is_empty(),
+		"fin_objectifs_s": _fin_objectifs_s,
+		"carnet_complet_s": _carnet_complet_s,
 	}
 	print("MESURES " + JSON.stringify(mesures))
 	if _sortie != "":
@@ -1038,8 +1187,8 @@ func _relacher_tout() -> void:
 
 
 func _effacer_sauvegarde() -> void:
-	var base := SAUVEGARDE.get_basename()
-	for chemin: String in [SAUVEGARDE, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
+	var base := _chemin_sauvegarde.get_basename()
+	for chemin: String in [_chemin_sauvegarde, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
 		if FileAccess.file_exists(chemin):
 			DirAccess.remove_absolute(chemin)
 

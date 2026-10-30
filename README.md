@@ -30,6 +30,7 @@ Sur l'île (à la souris) :
 | Régler un fourneau | Clic sur le fourneau : récupère sa réserve et ouvre le choix du raffiné fabriqué en boucle |
 | Relier l'îlot du couchant | Construire l'arche de braise (onglet Construction ; un clic sur l'îlot l'ouvre) |
 | Vider une machine | Clic sur la machine (toute sa réserve passe dans l'inventaire) |
+| Échanger avec le marchand de vent | Clic sur son dirigeable quand il passe, puis Échanger (Échap pour fermer) |
 | Plonger | Clic sur la cloche, ou E / Espace |
 | Inventaire | I, Tab ou le bouton « Inventaire » (Échap pour fermer) |
 | Carnet de collection | K ou le bouton « Carnet » (Échap pour fermer) |
@@ -62,13 +63,25 @@ range en pages, chacune avec son nom et un bout de l'histoire d'Ilume, la cité 
 
 | Page | Contenu | Bonus de la page complète |
 |---|---|---|
-| Perles du Lagon | 6 perles | le Lagon de lumière se mine 25 % plus vite |
+| Perles du Lagon | 6 perles | le sac de plongée gagne une place |
 | Fossiles des Coraux | 6 fossiles | la Forêt de coraux se mine 25 % plus vite |
 | Reliques de la Faille | 6 reliques | la Faille consomme 20 % d'air en moins |
 | Machines | les 6 machines, dès leur première construction | toutes les machines produisent 10 % plus vite |
 
 Le carnet affiche son pourcentage (24 cases) ; les trouvailles sont dans `data/trouvailles.json`, leur pixel
-art dans `scripts/art_trouvailles.gd`.
+art dans `scripts/art_trouvailles.gd`. Tant qu'une nouvelle trouvaille n'a pas été regardée, le bouton affiche
+« Carnet (K) • », et le carnet s'ouvre directement sur elle.
+
+## Marchand de vent
+
+Le vieux marchand de vent (`data/marchand.json`) passe en dirigeable environ toutes les 4 min de jeu (temps sur
+l'île et en plongée, pas jeu fermé) et reste 60 s. S'il arrive pendant une plongée, il attend le retour sur
+l'île et reste alors 60 s ; s'il est déjà là, il ne repart pas pendant la plongée et reste encore au moins 20 s
+au retour. À chaque passage, il dit une réplique (une
+par visite, avec parfois un souvenir d'Ilume et du Fil) et propose 3 échanges tirés parmi ceux du palier
+atteint, chacun une fois : il rachète des ouates (le surplus du filet) et parfois des vents contre du cristal
+solaire, du vent, des poches d'air ou des lingots solaires. Il ne donne jamais de minerai de l'abysse ni ce qui
+en est fait : aucun échange ne remplace une plongée. Aucun n'est obligatoire et rien n'est perdu si on le manque.
 
 ## Machines
 
@@ -86,8 +99,8 @@ palier 3 à la première pierre de braise.
 | Moulin à vent | 1 | 1 vent toutes les 10 s, réserve de 8 | 2 fils de nuage, 3 cristaux de lagon, 2 cristaux solaires |
 | Filet à nuages | 1 | 1 ouate toutes les 6 s, réserve de 10 | 3 fils de nuage, 2 cristaux de lagon |
 | Foreuse solaire | 2 | sur un filon : 1 cristal solaire toutes les 15 s, réserve de 6 | 1 lentille, 4 coraux, 4 cristaux solaires |
-| Entrepôt | 2 | l'inventaire garde jusqu'à 199 de chaque ressource (au lieu de 99) ; 499 une fois amélioré (3 lingots, 3 verres) | 5 coraux, 4 fils de nuage, 4 cristaux de lagon |
-| Fourneau | 3 | fabrique en boucle le raffiné choisi, 1 toutes les 20 s, avec les ingrédients de l'inventaire (réserve de 5) | 3 pierres de braise, 3 coraux, 6 cristaux solaires |
+| Entrepôt | 3 | l'inventaire garde jusqu'à 199 de chaque ressource (au lieu de 99) ; 499 une fois amélioré (3 lingots, 3 verres) | 5 coraux, 4 fils de nuage, 4 cristaux de lagon |
+| Fourneau | 3 | fabrique en boucle le raffiné choisi, 1 toutes les 15 s, avec les ingrédients de l'inventaire (réserve de 5) ; un deuxième fourneau fait un autre raffiné en même temps | 3 pierres de braise, 3 coraux, 6 cristaux solaires |
 | Sonde de plongée | 3 | pendant les plongées seulement : 1 cristal de lagon toutes les 12 s, réserve de 8 | 2 pierres de braise, 2 poches d'air, 1 lentille |
 
 Raffinés du fourneau (tous attisés au vent) : **verre de lagon** (2 cristaux de lagon, 6 vents), **nacre**
@@ -113,7 +126,8 @@ rattrapent le temps passé jeu fermé, sans dépasser leurs plafonds.
 
 Le fichier contient : version du format, date, inventaire, niveaux des améliorations, îlots reliés,
 machines construites (emplacement et type), améliorations des machines, palier atteint, recette de chaque
-fourneau, carnet (trouvailles et machines vues), état des sources de
+fourneau, carnet (trouvailles, machines vues, trouvaille pas encore regardée), marchand de vent (prochain
+passage, échanges proposés et faits), état des sources de
 l'île et des machines (réserve). À côté : `sauvegarde.bak` (sauvegarde précédente, reprise si le fichier est
 abîmé) et, au besoin, `sauvegarde.corrompue.json` (fichier illisible mis de côté, jamais supprimé).
 Une sauvegarde d'une version plus récente du jeu n'est jamais écrasée.
@@ -126,7 +140,8 @@ fichier audio, et joué par l'autoload `Son` (`scripts/autoload/son.gd`) :
 - **Ambiances** en boucles de 8 s sans couture : nappe lumineuse sur l'île ; drones graves et étouffés en
   plongée, de plus en plus sombres (Lagon, Forêt de coraux, Faille volcanique avec un lent battement) ;
   fondu enchaîné de 2,5 s pendant les transitions et de 3 s au changement de zone.
-- **Effets** : récolte (nuage, vent, cristal, bassin, machine, foreuse, fourneau, sonde), trouvaille, coups de minage et unité gagnée, sac plein, bips
+- **Effets** : récolte (nuage, vent, cristal, bassin, machine, foreuse, fourneau, sonde), trouvaille, corne du
+  marchand de vent et échange, coups de minage et unité gagnée, sac plein, bips
   d'oxygène bas, craquements de la coque au bout du câble, remontée automatique, fabrication, installation,
   construction, clics d'interface, souffle des transitions.
 - **Mixage** : bus « Musique » et « Effets » (limiteur sur le bus principal), niveau propre à chaque effet,

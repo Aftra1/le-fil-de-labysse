@@ -5,6 +5,8 @@ extends CanvasLayer
 ## les six cases de la page (trouvailles agrandies ×3 au pixel près, silhouettes tant qu'elles ne sont pas
 ## trouvées) ; à droite, la fiche de la case choisie et le bonus de la page.
 ## S'ouvre et se ferme avec K ou le bouton « Carnet » ; Échap ou un clic à côté le ferme.
+## Il s'ouvre sur la dernière trouvaille quand elle n'a pas encore été vue (le bouton affiche alors
+## « Carnet (K) • ») et, la première fois, sur la plus récente ; sinon là où on l'a laissé.
 
 const ECHELLE_ICONE := 3
 const TAILLE_CASE := Vector2(62.0, 50.0)
@@ -18,6 +20,7 @@ const NOMS_ZONES := {"lagon": "le Lagon de lumière", "coraux": "la Forêt de co
 
 var page := "lagon"
 var selection := ""
+var _deja_ouvert := false
 
 var _titre: Label
 var _onglets: Dictionary = {}     # page -> Button
@@ -92,7 +95,20 @@ func est_ouvert() -> bool:
 
 
 func ouvrir() -> void:
-	choisir_page(page)
+	var carnet := Game.atelier.carnet
+	var cible := carnet.a_voir
+	if cible == "" and not _deja_ouvert and not carnet.trouvees.is_empty():
+		cible = str(carnet.trouvees.back())
+	if cible != "":
+		choisir_page(str(carnet.trouvaille(cible)["zone"]))
+		selectionner(cible)
+	else:
+		var choix := selection
+		choisir_page(page)
+		if carnet.cases(page).has(choix):
+			selectionner(choix)
+	carnet.a_voir = ""
+	_deja_ouvert = true
 	visible = true
 
 

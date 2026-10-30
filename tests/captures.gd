@@ -7,7 +7,9 @@ extends SceneTree
 ## sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ;
 ## 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ;
 ## 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ;
-## 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée).
+## 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée) ;
+## 43-46 : marchand de vent et confort (dirigeable qui arrive, « Carnet (K) • », jauge de réserve, grand moulin ;
+## ses échanges ; carnet ouvert sur la dernière trouvaille ; annonce de plongée sous le panneau d'air).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -47,6 +49,7 @@ func _scenarios() -> void:
 	await _scenario_palier2()
 	await _scenario_palier3()
 	await _scenario_trouvailles()
+	await _scenario_marchand()
 	await _scenario_menus()
 	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
@@ -545,6 +548,70 @@ func _scenario_trouvailles() -> void:
 		push_warning("Aucun éclat dans la Faille en 60 tirages.")
 	await _fermer_plongee(plongee)
 	_atelier().niveaux = {"cable": 0, "lanterne": 0, "reservoir": 0}
+	root.get_node("Game").inventaire = Inventaire.new()
+
+
+# --- 43-46 : marchand de vent et confort -------------------------------------------------------
+
+func _scenario_marchand() -> void:
+	root.get_node("Game").inventaire = Inventaire.new()
+	var logique := _atelier()
+	var inventaire: Inventaire = root.get_node("Game").inventaire
+	logique.palier = 3
+	for id: String in ["moulin", "filet", "fourneau"]:
+		for ingredient: String in logique.machine(id)["ingredients"]:
+			inventaire.ajouter(ingredient, int(logique.machine(id)["ingredients"][ingredient]))
+	inventaire.ajouter("corail", 4)
+	inventaire.ajouter("fil_nuage", 4)
+	logique.construire("pont")
+	logique.construire_machine("moulin", "ile_ouest")
+	logique.construire_machine("filet", "ile_centre")
+	logique.construire_machine("fourneau", "nord_ouest")
+	logique.niveaux_machines["moulin"] = {"capacite": 2}
+	logique.carnet.trouver("perle_aube")
+	logique.carnet.trouver("medaillon_fil")
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	jeu.avec_titre = false
+	root.add_child(jeu)
+	var ile: Node = jeu.get_node("Ile")
+	await _images(20)
+	ile.actualiser_ilot()
+	ile.actualiser_machines()
+	ile.machine("ile_ouest").stock = 15
+	ile.machine("ile_centre").stock = 6
+	inventaire.ajouter("nuage", 40)
+	inventaire.ajouter("vent", 30)
+	# Un nuage dans le ciel au-dessus de l'îlot du nord : il passe derrière les machines.
+	var nuage: SourceRessource = ile.get_node("Nuages").get_child(0)
+	nuage.derive = 0.0
+	nuage.position = Vector2(70.0, 120.0)
+	var marchand: Marchand = logique.marchand
+	marchand.attente = 0.01
+	await _images(130)
+	await _capturer("43-marchand-arrivee")
+	await _images(150)
+	await _cliquer(ile.position_marchand())
+	var panneau: Node = ile.get_node("Marchand")
+	for id: String in marchand.offres:
+		if marchand.peut_echanger(id, inventaire):
+			await _cliquer(panneau.bouton(id).get_global_rect().get_center())
+			break
+	await _images(3)
+	await _capturer("44-marchand-echanges")
+	panneau.fermer()
+	await _images(2)
+	_touche(KEY_K)
+	await _images(3)
+	await _capturer("45-carnet-derniere-trouvaille")
+	_touche(KEY_K)
+	await _images(2)
+	await _fermer_jeu(jeu)
+
+	var plongee := await _nouvelle_plongee()
+	plongee.get_node("HUD").annoncer("Page complète : La Faille volcanique consomme 20 % d'air en moins.", 6.0)
+	await _images(30)
+	await _capturer("46-annonce-plongee")
+	await _fermer_plongee(plongee)
 	root.get_node("Game").inventaire = Inventaire.new()
 
 

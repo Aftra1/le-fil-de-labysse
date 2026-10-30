@@ -20,6 +20,7 @@ class Interface(CanvasLayer):
     TAILLE_BARRE = ...
     SEUIL_OXYGENE_BAS = 0.25
     DUREE_ANNONCE = 4.0
+    HAUT_ANNONCE = 126.0
     COULEUR_TEXTE = "cyan.3"
     _taille_barre: 'Vector2'
     _barre_conteneur: 'Control'
@@ -57,6 +58,13 @@ class Interface(CanvasLayer):
         self._decaler(...)
 
     def progression_glissement(self) -> 'float':
+        ...
+
+    def rect_etat(self) -> 'Rect2':
+        """Rectangles du panneau d'état et de l'annonce à l'écran (tests : ils ne se chevauchent jamais)."""
+        ...
+
+    def rect_annonce(self) -> 'Rect2':
         ...
 
     def decalage_panneau_etat(self) -> 'Vector2':

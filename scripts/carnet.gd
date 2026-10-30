@@ -11,6 +11,8 @@ const PAGES_TROUVAILLES := ["lagon", "coraux", "faille"]
 var trouvees: Array = []
 ## Sortes de machines construites au moins une fois.
 var machines_vues: Array = []
+## Dernière trouvaille pas encore regardée dans le carnet (vide : rien de nouveau).
+var a_voir := ""
 
 var _donnees: Dictionary = {}
 var _machines: Array = []
@@ -73,6 +75,7 @@ func trouver(id: String) -> bool:
 	if trouvaille(id).is_empty() or trouvees.has(id):
 		return false
 	trouvees.append(id)
+	a_voir = id
 	return true
 
 
@@ -120,6 +123,14 @@ func facteur_oxygene(zone: String) -> float:
 	return float(page(zone).get("oxygene", 1.0)) if page_complete(zone) else 1.0
 
 
+## Places de sac en plus (page des perles complète : +1).
+func places_sac_bonus() -> int:
+	for donnees: Dictionary in pages():
+		if donnees.has("sac") and page_complete(str(donnees["id"])):
+			return int(donnees["sac"])
+	return 0
+
+
 ## Vitesse de production des machines (page des machines complète : ×1,1).
 func facteur_machines() -> float:
 	return float(page("machines").get("machines", 1.0)) if page_complete("machines") else 1.0
@@ -128,7 +139,7 @@ func facteur_machines() -> float:
 # --- Sauvegarde --------------------------------------------------------------------------------
 
 func vers_dictionnaire() -> Dictionary:
-	return {"trouvailles": trouvees.duplicate(), "machines": machines_vues.duplicate()}
+	return {"trouvailles": trouvees.duplicate(), "machines": machines_vues.duplicate(), "a_voir": a_voir}
 
 
 ## Carnet lu depuis une sauvegarde : identifiants inconnus et doublons ignorés.
@@ -145,3 +156,5 @@ func charger(donnees: Dictionary) -> void:
 		for id in liste:
 			if id is String:
 				voir_machine(id)
+	var nouvelle = donnees.get("a_voir", "")
+	a_voir = nouvelle if nouvelle is String and trouvees.has(nouvelle) else ""

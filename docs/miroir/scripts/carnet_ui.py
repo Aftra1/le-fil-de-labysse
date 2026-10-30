@@ -6,6 +6,8 @@ En haut, le pourcentage du carnet et quatre pages (perles, fossiles, reliques, m
 les six cases de la page (trouvailles agrandies ×3 au pixel près, silhouettes tant qu'elles ne sont pas
 trouvées) ; à droite, la fiche de la case choisie et le bonus de la page.
 S'ouvre et se ferme avec K ou le bouton « Carnet » ; Échap ou un clic à côté le ferme.
+Il s'ouvre sur la dernière trouvaille quand elle n'a pas encore été vue (le bouton affiche alors
+« Carnet (K) • ») et, la première fois, sur la plus récente ; sinon là où on l'a laissé.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ class PanneauCarnet(CanvasLayer):
     NOMS_ZONES = ...
     page: 'String'
     selection: 'String'
+    _deja_ouvert: 'bool'
     _titre: 'Label'
     _onglets: 'Dictionary'
     _grille: 'GridContainer'
@@ -54,6 +57,9 @@ class PanneauCarnet(CanvasLayer):
 
     def ouvrir(self) -> 'void':
         self.choisir_page(...)
+        Carnet.trouvaille(...)
+        self.selectionner(...)
+        Carnet.cases(...)
 
     def fermer(self) -> 'void':
         ...

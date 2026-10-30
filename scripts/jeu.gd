@@ -129,6 +129,7 @@ func continuer() -> void:
 	Game.atelier.charger_niveaux_machines(partie["machines_ameliorations"])
 	Game.atelier.charger_fourneaux(partie["fourneaux"])
 	Game.atelier.charger_palier(partie.get("palier"))
+	Game.atelier.marchand.charger(partie["marchand"])
 	_ile.restaurer_sources(partie["ile"])
 	_ile.rattraper(Sauvegarde.secondes_depuis(partie))
 	_commencer()
@@ -163,6 +164,7 @@ func donnees_partie() -> Dictionary:
 		"palier": Game.atelier.palier,
 		"fourneaux": Game.atelier.recettes_fourneau.duplicate(),
 		"carnet": Game.atelier.carnet.vers_dictionnaire(),
+		"marchand": Game.atelier.marchand.vers_dictionnaire(),
 		"reglages": Son.reglages(),
 		"ile": _ile.etat_sources(),
 	}

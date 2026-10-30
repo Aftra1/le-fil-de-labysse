@@ -209,7 +209,7 @@
 		},
 		"entrepot": {
 			"nom": "Entrepôt",
-			"palier": 2,
+			"palier": 3,
 			"ressource": "",
 			"recharge_s": 0.0,
 			"plafond": 0,
@@ -236,14 +236,14 @@
 			"nom": "Fourneau",
 			"palier": 3,
 			"ressource": "",
-			"recharge_s": 20.0,
+			"recharge_s": 15.0,
 			"plafond": 5,
 			"ingredients": {
 				"pierre_braise": 3,
 				"corail": 3,
 				"cristal_solaire": 6
 			},
-			"effet": "Fabrique en boucle le matériau choisi (clic sur le fourneau), 1 toutes les 20 s.",
+			"effet": "Fabrique en boucle le matériau choisi (clic sur le fourneau), 1 toutes les 15 s.",
 			"recettes": {
 				"verre_lagon": {
 					"cristal_lagon": 2,
