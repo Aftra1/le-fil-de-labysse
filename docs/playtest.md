@@ -1,8 +1,52 @@
-# Playtest automatique : boucle complète avec les machines des paliers 1 à 3
+# Playtest automatique : boucle complète avec les machines et les trouvailles
 
-Date : 29 octobre 2026, branche `etape-7-machines-c` (étape 7, PR C).
+Date : 30 octobre 2026, branche `etape-7-trouvailles` (étape 7, PR D).
 
-## Palier 3 (étape 7, PR C)
+## Trouvailles et carnet (étape 7, PR D)
+
+En plongée, chaque zone peut cacher une trouvaille rare. Il y en a au plus une par zone et par plongée :
+3 chances sur 4, tant que la page de la zone n'est pas complète, dans la moitié basse de la zone. Le robot ramasse
+les éclats qu'il connaît (robot parfait) ou qu'il aperçoit (joueur humain : un éclat brille même dans le noir,
+il le voit dès qu'il est à l'écran). Il ne plonge jamais exprès pour une trouvaille : le carnet reste
+facultatif, et le robot s'arrête quand les objectifs sont faits.
+
+### Résultats (quatre parties par profil)
+
+| | Robot parfait | **Joueur humain** |
+|---|---|---|
+| Durée totale | 1429 à 1716 s (PR C : 1216 à 1297 s) | **1581 à 1703 s** (PR C : 1457 à 1549 s) |
+| Durée moyenne | 25 min 53 (PR C : 20 min 51) | **27 min 30** (PR C : 24 min 54) |
+| Plongées par partie | 12 à 16 | 13 à 15 |
+| Carnet en fin de partie | **87 à 100 %** | **58 à 62 %** |
+| Trouvailles ramassées | 15 à 18 sur 18 | 8 à 9 sur 18 |
+| Perles / fossiles / reliques (moyenne) | 6 / 6 / 4,5 | 6 / 2,8 / 0 |
+| Remontées automatiques | 0 | **0** |
+| Attentes de plus de 10 s | 0 à 3 (12 à 17 s) | 1 à 7 (12 à 16 s, le fourneau) |
+
+- **Les perles viennent toutes seules** : le joueur humain complète la page du Lagon dans toutes les parties
+  (bonus : le Lagon se mine 25 % plus vite). Les 6 machines remplissent aussi leur page.
+- **Les reliques demandent un effort** : elles sont dans le bas de la Faille (375 à 450 m). Le joueur humain
+  n'y descend que pour la pierre de braise (dès 305 m) et n'en ramasse aucune. Le robot parfait, qui sait où
+  elles sont, en trouve 4 à 6. C'est le contenu facultatif prévu : quelques plongées dans le bas de la Faille
+  complètent le carnet.
+- **Durée** : +2,5 minutes pour le joueur humain (les détours vers les éclats aperçus), +5 minutes pour le robot
+  parfait qui va chercher chaque éclat.
+
+### Vidéo
+
+Séquence de 96 s avec le son :
+1. le carnet (K) : perles, fossiles et reliques, avec leur histoire et le bonus de chaque page ;
+2. une plongée jusqu'au fond de la Faille (descente et remontée accélérées ×2), où la cloche ramasse une perle,
+   un fossile et le **Médaillon du Fil** (son et annonce) ;
+3. au retour, le carnet passe de 41 à 54 %.
+
+- MP4 (6,7 Mo, 1280x720, son AAC, moyenne −18 dB, crête −1 dB) : `docs/playtest/sequence.mp4`
+- GIF (sans son) : `docs/playtest/sequence.gif`
+
+---
+
+# Rapport précédent : palier 3 (étape 7, PR C)
+
 
 Après la lanterne de niveau 2, le robot poursuit : **fourneau → sonde → arche de braise → sac à 16 places →
 niveaux 2 du moulin (vitesse, réserve), de la foreuse (réserve) et du filet (vitesse) → entrepôt à 499**.
@@ -55,7 +99,7 @@ niveaux 2 du moulin (vitesse, réserve), de la foreuse (réserve) et du filet (v
   À reprendre dans la PR E (équilibrage) : une recette de plus pour les ouates, ou un filet moins rapide.
 - **Raffinés fabriqués par partie** : 9 verres de lagon, 7 nacres, 8 lingots solaires.
 
-### Vidéo
+### Vidéo (à l'époque)
 
 Séquence de 68 s avec le son (Movie Maker, Xvfb), à partir d'une partie préparée au palier 3 :
 1. un clic sur le fourneau ouvre son panneau : **lingot solaire en boucle** ; il rougeoie et fume ;
@@ -64,8 +108,7 @@ Séquence de 68 s avec le son (Movie Maker, Xvfb), à partir d'une partie prépa
 3. plongée dans le Lagon (descente et remontée accélérées ×2) jusqu'à 16 cristaux ;
 4. au retour, un clic vide la sonde (cristal de lagon pêché pendant la plongée) et le fourneau (lingots).
 
-- MP4 (4,1 Mo, 1280x720, son AAC, moyenne −17 dB, crête −1 dB) : `docs/playtest/sequence.mp4`
-- GIF (sans son) : `docs/playtest/sequence.gif`
+Elle est remplacée par la séquence des trouvailles (voir plus haut).
 
 ---
 
