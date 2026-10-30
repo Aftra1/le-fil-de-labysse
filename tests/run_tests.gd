@@ -698,8 +698,8 @@ func _fermer_ile(ile: Node) -> void:
 	await _images(2)
 
 
-## Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 52 et 86, sous
-## les boutons du haut ; par prudence, s'il touchait le bouton « Inventaire » (un clic ouvrirait alors
+## Premier nuage de l'île, immobile et cliquable. Les nuages naissent au hasard entre y = 94 et 128, sous
+## les boutons et l'aide du haut ; par prudence, s'il touchait le bouton « Inventaire » (un clic ouvrirait alors
 ## l'inventaire, qui bloque tous les clics suivants), on le déplace (c'est le premier des nuages parcourus
 ## au survol : un autre nuage au même endroit ne gêne pas).
 func _nuage_degage(ile: Node) -> SourceRessource:
@@ -2822,14 +2822,14 @@ func _test_confort_carnet() -> void:
 
 
 func _test_confort_interface() -> void:
-	# Nuages : toujours sous les boutons du haut (ni cachés ni impossibles à cliquer).
+	# Nuages : toujours sous les boutons et l'aide du haut (ni cachés ni impossibles à cliquer), derrière les îlots.
 	var ile := await _ouvrir_ile()
 	var hud: Node = ile.get_node("HUD")
 	var reglage: Dictionary = Donnees.charger_json("res://data/ile.json")["nuages"]
 	var haut_nuage := float(reglage["y_min"]) - SourceRessource.TAILLE_NUAGE.y
-	var bas_boutons: float = hud.bouton_inventaire.get_global_rect().end.y
-	_verifier(haut_nuage >= bas_boutons + 2.0, "nuages : jamais sous les boutons Inventaire et Carnet",
-		"haut %.0f, boutons %.0f" % [haut_nuage, bas_boutons])
+	var bas_hud: float = maxf(hud.bouton_inventaire.get_global_rect().end.y, hud._aide_panneau.get_global_rect().end.y)
+	_verifier(haut_nuage >= bas_hud + 2.0, "nuages : jamais sous les boutons Inventaire et Carnet ni sous l'aide",
+		"haut %.0f, interface %.0f" % [haut_nuage, bas_hud])
 	var nuages_ok := true
 	for i in 30:
 		ile._creer_nuage(320.0)
@@ -2837,11 +2837,9 @@ func _test_confort_interface() -> void:
 		var y: float = (enfant as Node2D).position.y
 		nuages_ok = nuages_ok and y >= float(reglage["y_min"]) and y <= float(reglage["y_max"])
 	_verifier(nuages_ok, "nuages : tous dans la bande du ciel")
-	# Machines de l'îlot du nord : le bas d'un nuage reste au-dessus de leur toit (aucun ne passe devant).
 	var bas_nuage := float(reglage["y_max"]) + SourceRessource.TAILLE_NUAGE.y
-	var toit_nord: float = ile.centre_emplacement("nord_ouest").y - 16.0 * 2.0
-	_verifier(bas_nuage <= toit_nord, "nuages : au-dessus des machines de l'îlot du nord",
-		"bas %.0f, toits %.0f" % [bas_nuage, toit_nord])
+	_verifier(bas_nuage < float(ile._ilot("ilot_nord")["position"][1]) and bas_nuage < _ile_script.POSITION_CABANE.y,
+		"nuages : au-dessus des îlots et de la cabane (ils passent derrière les machines)", "bas %.0f" % bas_nuage)
 	# Moulin plus grand, réserve en jauge au-delà de 10.
 	_ingredients(_jeu.inventaire, _jeu.atelier.machine("moulin")["ingredients"])
 	_jeu.atelier.construire_machine("moulin", "ile_ouest")

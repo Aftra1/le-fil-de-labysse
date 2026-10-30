@@ -7,10 +7,16 @@ souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'in
 Déroulé : écran titre → Nouvelle partie → récolte sur l'île → plongées (minage du cristal de lagon)
 → fils de nuage → câble tressé → moulin à vent (clic sur un emplacement libre) → plongées dans la
 Forêt de coraux (le premier corail ouvre le palier 2) → lanterne → filet à nuages → réservoir → sac à 12 places →
-pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → entrepôt → … → lanterne 2 →
+pont suspendu (îlot du nord) → foreuse solaire sur un filon → passerelle → … → lanterne 2 →
 palier 3 : fourneau (le robot règle sa recette d'un clic sur le fourneau selon le raffiné qui manque, et
-l'arrête quand rien ne manque) → sonde → arche de braise (100 vents : entrepôt) → sac à 16 places →
+l'arrête quand rien ne manque) → sonde → entrepôt → arche de braise (100 vents) → deuxième fourneau
+(comme l'atelier le suggère : chaque fourneau prend un raffiné qui manque) → sac à 16 places →
 niveaux 2 du moulin, de la foreuse et du filet → entrepôt à 499.
+Carnet à 100 % (facultatif, après les objectifs) : le robot plonge encore pour les trouvailles qui manquent,
+en commençant par la page la plus profonde ; le joueur humain explore la moitié basse de la zone (là où
+elles se cachent). La durée de la partie principale et celle du carnet complet sont mesurées à part.
+Marchand de vent : quand son dirigeable est là, le robot fait les échanges qui lui donnent une ressource
+utile aux prochains objectifs contre des ouates ou des vents qu'il n'utilisera pas (ses surplus).
 Trouvailles : en plongée, le robot ramasse les éclats rares qu'il connaît (parfait) ou qu'il a aperçus
 (humain) et qui sont à portée du câble ; il ne plonge pas exprès pour eux (le carnet reste facultatif).
 Mesures d'économie : origine de chaque ressource (machines, sources de l'île, plongées, fourneau) et où elle
@@ -40,10 +46,12 @@ from __future__ import annotations
 from ..godot import SceneTree
 from ..scripts.art_abysse import ArtAbysse
 from ..scripts.atelier import Atelier
+from ..scripts.carnet import Carnet
 from ..scripts.donnees import Donnees
 from ..scripts.ile import Ile
 from ..scripts.inventaire import Inventaire
 from ..scripts.jeu import Jeu
+from ..scripts.marchand import Marchand
 from ..scripts.sauvegarde import Sauvegarde
 from ..scripts.source_ressource import SourceRessource
 
@@ -91,6 +99,13 @@ class Playtest(SceneTree):
     _plongee_recolte: 'Dictionary'
     _fourneau_recolte: 'Dictionary'
     _inventaire_max: 'Dictionary'
+    _marchand_vus: 'int'
+    _marchand_echanges: 'Array'
+    _marchand_vu_passage: 'int'
+    _nuages_ignores: 'Array'
+    _zone_recherche: 'String'
+    _fin_objectifs_s: 'float'
+    _carnet_complet_s: 'float'
 
     def _initialize(self) -> 'void':
         Donnees.charger_json(...)
@@ -115,6 +130,7 @@ class Playtest(SceneTree):
         self._objectifs_restants(...)
         self._besoins(...)
         self._gerer_fourneaux(...)
+        self._commercer(...)
         self._recolter_utile(...)
         self._plongee_utile(...)
         self._fin_attente(...)
@@ -123,11 +139,28 @@ class Playtest(SceneTree):
         self._attendre(...)
         self._compter_manques(...)
         self._noter(...)
+        self._completer_carnet(...)
         self._recolter_bassin(...)
         self._ecrire_mesures(...)
 
+    def _completer_carnet(self) -> 'void':
+        """Carnet à 100 % : une plongée par trouvaille manquante, la page la plus profonde d'abord (le minerai de la zone
+        sert d'excuse pour y descendre ; on en rapporte une unité)."""
+        self._secondes(...)
+        Carnet.restantes(...)
+        self._plonger(...)
+        self._gerer_fourneaux(...)
+        self._commercer(...)
+        Carnet.pourcentage(...)
+        self._noter(...)
+
     def _besoins(self) -> 'Dictionary':
         """Matières premières encore nécessaires pour les prochains objectifs (inventaire déduit)."""
+        self._besoins_bruts(...)
+
+    def _besoins_bruts(self) -> 'Dictionary':
+        """Matières premières que demandent les prochains objectifs (composants et raffinés qui manquent, comptés
+        en ingrédients), sans déduire l'inventaire."""
         self._objectifs_proches(...)
         self._ingredients_objectif(...)
         Atelier.composants(...)
@@ -136,6 +169,12 @@ class Playtest(SceneTree):
         Atelier.recette_raffine(...)
         Inventaire.quantite(...)
         Atelier.ingredients_composant(...)
+
+    def _manque_direct(self, id: 'String') -> 'int':
+        """Composants ou raffinés qui manquent directement aux prochains objectifs (inventaire et fourneaux déduits)."""
+        self._objectifs_proches(...)
+        self._ingredients_objectif(...)
+        self._en_reserve_fourneaux(...)
 
     def _raffines_manquants(self) -> 'Dictionary':
         """Raffinés encore à fabriquer pour les prochains objectifs : { raffiné: nombre }, dans l'ordre des objectifs."""
@@ -148,8 +187,8 @@ class Playtest(SceneTree):
         ...
 
     def _gerer_fourneaux(self) -> 'bool':
-        """Fourneaux : un clic récupère la réserve si ce raffiné sert, et règle la recette sur le premier raffiné
-        qui manque (ou les arrête quand plus rien ne manque, pour ne pas gaspiller)."""
+        """Fourneaux : un clic récupère la réserve si ce raffiné sert, et règle la recette sur un raffiné qui manque
+        (ou les arrête quand plus rien ne manque, pour ne pas gaspiller)."""
         self._raffines_manquants(...)
         self._besoin_raffine(...)
         self._fin_attente(...)
@@ -159,6 +198,29 @@ class Playtest(SceneTree):
         self._centre(...)
         self._noter(...)
         self._touche(...)
+
+    def _commercer(self) -> 'bool':
+        """Marchand de vent : s'il est là, échange les surplus (ressources que les prochains objectifs ne demandent
+        pas) contre ce qui leur manque. Un clic sur son dirigeable, puis sur Échanger pour chaque échange utile."""
+        Marchand.est_present(...)
+        self._noter(...)
+        self._echange_utile(...)
+        self._fin_attente(...)
+        Marchand.temps_present(...)
+        self._image(...)
+        self._cliquer(...)
+        self._attendre(...)
+        self._centre(...)
+        self._secondes(...)
+        self._touche(...)
+
+    def _echange_utile(self, id: 'String') -> 'bool':
+        """Échange utile : possible, il donne ce qui manque aux prochains objectifs, et ce qu'il prend est un surplus."""
+        Marchand.peut_echanger(...)
+        Marchand.echange(...)
+        self._besoins_bruts(...)
+        self._besoins(...)
+        self._manque_direct(...)
 
     def _besoin_raffine(self, raffine: 'String') -> 'bool':
         self._objectifs_restants(...)
@@ -181,6 +243,9 @@ class Playtest(SceneTree):
     def _plongee_utile(self, besoins: 'Dictionary') -> 'bool':
         """Plonger si une ressource de l'abysse manque et qu'elle est atteignable avec le câble actuel."""
         self._atteignable(...)
+
+    def _zone_par_id(self, id: 'String') -> 'Dictionary':
+        ...
 
     def _zone_de(self, minerai: 'String') -> 'Dictionary':
         """Zone (data/zones.json) où l'on trouve ce minerai."""
@@ -206,7 +271,8 @@ class Playtest(SceneTree):
         ...
 
     def _cliquer_nuage(self, nuage: SourceRessource) -> 'void':
-        """Clique un nuage jusqu'à l'épuiser (ou jusqu'à ne plus en avoir besoin), en suivant sa dérive."""
+        """Clique un nuage jusqu'à l'épuiser (ou jusqu'à ne plus en avoir besoin), en suivant sa dérive. Un nuage
+        qui passe derrière une machine, un îlot ou le dirigeable ne prend pas le clic : on en choisit un autre."""
         self._deplacer_souris(...)
         self._besoins(...)
         self._cliquer(...)
@@ -279,6 +345,7 @@ class Playtest(SceneTree):
         self._image(...)
         self._voulus(...)
         self._trouvaille_connue(...)
+        self._cherche_encore(...)
         self._oxygene_pour_remonter(...)
         self._temps_vers(...)
         self._conso_a(...)
@@ -295,11 +362,17 @@ class Playtest(SceneTree):
         """Prochain point de l'exploration en zigzag (rangées horizontales de plus en plus profondes) dans la
         bande où l'on trouve le minerai voulu ; Vector2.INF quand toute la bande a été parcourue."""
         self._atteignable(...)
+        self._zone_par_id(...)
         self._zone_de(...)
         ArtAbysse.niveau_obscurite(...)
 
     def _voulus(self, besoins: 'Dictionary', sac: 'Dictionary') -> 'Dictionary':
         """Minerais encore voulus pendant cette plongée : { id: nombre }."""
+        ...
+
+    def _cherche_encore(self, plongee: 'Node') -> 'bool':
+        """Carnet : la trouvaille de la zone cherchée manque encore et cette plongée en a peut-être une (le robot parfait
+        sait s'il y en a une ; le joueur humain cherche jusqu'au bout de son exploration)."""
         ...
 
     def _trouvaille_connue(self, plongee: 'Node', vus: 'Array') -> 'bool':
@@ -332,20 +405,25 @@ class Playtest(SceneTree):
         ...
 
     def _preparer_sauvegarde_video(self) -> 'void':
-        """Partie préparée pour la vidéo : câble de 450 m, réservoir de niveau 1 seulement (150 : l'air devient
-        juste en remontant de la Faille, on entend les bips), lanterne de niveau 1, îlot relié, deux lentilles et
-        deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2)."""
+        """Partie préparée pour la vidéo : palier 3, câble de 450 m, réservoir de 200, lanterne de niveau 2, îlots de
+        l'est et du nord reliés, moulin (réserve ×3 : sa jauge), filet, foreuse, entrepôt et fourneau ; des ouates
+        en surplus (le filet en produit trop) ; le marchand de vent arrive 3 s après le début."""
         Sauvegarde.ecrire(...)
 
     def _sequence_video(self) -> 'void':
-        """Séquence vidéo (avec le son) : les trouvailles. Le carnet (K) : perles, fossiles, reliques, avec leur
-        histoire et le bonus de chaque page ; plongée jusqu'à la Faille, où un éclat doré brille dans le noir :
-        la cloche le ramasse (une relique : son et annonce) ; au retour, la relique est dans le carnet.
+        """Séquence vidéo (avec le son) : le marchand de vent et le confort. Son dirigeable arrive (corne), on clique
+        dessus : sa réplique et ses trois échanges ; deux échanges d'ouates (le surplus du filet). Puis plongée
+        jusqu'à la Faille, où un éclat doré brille dans le noir : la cloche ramasse la relique ; au retour, le bouton
+        affiche « Carnet (K) • » et le carnet s'ouvre directement sur la nouvelle relique.
         Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh)."""
+        Marchand.est_present(...)
+        self._image(...)
         self._attendre(...)
-        self._touche(...)
+        self._deplacer_souris(...)
         self._cliquer(...)
+        Marchand.peut_echanger(...)
         self._centre(...)
+        self._touche(...)
         self._plonger(...)
 
     def _marque_video(self, nom: 'String') -> 'void':

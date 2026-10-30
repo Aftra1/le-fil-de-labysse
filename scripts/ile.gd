@@ -11,7 +11,7 @@ extends Node2D
 ## La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit
 ## rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première
 ## pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il
-## fabrique en boucle avec les ingrédients de l'inventaire) et la sonde (qui ne produit qu'en plongée).
+## fabrique en boucle avec les ingrédients de l'inventaire), la sonde (qui ne produit qu'en plongée) et l'entrepôt.
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
 ## Le marchand de vent (Marchand, data/marchand.json) passe de temps en temps : son dirigeable arrive par la
 ## droite, reste 60 s au-dessus de l'île et repart ; un clic dessus ouvre ses échanges (PanneauMarchand).

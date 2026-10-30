@@ -27,6 +27,8 @@
 | `scripts/inventaire.gd` | Inventaire | RefCounted | Inventaire unique : ressources du ciel et minerais de plongée. |
 | `scripts/inventaire_ui.gd` | PanneauInventaire | CanvasLayer | Panneau d'inventaire opaque (cadre or et crème, pas de voile) : une case par ressource. |
 | `scripts/jeu.gd` | Jeu | Node2D | Scène principale : enchaîne l'île, la transition et la plongée. |
+| `scripts/marchand.gd` | Marchand | RefCounted | Le vieux marchand de vent (data/marchand.json) : son dirigeable passe au-dessus de l'île environ toutes les 4 min de jeu (île et plongée comptées, pas le jeu fermé) et reste 60 s. |
+| `scripts/marchand_ui.gd` | PanneauMarchand | CanvasLayer | Panneau du marchand de vent (640x360) : cadres or et crème, comme l'atelier. |
 | `scripts/menu_cadre.gd` | MenuCadre | CanvasLayer | Base des menus plein écran (écran titre, pause) : un panneau en cadre or et crème, centré ou en haut, avec une colonne de textes et de boutons. |
 | `scripts/menu_pause.gd` | MenuPause | MenuCadre | Menu pause (Échap sur l'île ou en plongée) : le jeu est figé tant qu'il est ouvert. |
 | `scripts/palette.gd` | Palette | RefCounted | Palette fixe du jeu (data/palette.json) : toutes les couleurs affichées en viennent. |
@@ -65,7 +67,7 @@ Autoload « Game » : point central du jeu. Déclare toutes les actions d'entré
   - `nom_ressource(id)`
   - `couleur_ressource(id)`
 - **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Inventaire, Palette, Pixel
-- **Utilisé par** : Dive, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauCarnet, PanneauInventaire
+- **Utilisé par** : Dive, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauCarnet, PanneauInventaire, PanneauMarchand
 
 ### `scripts/autoload/son.gd` : Son
 
@@ -133,14 +135,14 @@ Pixel art du monde du haut (île, ciel, nuages, cloche, interface), généré en
   - `cloche(k, contour)`
   - `filon(k, plein)`
   - `cabane(allumee)` : Cabane de l'atelier (monde 320x180) ; fenêtre allumée quand une fabrication est possible.
+  - `dirigeable()`
   - `ilot(relie)`
   - `icone_construction(id)` : Icône d'une construction (atelier).
   - `icone_machine(id)` : Icône d'une machine de l'île (atelier, onglet Machines).
   - `icone_amelioration(id)` : Icône d'une amélioration de la cloche (atelier).
-  - `icone(id, k)` : Icône d'une ressource (inventaire, barre de ressources).
-  - … et 4 autres
+  - … et 5 autres
 - **Dépend de** : ArtAbysse, Palette, Pixel
-- **Utilisé par** : ArtAbysse, Dive, Game, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauCarnet, PanneauInventaire, SourceRessource, Transition
+- **Utilisé par** : ArtAbysse, Dive, Game, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauCarnet, PanneauInventaire, PanneauMarchand, SourceRessource, Transition
 
 ### `scripts/art_trouvailles.gd` : ArtTrouvailles
 
@@ -180,7 +182,7 @@ Atelier de l'île : fabrique des composants à partir des ressources (data/recet
   - `est_construite(id)`
   - `est_relie(ilot)`
   - … et 45 autres
-- **Dépend de** : Carnet, Donnees, Inventaire
+- **Dépend de** : Carnet, Donnees, Inventaire, Marchand
 - **Utilisé par** : Captures, Dive, Game, Ile, Jeu, PanneauAtelier, PanneauCarnet, Playtest, RunTests
 
 ### `scripts/atelier_ui.gd` : PanneauAtelier
@@ -237,15 +239,16 @@ Carnet de collection : les trouvailles rares de l'abysse (data/trouvailles.json)
   - `pourcentage()` : Pourcentage du carnet rempli (trouvailles et machines), arrondi à l'entier inférieur.
   - `facteur_minage(zone)` : Vitesse de minage dans une zone (page de ses trouvailles complète : ×1,25).
   - `facteur_oxygene(zone)` : Consommation d'air dans une zone (page de la Faille complète : ×0,8 dans la Faille).
+  - `places_sac_bonus()` : Places de sac en plus (page des perles complète : +1).
   - `facteur_machines()` : Vitesse de production des machines (page des machines complète : ×1,1).
   - `vers_dictionnaire()`
   - `charger(donnees)` : Carnet lu depuis une sauvegarde : identifiants inconnus et doublons ignorés.
 - **Dépend de** : Donnees
-- **Utilisé par** : Atelier, Captures, Dive, Jeu, PanneauCarnet, RunTests
+- **Utilisé par** : Atelier, Captures, Dive, Jeu, PanneauCarnet, Playtest, RunTests
 
 ### `scripts/carnet_ui.gd` : PanneauCarnet
 
-Carnet de collection (640x360) : panneau opaque en cadres or et crème, comme l'atelier. En haut, le pourcentage du carnet et quatre pages (perles, fossiles, reliques, machines) ; à gauche, les six cases de la page (trouvailles agrandies ×3 au pixel près, silhouettes tant qu'elles ne sont pas trouvées) ; à droite, la fiche de la case choisie et le bonus de la page. S'ouvre et se ferme avec K ou le bouton « Carnet » ; Échap ou un clic à côté le ferme.
+Carnet de collection (640x360) : panneau opaque en cadres or et crème, comme l'atelier. En haut, le pourcentage du carnet et quatre pages (perles, fossiles, reliques, machines) ; à gauche, les six cases de la page (trouvailles agrandies ×3 au pixel près, silhouettes tant qu'elles ne sont pas trouvées) ; à droite, la fiche de la case choisie et le bonus de la page. S'ouvre et se ferme avec K ou le bouton « Carnet » ; Échap ou un clic à côté le ferme. Il s'ouvre sur la dernière trouvaille quand elle n'a pas encore été vue (le bouton affiche alors « Carnet (K) • ») et, la première fois, sur la plus récente ; sinon là où on l'a laissé.
 
 - **Hérite de** : CanvasLayer
 - **Fonctions principales** :
@@ -283,7 +286,7 @@ Lecture des fichiers de données du dossier data/.
 - **Fonctions principales** :
   - `charger_json(chemin)`
 - **Dépend de** : aucun script
-- **Utilisé par** : ArtAbysse, Atelier, Carnet, Dive, Game, Ile, Palette, Playtest, RunTests
+- **Utilisé par** : ArtAbysse, Atelier, Carnet, Dive, Game, Ile, Marchand, Palette, Playtest, RunTests
 
 ### `scripts/ecran_titre.gd` : EcranTitre
 
@@ -321,6 +324,8 @@ Interface de plongée (640x360) : oxygène, profondeur, zone, sac, annonces et m
   - `mettre_a_jour(ratio_oxygene, profondeur_m, nom_zone, message_bas)`
   - `glisser(progression)` : progression : 0 = panneaux hors de l'écran, 1 = en place. Chacun sort par son bord le plus proche : l'état par la gauche, l'annonce par le haut, le message par le bas. Pas de transparence.
   - `progression_glissement()`
+  - `rect_etat()` : Rectangles du panneau d'état et de l'annonce à l'écran (tests : ils ne se chevauchent jamais).
+  - `rect_annonce()`
   - `decalage_panneau_etat()` : Décalage du panneau par rapport à sa place (pixels d'écran).
   - `regler_reserve(facteur)` : Longueur de la jauge d'oxygène proportionnelle à la réserve (1 = réserve de base).
   - `largeur_jauge()`
@@ -335,6 +340,7 @@ Interface de l'île (640x360) : bouton d'inventaire, barre des ressources, annon
 
 - **Hérite de** : CanvasLayer
 - **Fonctions principales** :
+  - `marquer_carnet(nouveau)` : « Carnet (K) • » tant qu'une nouvelle trouvaille n'a pas été regardée dans le carnet.
   - `rafraichir_inventaire()`
   - `annoncer(texte, duree)`
   - `texte_annonce()`
@@ -344,13 +350,15 @@ Interface de l'île (640x360) : bouton d'inventaire, barre des ressources, annon
 
 ### `scripts/ile.gd` : Ile
 
-L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire, atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace). Deux îlots isolés (data/ile.json) : à droite, l'îlot de l'est, relié par la passerelle de nuage (son bassin de lumière donne alors du cristal de lagon, maintien du clic comme les filons) ; en haut à gauche, l'îlot du nord, relié par le pont suspendu (deux emplacements de machine). Un clic sur un îlot isolé ouvre l'atelier, onglet Construction. Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ; une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne). La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il fabrique en boucle avec les ingrédients de l'inventaire) et la sonde (qui ne produit qu'en plongée). Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()). Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause). Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
+L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inventaire, atelier (cabane : clic ou C) et départ en plongée en cliquant sur la cloche (ou E / Espace). Deux îlots isolés (data/ile.json) : à droite, l'îlot de l'est, relié par la passerelle de nuage (son bassin de lumière donne alors du cristal de lagon, maintien du clic comme les filons) ; en haut à gauche, l'îlot du nord, relié par le pont suspendu (deux emplacements de machine). Un clic sur un îlot isolé ouvre l'atelier, onglet Construction. Machines (data/machines.json) : un clic sur un emplacement libre ouvre l'atelier, onglet Machines ; une machine construite produit seule jusqu'à sa réserve et un clic vide la réserve (comme l'éolienne). La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il fabrique en boucle avec les ingrédients de l'inventaire), la sonde (qui ne produit qu'en plongée) et l'entrepôt. Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()). Le marchand de vent (Marchand, data/marchand.json) passe de temps en temps : son dirigeable arrive par la droite, reste 60 s au-dessus de l'île et repart ; un clic dessus ouvre ses échanges (PanneauMarchand). Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause). Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
 - **Hérite de** : Node2D
 - **Signaux** : `plongee_demandee`, `partie_modifiee`
 - **Fonctions principales** :
-  - `panneau_ouvert()` : Un seul panneau ouvert à la fois (inventaire, atelier ou carnet).
+  - `panneau_ouvert()` : Un seul panneau ouvert à la fois (inventaire, atelier, carnet ou marchand).
   - `basculer_carnet()` : Carnet de collection (K ou le bouton « Carnet »).
+  - `ouvrir_marchand()` : Échanges du marchand (clic sur son dirigeable, tant qu'il est là).
+  - `position_marchand()` : Position du dirigeable (640x360) : il glisse depuis le bord droit, se balance doucement, puis y repart.
   - `actualiser_machines()` : Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie), applique leurs améliorations, et retire de l'île les filons couverts par une foreuse.
   - `machine(lieu)` : Machine posée sur un emplacement (null s'il est libre).
   - `centre_emplacement(lieu)` : Centre de la zone cliquable d'un emplacement (640x360), au-dessus du sol.
@@ -366,7 +374,7 @@ L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inve
   - `etat_sources()` : État des sources fixes (les nuages ne sont pas sauvegardés : ils réapparaissent seuls).
   - `restaurer_sources(donnees)` : Reprend l'état sauvegardé des sources ; ce qui manque ou est faux garde la valeur de départ.
   - `reinitialiser_sources()` : Sources remises à leur stock de départ (nouvelle partie).
-- **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Game, InterfaceIle, Inventaire, Palette, PanneauAtelier, PanneauCarnet, PanneauInventaire, Pixel, Son, SourceRessource, VueMonde
+- **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Game, InterfaceIle, Inventaire, Marchand, Palette, PanneauAtelier, PanneauCarnet, PanneauInventaire, PanneauMarchand, Pixel, Son, SourceRessource, VueMonde
 - **Utilisé par** : Jeu, Playtest, RunTests, Transition
 
 ### `scripts/inventaire.gd` : Inventaire
@@ -385,7 +393,7 @@ Inventaire unique : ressources du ciel et minerais de plongée. Le plafond par r
   - `vers_dictionnaire()` : Quantités non nulles { id: nombre }.
   - `depuis_dictionnaire(donnees, ids_connus)` : Inventaire lu depuis une sauvegarde : identifiants inconnus ignorés, quantités bornées à 0..PLAFOND_MAX (l'entrepôt, chargé ensuite avec les machines, fixe le vrai plafond).
 - **Dépend de** : aucun script
-- **Utilisé par** : Atelier, Captures, Game, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauInventaire, Playtest, RunTests
+- **Utilisé par** : Atelier, Captures, Game, Ile, InterfaceIle, Jeu, Marchand, PanneauAtelier, PanneauInventaire, PanneauMarchand, Playtest, RunTests
 
 ### `scripts/inventaire_ui.gd` : PanneauInventaire
 
@@ -418,8 +426,48 @@ Scène principale : enchaîne l'île, la transition et la plongée. L'île reste
   - `fermer_pause()`
   - `retour_au_titre()`
   - `quitter()`
-- **Dépend de** : Atelier, Carnet, Dive, EcranTitre, Game, Ile, Interface, Inventaire, MenuCadre, MenuPause, Sauvegarde, Son, Transition
+- **Dépend de** : Atelier, Carnet, Dive, EcranTitre, Game, Ile, Interface, Inventaire, Marchand, MenuCadre, MenuPause, Sauvegarde, Son, Transition
 - **Utilisé par** : Captures, Playtest, RunTests
+
+### `scripts/marchand.gd` : Marchand
+
+Le vieux marchand de vent (data/marchand.json) : son dirigeable passe au-dessus de l'île environ toutes les 4 min de jeu (île et plongée comptées, pas le jeu fermé) et reste 60 s. S'il arrive pendant une plongée, il attend le retour sur l'île ; s'il était là au départ, son temps s'arrête jusqu'au retour. À chaque passage, il propose 3 échanges tirés parmi ceux du palier atteint (chacun une fois) et dit une réplique (une par visite, dans l'ordre). Il ne rachète que des surplus (surtout les ouates du filet) contre des ressources de la surface : jamais un minerai de l'abysse ni ce qui en est fait (« interdits »), pour qu'aucun échange ne remplace une plongée. Aucun échange n'est obligatoire, rien n'est perdu si on le manque. Il appartient à la partie (gardé par l'atelier, enregistré dans la sauvegarde).
+
+- **Hérite de** : RefCounted
+- **Fonctions principales** :
+  - `duree()`
+  - `intervalle()`
+  - `echanges()` : Tous les échanges : [{ id, palier, donne, recoit }], dans l'ordre du fichier de données.
+  - `echange(id)`
+  - `interdits()` : Ce que le marchand ne donne jamais (minerais de l'abysse et ce qui en est fait).
+  - `repliques()`
+  - `replique()` : Réplique du passage en cours (ou du dernier).
+  - `est_present()`
+  - `temps_present()` : Secondes depuis son arrivée (pour l'animation du dirigeable).
+  - `avancer(secondes, sur_ile, palier)` : Fait avancer le temps de « secondes ». Sur l'île : il arrive quand l'attente est finie, puis repart à la fin de son passage ; hors de l'île (plongée) : seule l'attente avance, sans jamais le faire arriver. Renvoie « arrivee », « depart » ou une chaîne vide.
+  - `arriver(palier)` : Début d'un passage : offres tirées parmi les échanges du palier (complétées par les paliers d'avant s'il en manque), et réplique suivante.
+  - `peut_echanger(id, inventaire)` : Vrai si cet échange est proposé maintenant, pas encore fait, payable et rangeable dans l'inventaire.
+  - `echanger(id, inventaire)`
+  - `vers_dictionnaire()`
+  - `charger(donnees)` : Marchand lu depuis une sauvegarde : valeurs bornées, échanges inconnus ignorés. Sans données (sauvegarde d'avant le marchand), il passe pour la première fois après l'attente habituelle.
+- **Dépend de** : Donnees, Inventaire
+- **Utilisé par** : Atelier, Captures, Ile, Jeu, PanneauMarchand, Playtest, RunTests
+
+### `scripts/marchand_ui.gd` : PanneauMarchand
+
+Panneau du marchand de vent (640x360) : cadres or et crème, comme l'atelier. En haut, sa réplique du jour ; en dessous, ses trois échanges (ce qu'on donne → ce qu'on reçoit, bouton Échanger, ou « Fait ») ; en bas, le temps qu'il reste avant son départ. S'ouvre d'un clic sur son dirigeable ; Échap ou un clic à côté le ferme. Il se ferme seul quand le marchand repart.
+
+- **Hérite de** : CanvasLayer
+- **Signaux** : `echange_fait(id: String)`
+- **Fonctions principales** :
+  - `est_ouvert()`
+  - `ouvrir()`
+  - `fermer()`
+  - `rafraichir()`
+  - `echanger(id)` : Fait l'échange s'il est possible ; renvoie vrai s'il a eu lieu.
+  - `bouton(id)`
+- **Dépend de** : ArtIle, Game, Inventaire, Marchand, Palette, Pixel
+- **Utilisé par** : Ile
 
 ### `scripts/menu_cadre.gd` : MenuCadre
 
@@ -458,7 +506,7 @@ Palette fixe du jeu (data/palette.json) : toutes les couleurs affichées en vien
   - `plus_sombre(teinte, crans)` : Le ton juste en dessous dans la même rampe (ombre portée « un ton plus sombre »).
   - `plus_clair(teinte, crans)` : Le ton juste au-dessus dans la même rampe (reflets, repères).
 - **Dépend de** : Donnees
-- **Utilisé par** : ArtAbysse, ArtIle, ArtTrouvailles, Captures, Dive, Game, Gisement, Ile, Interface, MenuPause, PanneauCarnet, Pixel, RunTests, SourceRessource, Transition
+- **Utilisé par** : ArtAbysse, ArtIle, ArtTrouvailles, Captures, Dive, Game, Gisement, Ile, Interface, MenuPause, PanneauCarnet, PanneauMarchand, Pixel, RunTests, SourceRessource, Transition
 
 ### `scripts/pixel.gd` : Pixel
 
@@ -485,7 +533,7 @@ Outils de dessin « pixel art » : tout est dessiné au pixel entier, sans antia
   - `trame(niveau, couleur)` : Trame ordonnée (Bayer 4x4) : niveau 0 = transparent, 16 = plein.
   - `nuage(largeur, hauteur, couleur, ombre)` : Nuage arrondi (trois bosses), ombré en bas.
 - **Dépend de** : Palette
-- **Utilisé par** : ArtAbysse, ArtIle, ArtTrouvailles, Captures, Cloche, Dive, Game, Gisement, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauCarnet, PanneauInventaire, RunTests, SourceRessource, Transition, VueMonde
+- **Utilisé par** : ArtAbysse, ArtIle, ArtTrouvailles, Captures, Cloche, Dive, Game, Gisement, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauCarnet, PanneauInventaire, PanneauMarchand, RunTests, SourceRessource, Transition, VueMonde
 
 ### `scripts/sac.gd` : Sac
 
@@ -536,7 +584,7 @@ Une source de ressource sur l'île : éolienne, filon de cristal, nuage, bassin 
   - `prendre(nombre)` : Retire jusqu'à « nombre » unités ; renvoie la quantité réellement prise.
   - `dessiner_monde(toile)`
 - **Dépend de** : ArtAbysse, ArtIle, Palette, Pixel, VueMonde
-- **Utilisé par** : Ile, Playtest, RunTests
+- **Utilisé par** : Captures, Ile, Playtest, RunTests
 
 ### `scripts/synthe.gd` : Synthe
 
@@ -589,19 +637,19 @@ Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360).
 
 ### `tests/captures.gd` : Captures
 
-Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ; 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ; 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ; 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
+Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ; 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ; 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ; 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée) ; 43-46 : marchand de vent et confort (dirigeable qui arrive, « Carnet (K) • », jauge de réserve, grand moulin ; ses échanges ; carnet ouvert sur la dernière trouvaille ; annonce de plongée sous le panneau d'air). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 - **Hérite de** : SceneTree
-- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_palier2`, `_scenario_palier3`, `_scenario_trouvailles`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`
-- **Dépend de** : ArtAbysse, Atelier, Carnet, Dive, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, VueMonde
+- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_palier2`, `_scenario_palier3`, `_scenario_trouvailles`, `_scenario_marchand`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`
+- **Dépend de** : ArtAbysse, Atelier, Carnet, Dive, Inventaire, Jeu, Marchand, Palette, Pixel, Sac, Sauvegarde, SourceRessource, VueMonde
 
 ### `tests/playtest.gd` : Playtest
 
 Playtest robot : joue une partie entière comme un joueur, avec de vrais évènements clavier et souris (Input.parse_input_event), sans téléporter la cloche ni toucher à l'inventaire.
 
 - **Hérite de** : SceneTree
-- **Fonctions** : `_initialize`, `_lancer`, `_partie_complete`, `_besoins`, `_raffines_manquants`, `_en_reserve_fourneaux`, `_gerer_fourneaux`, `_besoin_raffine`, `_objectifs_proches`, `_objectifs_restants`, `_ingredients_objectif`, `_plongee_utile`, `_zone_de`, `_atteignable`, `_recolter_utile`, `_compter`, `_nuage_visible`, `_cliquer_nuage`, `_maintenir_sur`, `_recolter_bassin`
-- **Dépend de** : ArtAbysse, Atelier, Donnees, Ile, Inventaire, Jeu, Sauvegarde, SourceRessource
+- **Fonctions** : `_initialize`, `_lancer`, `_partie_complete`, `_completer_carnet`, `_besoins`, `_besoins_bruts`, `_manque_direct`, `_raffines_manquants`, `_en_reserve_fourneaux`, `_gerer_fourneaux`, `_commercer`, `_echange_utile`, `_besoin_raffine`, `_objectifs_proches`, `_objectifs_restants`, `_ingredients_objectif`, `_plongee_utile`, `_zone_par_id`, `_zone_de`, `_atteignable`
+- **Dépend de** : ArtAbysse, Atelier, Carnet, Donnees, Ile, Inventaire, Jeu, Marchand, Sauvegarde, SourceRessource
 
 ### `tests/run_tests.gd` : RunTests
 
@@ -609,4 +657,4 @@ Tests de logique (étapes 1 à 5). Lancement : voir tests/lancer.sh ou le README
 
 - **Hérite de** : SceneTree
 - **Fonctions** : `_initialize`, `_lancer`, `_titre`, `_verifier`, `_images`, `_secondes`, `_demarrer`, `_terminer`, `_somme`, `_vers_fenetre`, `_souris`, `_bouton`, `_cliquer`, `_touche`, `_gisements`, `_test_inertie`, `_test_flottabilite`, `_test_bornes`, `_test_oxygene_baisse_et_recharge`, `_test_remontee_automatique`
-- **Dépend de** : ArtAbysse, ArtTrouvailles, Atelier, Carnet, Cloche, Dive, Donnees, Gisement, Ile, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, SourceRessource, Synthe, VueMonde
+- **Dépend de** : ArtAbysse, ArtTrouvailles, Atelier, Carnet, Cloche, Dive, Donnees, Gisement, Ile, Inventaire, Jeu, Marchand, Palette, Pixel, Sac, Sauvegarde, SourceRessource, Synthe, VueMonde

@@ -17,6 +17,7 @@ class Carnet(RefCounted):
     PAGES_TROUVAILLES = ...
     trouvees: 'Array'
     machines_vues: 'Array'
+    a_voir: 'String'
     _donnees: 'Dictionary'
     _machines: 'Array'
 
@@ -83,6 +84,11 @@ class Carnet(RefCounted):
     def facteur_oxygene(self, zone: 'String') -> 'float':
         """Consommation d'air dans une zone (page de la Faille complète : ×0,8 dans la Faille)."""
         self.page(...)
+        self.page_complete(...)
+
+    def places_sac_bonus(self) -> 'int':
+        """Places de sac en plus (page des perles complète : +1)."""
+        self.pages(...)
         self.page_complete(...)
 
     def facteur_machines(self) -> 'float':
