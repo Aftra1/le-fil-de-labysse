@@ -576,7 +576,8 @@ func _plonger(besoins: Dictionary) -> void:
 		mesure["oxygene_fin"] = plongee.oxygene
 		mesure["gardees"] = gardees
 		mesure["perdues"] = perdues
-		mesure["urgence"] = urgence)
+		mesure["urgence"] = urgence
+		mesure["trouvailles"] = plongee.trouvailles_plongee.duplicate())
 	var debut_eau := _secondes()
 	_marque_video("sous_l_eau")
 	await _conduire(plongee, besoins, mesure)
@@ -586,8 +587,7 @@ func _plonger(besoins: Dictionary) -> void:
 	while _jeu.etat != 0:
 		await _image()
 	mesure["duree_totale_s"] = _secondes() - debut
-	mesure["trouvailles"] = plongee.trouvailles_plongee.duplicate()
-	for id: String in plongee.trouvailles_plongee:
+	for id: String in mesure.get("trouvailles", []):
 		_noter("Trouvaille : %s (carnet %d %%)" % [id, _game.atelier.carnet.pourcentage()])
 	_plongees.append(mesure)
 	for id: String in mesure["gardees"]:
@@ -699,7 +699,8 @@ func _regarder(plongee: Node, cloche: Node2D, vus: Array) -> void:
 		if y < haut or y > haut + 360.0:
 			continue
 		var sombre := ArtAbysse.niveau_obscurite(y / 10.0, _game.atelier.obscurite_max()) > 0
-		if sombre and cloche.position.distance_to(enfant.position) > rayon:
+		# Un éclat de trouvaille brille dans le noir : il se voit dès qu'il est à l'écran.
+		if sombre and enfant.trouvaille == "" and cloche.position.distance_to(enfant.position) > rayon:
 			continue
 		vus.append(enfant)
 
