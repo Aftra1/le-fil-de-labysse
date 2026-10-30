@@ -294,6 +294,29 @@ const LINGOT: PackedStringArray = [
 	"ooooood.",
 	"dddddd..",
 ]
+## Dirigeable du marchand de vent (monde 320x180) : ballon rapiécé cerclé d'or, nacelle de bois
+## où dépassent son chapeau et son visage. L'hélice est dessinée à part (elle tourne).
+const DIRIGEABLE: PackedStringArray = [
+	".......nnnnnnnnnn.......",
+	"....nnNNNNNNNNNNNNnn....",
+	"..nNNNNNooNNNNNNNNNNnn..",
+	".nNNNNNoOOoNNNNNppNNNNn.",
+	"nNNNNNNNooNNNNNNppNNNNNn",
+	"oOOOOOOOOOOOOOOOOOOOOOOo",
+	"nNNNNNNNNNNNNNNNNNNNNNNn",
+	".nnNNNNNNNNNNNNNNNNNNnn.",
+	"...nnnnNNNNNNNNNNnnnn...",
+	"......nnnnnnnnnnnn......",
+	".......t...HHH...t......",
+	"......t....fff....t.....",
+	".....TTTTTTTTTTTTTTT....",
+	".....TtOtttttttOtTTT....",
+	"......TTTTTTTTTTTTT.....",
+]
+const COULEURS_DIRIGEABLE := {
+	"n": "nuage.3", "N": "nuage.4", "o": "or.3", "O": "or.4", "p": "or.2",
+	"t": "terre.2", "T": "terre.1", "H": "terre.3", "f": "or.5",
+}
 const COULEURS_CABANE := {
 	"c": "roche.2", "o": "or.2", "O": "or.3", "w": "terre.1", "W": "terre.2", "d": "interface.1", "f": "or.5",
 }
@@ -651,6 +674,10 @@ static func cabane(allumee: bool) -> ImageTexture:
 	if not allumee:
 		couleurs["f"] = "or.1"
 	return Pixel.motif(CABANE, couleurs, CONTOUR)
+
+
+static func dirigeable() -> ImageTexture:
+	return Pixel.motif(DIRIGEABLE, COULEURS_DIRIGEABLE, CONTOUR)
 
 
 ## Îlot flottant (monde 320x180) : herbe, terre, roche effilée vers le bas, contour brun.

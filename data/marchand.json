@@ -1,0 +1,36 @@
+{
+	"premier_passage_s": 240.0,
+	"intervalle_s": 240.0,
+	"duree_s": 60.0,
+	"offres_par_passage": 3,
+	"interdits": ["cristal_lagon", "corail", "pierre_braise", "lentille", "verre_lagon", "nacre"],
+	"echanges": [
+		{"id": "solaire_1", "palier": 1, "donne": {"nuage": 12}, "recoit": {"cristal_solaire": 2}},
+		{"id": "vent_1", "palier": 1, "donne": {"nuage": 10}, "recoit": {"vent": 3}},
+		{"id": "poche_1", "palier": 1, "donne": {"nuage": 15}, "recoit": {"poche_air": 1}},
+		{"id": "solaire_gros_1", "palier": 1, "donne": {"nuage": 20}, "recoit": {"cristal_solaire": 4}},
+		{"id": "solaire_2", "palier": 2, "donne": {"nuage": 15}, "recoit": {"cristal_solaire": 3}},
+		{"id": "vent_2", "palier": 2, "donne": {"nuage": 12}, "recoit": {"vent": 4}},
+		{"id": "poche_2", "palier": 2, "donne": {"nuage": 20}, "recoit": {"poche_air": 2}},
+		{"id": "vent_solaire_2", "palier": 2, "donne": {"vent": 10}, "recoit": {"cristal_solaire": 3}},
+		{"id": "lingot_3", "palier": 3, "donne": {"nuage": 20}, "recoit": {"lingot_solaire": 1}},
+		{"id": "vent_3", "palier": 3, "donne": {"nuage": 20}, "recoit": {"vent": 8}},
+		{"id": "solaire_3", "palier": 3, "donne": {"nuage": 15}, "recoit": {"cristal_solaire": 3}},
+		{"id": "lingot_vent_3", "palier": 3, "donne": {"nuage": 12, "vent": 6}, "recoit": {"lingot_solaire": 1}},
+		{"id": "poche_3", "palier": 3, "donne": {"nuage": 20}, "recoit": {"poche_air": 2}}
+	],
+	"repliques": [
+		"Du vent à vendre, du vent à acheter ! Tes ouates m'intéressent, gardien.",
+		"Ma grand-mère disait qu'Ilume flottait plus haut que les nuages. Je ne suis jamais monté si haut.",
+		"Ton filet travaille bien. Moi, je tisse mes voiles avec ce que les gardiens ne gardent pas.",
+		"Tu tiens le Fil, toi ? Alors tiens-le doucement. On l'a déjà tiré trop fort, autrefois.",
+		"Une perle qui siffle ? Garde-la. C'est avec ça qu'on m'appelait, quand j'étais jeune.",
+		"Les îles tombent rarement. Mais quand une tombe, on n'entend rien. C'est ça le pire.",
+		"Le vent du couchant pèse plus lourd que le tien. Il a vu des choses, en passant au-dessus de l'eau.",
+		"Mon dirigeable a été cousu avec du fil de nuage d'Ilume. Il tient encore, tu vois ?",
+		"La forge d'Ilume tressait des câbles qui touchaient le fond. Le tien s'allonge bien.",
+		"On dit qu'une lumière nage tout en bas. Moi, je ne regarde jamais par-dessus bord.",
+		"Avant, il y avait cent gardiens et cent cloches. Aujourd'hui, je n'en connais qu'un.",
+		"Une couronne coupée en deux ? L'autre moitié, cherche-la dans la lumière, pas dans l'abysse."
+	]
+}

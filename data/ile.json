@@ -39,8 +39,8 @@
 		"apparition_s": 3.0,
 		"vitesse_min": 5.0,
 		"vitesse_max": 11.0,
-		"y_min": 34.0,
-		"y_max": 112.0
+		"y_min": 52.0,
+		"y_max": 86.0
 	},
 	"ilots": [
 		{

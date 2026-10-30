@@ -17,9 +17,11 @@ extends CanvasLayer
 signal fabrique(id: String, genre: String)
 
 const LARGEUR_LISTE := 196.0
-const LARGEUR_DETAIL := 300.0
-const HAUTEUR_DETAIL := 196.0
+const LARGEUR_DETAIL := 340.0
+const HAUTEUR_DETAIL := 180.0
 const ECART := 4
+## Interligne resserré des textes sur plusieurs lignes (effet de la recette) : le panneau garde une marge.
+const INTERLIGNE := -6
 const COULEUR_TEXTE := "contour_haut"
 const COULEUR_MANQUE := "corail.2"
 
@@ -112,6 +114,7 @@ func _ready() -> void:
 	_effet = _etiquette("")
 	_effet.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_effet.custom_minimum_size.x = LARGEUR_DETAIL - 24.0
+	_effet.add_theme_constant_override("line_spacing", INTERLIGNE)
 	contenu.add_child(_effet)
 	_ingredients = VBoxContainer.new()
 	_ingredients.add_theme_constant_override("separation", 2)
@@ -187,7 +190,9 @@ func choisir_onglet(nom: String) -> void:
 	elif nom == "fourneau":
 		ids = [""] + Game.atelier.raffines()
 	_ligne_onglets.visible = nom != "fourneau"
-	_entete.text = "Fourneau" if nom == "fourneau" else "Atelier"
+	# Le titre ne sert qu'au fourneau (sans onglets) : l'atelier garde ainsi une marge en haut et en bas.
+	_entete.visible = nom == "fourneau"
+	_entete.text = "Fourneau"
 	mode = "construire"
 	selection = ids[0]
 	_remplir_liste(ids)
@@ -277,11 +282,14 @@ func rafraichir() -> void:
 		_bouton.text = "Améliorer"
 	elif onglet == "machines":
 		_effet.text = "%s\n%s" % [str(Game.atelier.machine(selection)["effet"]), _texte_emplacement()]
+		if selection == "fourneau" and Game.atelier.nombre_machines("fourneau") == 1:
+			_effet.text += "\nUn deuxième fourneau fabrique un autre raffiné en même temps."
 		ingredients = Game.atelier.machine(selection)["ingredients"]
 		_bouton.text = "Construire"
 	elif onglet == "fourneau":
 		_effet.text = "Le fourneau s'arrête." if selection == "" else \
-			"1 toutes les 20 s, pris dans l'inventaire tant qu'il a ces ingrédients (5 au plus en réserve)."
+			"1 toutes les %s s, pris dans l'inventaire tant qu'il a ces ingrédients (%d au plus en réserve)." % [
+				_nombre(Game.atelier.recharge_machine("fourneau")), Game.atelier.plafond_machine("fourneau")]
 		ingredients = {} if selection == "" else Game.atelier.recette_raffine(selection)
 		_bouton.text = "En cours" if selection == Game.atelier.recette_fourneau(fourneau_lieu) else "Choisir"
 	else:

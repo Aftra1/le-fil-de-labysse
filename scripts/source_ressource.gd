@@ -25,6 +25,9 @@ const K := 0.5
 const FILON := ArtIle.FILON
 const TAILLE_NUAGE := Vector2i(16, 8)
 const HAUTEUR_MAT := 25          # pixels du monde, du moyeu au sol
+## Réserve affichée en points jusqu'à 10 ; au-delà, une jauge de LARGEUR_JAUGE pixels du monde.
+const POINTS_MAX := 10
+const LARGEUR_JAUGE := 15
 
 var id_ressource := ""
 ## Nom affiché dans l'aide (machines) ; vide : le nom de la ressource.
@@ -205,32 +208,37 @@ func _dessiner_bassin(toile: CanvasItem, centre: Vector2) -> void:
 	_dessiner_points(toile, centre + Vector2(0, -6), "lagon.5")
 
 
-## Moulin à vent : petite tour de bois au toit sombre, quatre ailes de toile sur une armature, qui
-## tournent tant qu'il produit (elles s'arrêtent quand la réserve est pleine : il est temps de la vider).
+## Moulin à vent : tour de bois à deux étages au toit sombre, avec une porte, et quatre grandes ailes de
+## toile sur une armature, qui tournent tant qu'il produit (elles s'arrêtent quand la réserve est pleine :
+## il est temps de la vider).
 func _dessiner_moulin(toile: CanvasItem, centre: Vector2) -> void:
 	var x := centre.x
 	var sol := centre.y + HAUTEUR_MACHINE
-	toile.draw_rect(Rect2(x - 3, sol, 8, 1), Palette.couleur("herbe.3"))
-	for rang in 8:
-		var demi := 3 if rang < 4 else 2
+	toile.draw_rect(Rect2(x - 5, sol, 12, 1), Palette.couleur("herbe.3"))
+	for rang in 12:
+		var demi := 4 if rang < 6 else 3
 		var y := sol - 1 - rang
 		toile.draw_rect(Rect2(x - demi - 1, y, demi * 2 + 3, 1), Palette.couleur(ArtIle.CONTOUR))
-		toile.draw_rect(Rect2(x - demi, y, demi * 2 + 1, 1), Palette.couleur("terre.3"))
+		toile.draw_rect(Rect2(x - demi, y, demi * 2 + 1, 1), Palette.couleur("terre.3" if rang != 6 else "terre.2"))
 		toile.draw_rect(Rect2(x + demi, y, 1, 1), Palette.couleur("terre.2"))
-	toile.draw_rect(Rect2(x, sol - 3, 1, 2), Palette.couleur(ArtIle.CONTOUR))
-	for rang in 3:
-		toile.draw_rect(Rect2(x - 3 + rang, sol - 9 - rang, 7 - rang * 2, 1), Palette.couleur("terre.1"))
-	var moyeu := Vector2(x, sol - 9)
+	toile.draw_rect(Rect2(x - 1, sol - 4, 3, 3), Palette.couleur(ArtIle.CONTOUR))
+	toile.draw_rect(Rect2(x, sol - 3, 1, 2), Palette.couleur("terre.1"))
+	toile.draw_rect(Rect2(x - 1, sol - 10, 2, 2), Palette.couleur("or.4"))
+	for rang in 4:
+		toile.draw_rect(Rect2(x - 4 + rang, sol - 13 - rang, 9 - rang * 2, 1), Palette.couleur("terre.1"))
+	var moyeu := Vector2(x, sol - 13)
 	for bras in 4:
 		var direction := Vector2.from_angle(_angle + bras * PI / 2.0)
 		var cote := direction.orthogonal()
-		for d in range(1, 9):
+		for d in range(1, 12):
 			var point := (moyeu + direction * d).round()
 			if d >= 3:
-				toile.draw_rect(Rect2((moyeu + direction * d + cote * 1.5).round(), Vector2.ONE), Palette.couleur("nuage.4"))
+				for largeur in [1.2, 2.2]:
+					toile.draw_rect(Rect2((moyeu + direction * d + cote * largeur).round(), Vector2.ONE),
+						Palette.couleur("nuage.4" if largeur < 2.0 else "nuage.3"))
 			toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur("terre.1"))
 	toile.draw_rect(Rect2(moyeu, Vector2.ONE), Palette.couleur("or.4"))
-	_dessiner_points(toile, centre + Vector2(0, -13), "ciel.4")
+	_dessiner_points(toile, centre + Vector2(0, -19), "ciel.4")
 
 
 ## Filet à nuages : deux poteaux, un filet qui ondule au vent et les ouates prises dans ses mailles.
@@ -351,7 +359,15 @@ func _dessiner_nuage(toile: CanvasItem, centre: Vector2) -> void:
 
 
 ## Un pixel du monde par unité de plafond, espacés d'un pixel : plein si disponible, sombre sinon.
+## Au-delà de POINTS_MAX (réserves améliorées), une petite jauge remplie selon le stock.
 func _dessiner_points(toile: CanvasItem, centre: Vector2, couleur: String) -> void:
+	if plafond > POINTS_MAX:
+		var gauche := (centre - Vector2(floorf(LARGEUR_JAUGE / 2.0), 0.0)).floor()
+		toile.draw_rect(Rect2(gauche - Vector2.ONE, Vector2(LARGEUR_JAUGE + 2, 3)), Palette.couleur(ArtIle.CONTOUR))
+		toile.draw_rect(Rect2(gauche, Vector2(LARGEUR_JAUGE, 1)), Palette.couleur("roche.2"))
+		var plein := ceili(LARGEUR_JAUGE * stock / float(plafond)) if stock > 0 else 0
+		toile.draw_rect(Rect2(gauche, Vector2(plein, 1)), Palette.couleur(couleur))
+		return
 	for i in plafond:
 		var point := (centre + Vector2((i - (plafond - 1) / 2.0) * 2.0, 0.0)).floor()
 		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur(couleur if i < stock else "roche.2"))
