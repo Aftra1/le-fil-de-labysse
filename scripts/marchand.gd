@@ -2,7 +2,8 @@ class_name Marchand
 extends RefCounted
 ## Le vieux marchand de vent (data/marchand.json) : son dirigeable passe au-dessus de l'île environ toutes
 ## les 4 min de jeu (île et plongée comptées, pas le jeu fermé) et reste 60 s. S'il arrive pendant une
-## plongée, il attend le retour sur l'île ; s'il était là au départ, son temps s'arrête jusqu'au retour.
+## plongée, il attend le retour sur l'île et reste alors ses 60 s ; s'il était déjà là, il ne repart jamais
+## pendant une plongée : au retour, il reste encore au moins 20 s (« reste_au_retour_s »).
 ## À chaque passage, il propose 3 échanges tirés parmi ceux du palier atteint (chacun une fois) et dit une
 ## réplique (une par visite, dans l'ordre). Il ne rachète que des surplus (surtout les ouates du filet)
 ## contre des ressources de la surface : jamais un minerai de l'abysse ni ce qui en est fait (« interdits »),
@@ -82,11 +83,13 @@ func temps_present() -> float:
 
 
 ## Fait avancer le temps de « secondes ». Sur l'île : il arrive quand l'attente est finie, puis repart à
-## la fin de son passage ; hors de l'île (plongée) : seule l'attente avance, sans jamais le faire arriver.
+## la fin de son passage ; hors de l'île (plongée) : l'attente avance sans jamais le faire arriver, et son
+## passage aussi, sans le faire partir (il reste au moins « reste_au_retour_s » pour le retour).
 ## Renvoie « arrivee », « depart » ou une chaîne vide.
 func avancer(secondes: float, sur_ile: bool, palier: int) -> String:
 	if est_present():
 		if not sur_ile:
+			restant = maxf(restant - secondes, minf(float(_donnees["reste_au_retour_s"]), restant))
 			return ""
 		restant -= secondes
 		if restant > 0.0:

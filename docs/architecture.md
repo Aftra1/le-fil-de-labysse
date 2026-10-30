@@ -431,7 +431,7 @@ Scène principale : enchaîne l'île, la transition et la plongée. L'île reste
 
 ### `scripts/marchand.gd` : Marchand
 
-Le vieux marchand de vent (data/marchand.json) : son dirigeable passe au-dessus de l'île environ toutes les 4 min de jeu (île et plongée comptées, pas le jeu fermé) et reste 60 s. S'il arrive pendant une plongée, il attend le retour sur l'île ; s'il était là au départ, son temps s'arrête jusqu'au retour. À chaque passage, il propose 3 échanges tirés parmi ceux du palier atteint (chacun une fois) et dit une réplique (une par visite, dans l'ordre). Il ne rachète que des surplus (surtout les ouates du filet) contre des ressources de la surface : jamais un minerai de l'abysse ni ce qui en est fait (« interdits »), pour qu'aucun échange ne remplace une plongée. Aucun échange n'est obligatoire, rien n'est perdu si on le manque. Il appartient à la partie (gardé par l'atelier, enregistré dans la sauvegarde).
+Le vieux marchand de vent (data/marchand.json) : son dirigeable passe au-dessus de l'île environ toutes les 4 min de jeu (île et plongée comptées, pas le jeu fermé) et reste 60 s. S'il arrive pendant une plongée, il attend le retour sur l'île et reste alors ses 60 s ; s'il était déjà là, il ne repart jamais pendant une plongée : au retour, il reste encore au moins 20 s (« reste_au_retour_s »). À chaque passage, il propose 3 échanges tirés parmi ceux du palier atteint (chacun une fois) et dit une réplique (une par visite, dans l'ordre). Il ne rachète que des surplus (surtout les ouates du filet) contre des ressources de la surface : jamais un minerai de l'abysse ni ce qui en est fait (« interdits »), pour qu'aucun échange ne remplace une plongée. Aucun échange n'est obligatoire, rien n'est perdu si on le manque. Il appartient à la partie (gardé par l'atelier, enregistré dans la sauvegarde).
 
 - **Hérite de** : RefCounted
 - **Fonctions principales** :
@@ -444,7 +444,7 @@ Le vieux marchand de vent (data/marchand.json) : son dirigeable passe au-dessus 
   - `replique()` : Réplique du passage en cours (ou du dernier).
   - `est_present()`
   - `temps_present()` : Secondes depuis son arrivée (pour l'animation du dirigeable).
-  - `avancer(secondes, sur_ile, palier)` : Fait avancer le temps de « secondes ». Sur l'île : il arrive quand l'attente est finie, puis repart à la fin de son passage ; hors de l'île (plongée) : seule l'attente avance, sans jamais le faire arriver. Renvoie « arrivee », « depart » ou une chaîne vide.
+  - `avancer(secondes, sur_ile, palier)` : Fait avancer le temps de « secondes ». Sur l'île : il arrive quand l'attente est finie, puis repart à la fin de son passage ; hors de l'île (plongée) : l'attente avance sans jamais le faire arriver, et son passage aussi, sans le faire partir (il reste au moins « reste_au_retour_s » pour le retour). Renvoie « arrivee », « depart » ou une chaîne vide.
   - `arriver(palier)` : Début d'un passage : offres tirées parmi les échanges du palier (complétées par les paliers d'avant s'il en manque), et réplique suivante.
   - `peut_echanger(id, inventaire)` : Vrai si cet échange est proposé maintenant, pas encore fait, payable et rangeable dans l'inventaire.
   - `echanger(id, inventaire)`

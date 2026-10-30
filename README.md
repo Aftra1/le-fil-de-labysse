@@ -76,7 +76,8 @@ art dans `scripts/art_trouvailles.gd`. Tant qu'une nouvelle trouvaille n'a pas �
 
 Le vieux marchand de vent (`data/marchand.json`) passe en dirigeable environ toutes les 4 min de jeu (temps sur
 l'île et en plongée, pas jeu fermé) et reste 60 s. S'il arrive pendant une plongée, il attend le retour sur
-l'île ; s'il est là au départ, son temps s'arrête jusqu'au retour. À chaque passage, il dit une réplique (une
+l'île et reste alors 60 s ; s'il est déjà là, il ne repart pas pendant la plongée et reste encore au moins 20 s
+au retour. À chaque passage, il dit une réplique (une
 par visite, avec parfois un souvenir d'Ilume et du Fil) et propose 3 échanges tirés parmi ceux du palier
 atteint, chacun une fois : il rachète des ouates (le surplus du filet) et parfois des vents contre du cristal
 solaire, du vent, des poches d'air ou des lingots solaires. Il ne donne jamais de minerai de l'abysse ni ce qui

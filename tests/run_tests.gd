@@ -2651,8 +2651,11 @@ func _test_marchand_logique() -> void:
 	_verifier(marchand.avancer(0.0, true, 2) == "arrivee" and is_equal_approx(marchand.restant, 60.0)
 		and marchand.replique() != str(marchand.repliques()[0]), "retour sur l'île : il est là pour 60 s, avec une autre réplique")
 	marchand.avancer(20.0, true, 2)
+	marchand.avancer(10.0, false, 2)
+	var apres_10 := marchand.restant
 	marchand.avancer(500.0, false, 2)
-	_verifier(marchand.est_present() and is_equal_approx(marchand.restant, 40.0), "pendant une plongée, son temps s'arrête")
+	_verifier(is_equal_approx(apres_10, 30.0) and marchand.est_present() and is_equal_approx(marchand.restant, 20.0),
+		"en plongée, son passage avance, mais il ne repart pas : encore 20 s au retour", "%.0f puis %.0f" % [apres_10, marchand.restant])
 	var paires := {}
 	var repliques := {}
 	var palier_ok := true

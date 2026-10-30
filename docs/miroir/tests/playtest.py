@@ -58,7 +58,6 @@ from ..scripts.source_ressource import SourceRessource
 
 class Playtest(SceneTree):
     IPS = 60.0
-    SAUVEGARDE = "user://playtest_sauvegarde.json"
     DUREE_MAX_S = 3600.0
     ATTENTE_SIGNALEE_S = 10.0
     VITESSE_CLOCHE = 110.0
@@ -70,6 +69,7 @@ class Playtest(SceneTree):
     OBJECTIFS = ...
     MINERAIS = ...
     HORIZON_OBJECTIFS = 3
+    _chemin_sauvegarde: 'Variant'
     _video: 'bool'
     _sortie: 'String'
     _nom_profil: 'String'

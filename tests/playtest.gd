@@ -39,7 +39,8 @@ extends SceneTree
 ## Voir tests/playtest.sh et docs/playtest.md.
 
 const IPS := 60.0                         # images de physique par seconde
-const SAUVEGARDE := "user://playtest_sauvegarde.json"
+## Une sauvegarde par partie (numéro du processus) : plusieurs parties et la vidéo tournent en même temps.
+var _chemin_sauvegarde := "user://playtest_sauvegarde_%d.json" % OS.get_process_id()
 const DUREE_MAX_S := 3600.0               # garde-fou : une partie ne doit pas dépasser une heure
 const ATTENTE_SIGNALEE_S := 10.0          # attentes « sans rien à faire » rapportées
 
@@ -163,7 +164,7 @@ func _lancer() -> void:
 	await process_frame
 	_game = root.get_node("Game")
 	_ile_script = load("res://scripts/ile.gd")
-	Sauvegarde.chemin = SAUVEGARDE
+	Sauvegarde.chemin = _chemin_sauvegarde
 	_effacer_sauvegarde()
 	if _video:
 		_preparer_sauvegarde_video()
@@ -1186,8 +1187,8 @@ func _relacher_tout() -> void:
 
 
 func _effacer_sauvegarde() -> void:
-	var base := SAUVEGARDE.get_basename()
-	for chemin: String in [SAUVEGARDE, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
+	var base := _chemin_sauvegarde.get_basename()
+	for chemin: String in [_chemin_sauvegarde, base + ".bak", base + ".tmp", base + ".corrompue.json"]:
 		if FileAccess.file_exists(chemin):
 			DirAccess.remove_absolute(chemin)
 

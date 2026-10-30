@@ -2,6 +2,7 @@
 	"premier_passage_s": 240.0,
 	"intervalle_s": 240.0,
 	"duree_s": 60.0,
+	"reste_au_retour_s": 20.0,
 	"offres_par_passage": 3,
 	"interdits": ["cristal_lagon", "corail", "pierre_braise", "lentille", "verre_lagon", "nacre"],
 	"echanges": [
