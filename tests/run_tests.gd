@@ -2315,6 +2315,17 @@ func _test_carnet_panneau() -> void:
 	panneau.selectionner("ammonite")
 	_verifier(panneau.est_ouvert() and panneau._nom.text == "Ammonite spiralée" and panneau._description.text.contains("spirale")
 		and panneau._titre.text == "Carnet : 4 %", "bouton Carnet, page des fossiles : l'ammonite, son nom et son histoire")
+	# La fiche suit toujours la case choisie, sur chaque page (clic sur la case, comme un joueur).
+	for id: String in carnet.cases("faille") + carnet.cases("lagon"):
+		carnet.trouver(id)
+	var fiches_ok := true
+	for zone: String in ["faille", "lagon"]:
+		await _cliquer(_centre(panneau._onglets[zone]))
+		for case in panneau._grille.get_children():
+			await _cliquer(_centre(case))
+			fiches_ok = fiches_ok and panneau.selection == case.get_meta("id") \
+				and panneau._nom.text == str(carnet.trouvaille(case.get_meta("id"))["nom"])
+	_verifier(fiches_ok, "carnet : chaque case cliquée affiche sa propre fiche (reliques, perles)")
 	await _cliquer(_centre(panneau._onglets["machines"]))
 	_verifier(panneau.page == "machines" and panneau._grille.get_child_count() == 6, "page des machines : 6 cases")
 	panneau.fermer()

@@ -759,6 +759,8 @@ class RunTests(SceneTree):
         Carnet.trouver(...)
         self._cliquer(...)
         self._centre(...)
+        Carnet.cases(...)
+        Carnet.trouvaille(...)
         self._fermer_ile(...)
 
     def _test_carnet_sauvegarde(self) -> 'void':
