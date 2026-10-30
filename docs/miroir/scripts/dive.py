@@ -17,6 +17,7 @@ from ..scripts.atelier import Atelier
 from ..scripts.autoload.game import Game
 from ..scripts.autoload.son import Son
 from ..scripts.bell import Cloche
+from ..scripts.carnet import Carnet
 from ..scripts.donnees import Donnees
 from ..scripts.gisement import Gisement
 from ..scripts.hud import Interface
@@ -68,6 +69,7 @@ class Dive(Node2D):
     _hasard: 'RandomNumberGenerator'
     _sous_leau_avant: 'bool'
     _id_zone: 'String'
+    trouvailles_plongee: 'Array'
     _gisement_mine: Gisement
     _progres_minage: 'float'
     _gisement_a_portee: Gisement
@@ -94,6 +96,7 @@ class Dive(Node2D):
         self._suivre_camera(...)
         self._profondeur_m(...)
         self._zone_a(...)
+        Carnet.facteur_oxygene(...)
         Son.jouer(...)
         self._terminer_plongee(...)
         Interface.annoncer(...)
@@ -158,11 +161,21 @@ class Dive(Node2D):
         ...
 
     def _terminer_unite(self, gisement: Gisement) -> 'void':
+        self._ramasser_trouvaille(...)
         Sac.ajouter(...)
         Son.jouer(...)
         Sac.est_plein(...)
         Gisement.retirer_unite(...)
         self._rafraichir_sac(...)
+
+    def _ramasser_trouvaille(self, id: 'String') -> 'void':
+        """Trouvaille ramassée : elle va droit au carnet (jamais perdue, même en remontée automatique)."""
+        Carnet.trouver(...)
+        Son.jouer(...)
+        Carnet.trouvaille(...)
+        Carnet.page_complete(...)
+        Interface.annoncer(...)
+        Carnet.page(...)
 
     def _rafraichir_sac(self) -> 'void':
         Interface.definir_sac(...)
@@ -193,6 +206,18 @@ class Dive(Node2D):
         self._trouver_emplacement(...)
         Gisement.configurer(...)
         Game.couleur_ressource(...)
+        Carnet.facteur_minage(...)
+        self._placer_trouvaille(...)
+
+    def _placer_trouvaille(self, zone: 'Dictionary', positions: 'Array[Vector2]', y_min: 'float', y_max: 'float') -> 'void':
+        """Au plus une trouvaille par zone et par plongée, tirée parmi celles que le carnet n'a pas encore,
+        dans la moitié basse de la zone (il faut aller la chercher)."""
+        Carnet.restantes(...)
+        Carnet.chance_par_zone(...)
+        self._trouver_emplacement(...)
+        Gisement.configurer(...)
+        Palette.couleur(...)
+        Carnet.duree_minage(...)
 
     def _trouver_emplacement(self, existantes: 'Array[Vector2]', y_min: 'float', y_max: 'float') -> 'Vector2':
         """Cherche un point libre (espacement minimal) ; renvoie Vector2.INF si on n'en trouve pas."""

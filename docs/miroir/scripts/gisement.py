@@ -3,12 +3,15 @@
 # Régénérer : python3 tests/generer_miroir.py
 """Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage.
 Il ne se dessine pas lui-même : la plongée appelle dessiner_monde() dans le monde 320x180.
+Une trouvaille rare est un gisement d'une seule unité (minerai « trouvaille ») qui ne prend pas de
+place dans le sac ; elle se montre comme un éclat scintillant de la couleur de sa zone.
 """
 
 from __future__ import annotations
 
 from ..godot import Node2D
 from ..scripts.art_abysse import ArtAbysse
+from ..scripts.art_trouvailles import ArtTrouvailles
 from ..scripts.palette import Palette
 from ..scripts.pixel import Pixel
 from ..scripts.vue_monde import VueMonde
@@ -23,6 +26,8 @@ class Gisement(Node2D):
     couleur: 'Color'
     duree_minage: 'float'
     stock: 'int'
+    trouvaille: 'String'
+    zone: 'String'
     progres: 'float'
     en_evidence: 'bool'
     grise: 'bool'
@@ -38,12 +43,14 @@ class Gisement(Node2D):
         """Dessin dans le monde 320x180 (appelé par la plongée) : sprite avec contour bleu nuit et ombre
         d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan."""
         VueMonde.vers_monde(...)
+        ArtTrouvailles.dessiner_eclat(...)
+        ArtAbysse.temps(...)
+        Pixel.sprite(...)
+        Pixel.anneau(...)
+        Palette.couleur(...)
+        Pixel.jauge(...)
         Pixel.sprite_ombre(...)
         ArtAbysse.gisement(...)
         Palette.plus_sombre(...)
         ArtAbysse.couleur_eau(...)
-        Palette.couleur(...)
         ArtAbysse.lueur(...)
-        Pixel.sprite(...)
-        Pixel.anneau(...)
-        Pixel.jauge(...)

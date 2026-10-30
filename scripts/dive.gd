@@ -66,6 +66,8 @@ var _sac := Sac.new()
 var _hasard := RandomNumberGenerator.new()
 var _sous_leau_avant := false
 var _id_zone := ""
+## Trouvailles ramassées pendant cette plongée (déjà notées dans le carnet).
+var trouvailles_plongee: Array = []
 var _gisement_mine: Gisement = null
 var _progres_minage := 0.0
 var _gisement_a_portee: Gisement = null
@@ -110,7 +112,8 @@ func _physics_process(delta: float) -> void:
 	var sous_leau := _cloche.position.y > SURFACE_Y + SEUIL_SURFACE
 
 	if sous_leau:
-		oxygene = maxf(oxygene - CONSOMMATION_PAR_S * float(zone["conso_oxygene"]) * delta, 0.0)
+		oxygene = maxf(oxygene - CONSOMMATION_PAR_S * float(zone["conso_oxygene"])
+			* Game.atelier.carnet.facteur_oxygene(str(zone["id"])) * delta, 0.0)
 	else:
 		oxygene = minf(oxygene + RECHARGE_PAR_S * delta, oxygene_max)
 
@@ -219,7 +222,7 @@ func _gerer_minage(delta: float) -> void:
 		if cible != null:
 			cible.en_evidence = true
 
-	var peut_miner := cible != null and not _cloche.remontee_auto and not _sac.est_plein()
+	var peut_miner := cible != null and not _cloche.remontee_auto and (cible.trouvaille != "" or not _sac.est_plein())
 	if peut_miner and Input.is_action_pressed("interact"):
 		if cible != _gisement_mine:
 			_arreter_minage()
@@ -262,10 +265,13 @@ func _arreter_minage() -> void:
 
 
 func _terminer_unite(gisement: Gisement) -> void:
-	_sac.ajouter(gisement.minerai)
-	Son.jouer("unite")
-	if _sac.est_plein():
-		Son.jouer("sac_plein")
+	if gisement.trouvaille != "":
+		_ramasser_trouvaille(gisement.trouvaille)
+	else:
+		_sac.ajouter(gisement.minerai)
+		Son.jouer("unite")
+		if _sac.est_plein():
+			Son.jouer("sac_plein")
 	gisement.progres = 0.0
 	gisement.retirer_unite()
 	_progres_minage = 0.0
@@ -275,17 +281,34 @@ func _terminer_unite(gisement: Gisement) -> void:
 	_rafraichir_sac()
 
 
+## Trouvaille ramassée : elle va droit au carnet (jamais perdue, même en remontée automatique).
+func _ramasser_trouvaille(id: String) -> void:
+	var carnet := Game.atelier.carnet
+	if not carnet.trouver(id):
+		return
+	trouvailles_plongee.append(id)
+	Son.jouer("trouvaille")
+	var donnees := carnet.trouvaille(id)
+	var page := str(donnees["zone"])
+	if carnet.page_complete(page):
+		_interface.annoncer("Page complète : %s" % str(carnet.page(page)["bonus"]), 6.0)
+	else:
+		_interface.annoncer("Trouvaille : %s !" % str(donnees["nom"]), 5.0)
+
+
 func _rafraichir_sac() -> void:
 	_interface.definir_sac(_texte_butin("Sac %d/%d : " % [_sac.nombre(), _sac.capacite], _sac.compter()))
 	for enfant in _gisements.get_children():
 		var gisement := enfant as Gisement
 		if gisement != null:
-			gisement.grise = _sac.est_plein()
+			gisement.grise = _sac.est_plein() and gisement.trouvaille == ""
 
 
 func _message_bas(sous_leau: bool) -> String:
 	if _cloche.remontee_auto:
 		return "Plus d'air… la cloche remonte"
+	if sous_leau and _gisement_a_portee != null and _gisement_a_portee.trouvaille != "":
+		return "Une trouvaille ! Maintiens E pour la ramasser"
 	if sous_leau and _sac.est_plein():
 		return "Sac plein : remonte à la surface !"
 	if au_bout_du_cable():
@@ -355,10 +378,30 @@ func _generer_gisements() -> void:
 			gisement.configurer(
 				id_minerai,
 				Game.couleur_ressource(id_minerai),
-				float(donnees["duree_minage"]),
+				float(donnees["duree_minage"]) / Game.atelier.carnet.facteur_minage(str(zone["id"])),
 				_hasard.randi_range(int(donnees["stock_min"]), int(donnees["stock_max"])),
 			)
 			_gisements.add_child(gisement)
+		_placer_trouvaille(zone, positions, y_min, y_max)
+
+
+## Au plus une trouvaille par zone et par plongée, tirée parmi celles que le carnet n'a pas encore,
+## dans la moitié basse de la zone (il faut aller la chercher).
+func _placer_trouvaille(zone: Dictionary, positions: Array[Vector2], y_min: float, y_max: float) -> void:
+	var carnet := Game.atelier.carnet
+	var restantes := carnet.restantes(str(zone["id"]))
+	if restantes.is_empty() or _hasard.randf() >= carnet.chance_par_zone():
+		return
+	var lieu := _trouver_emplacement(positions, (y_min + y_max) / 2.0, y_max)
+	if lieu == Vector2.INF:
+		return
+	positions.append(lieu)
+	var eclat := Gisement.new()
+	eclat.position = lieu
+	eclat.configurer("trouvaille", Palette.couleur("cyan.3"), carnet.duree_minage(), 1)
+	eclat.trouvaille = str(restantes[_hasard.randi_range(0, restantes.size() - 1)])
+	eclat.zone = str(zone["id"])
+	_gisements.add_child(eclat)
 
 
 ## Cherche un point libre (espacement minimal) ; renvoie Vector2.INF si on n'en trouve pas.

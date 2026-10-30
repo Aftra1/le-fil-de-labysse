@@ -27,6 +27,7 @@ from ..scripts.atelier import Atelier
 from ..scripts.atelier_ui import PanneauAtelier
 from ..scripts.autoload.game import Game
 from ..scripts.autoload.son import Son
+from ..scripts.carnet_ui import PanneauCarnet
 from ..scripts.donnees import Donnees
 from ..scripts.hud_ile import InterfaceIle
 from ..scripts.inventaire import Inventaire
@@ -75,6 +76,7 @@ class Ile(Node2D):
     _interface: InterfaceIle
     _panneau: PanneauInventaire
     _atelier: PanneauAtelier
+    _carnet: PanneauCarnet
 
     def _ready(self) -> 'void':
         self._dessiner_monde  # passée comme Callable
@@ -82,6 +84,7 @@ class Ile(Node2D):
         self._creer_sources(...)
         self._creer_nuage(...)
         self._basculer_inventaire  # passée comme Callable
+        self.basculer_carnet  # passée comme Callable
         PanneauAtelier.fabrique.connect(...)
         self._sur_fabrication  # passée comme Callable
         InterfaceIle.rafraichir_inventaire(...)
@@ -91,17 +94,31 @@ class Ile(Node2D):
         ...
 
     def panneau_ouvert(self) -> 'bool':
-        """Un seul panneau ouvert à la fois (inventaire ou atelier)."""
+        """Un seul panneau ouvert à la fois (inventaire, atelier ou carnet)."""
         PanneauInventaire.est_ouvert(...)
         PanneauAtelier.est_ouvert(...)
+        PanneauCarnet.est_ouvert(...)
+
+    def _fermer_panneaux(self) -> 'void':
+        PanneauInventaire.fermer(...)
+        PanneauAtelier.fermer(...)
+        PanneauCarnet.fermer(...)
 
     def _basculer_inventaire(self) -> 'void':
         PanneauAtelier.fermer(...)
+        PanneauCarnet.fermer(...)
         PanneauInventaire.basculer(...)
 
     def _basculer_atelier(self) -> 'void':
         PanneauInventaire.fermer(...)
+        PanneauCarnet.fermer(...)
         PanneauAtelier.basculer(...)
+
+    def basculer_carnet(self) -> 'void':
+        """Carnet de collection (K ou le bouton « Carnet »)."""
+        PanneauInventaire.fermer(...)
+        PanneauAtelier.fermer(...)
+        PanneauCarnet.basculer(...)
 
     def _sur_fabrication(self, id: 'String', genre: 'String') -> 'void':
         """genre : « composant », « amelioration » ou « construction » (voir PanneauAtelier.fabrique)."""
@@ -122,9 +139,9 @@ class Ile(Node2D):
     def _unhandled_input(self, evenement: 'InputEvent') -> 'void':
         self._basculer_inventaire(...)
         self._basculer_atelier(...)
+        self.basculer_carnet(...)
         self.panneau_ouvert(...)
-        PanneauInventaire.fermer(...)
-        PanneauAtelier.fermer(...)
+        self._fermer_panneaux(...)
         self._mettre_a_jour_survol(...)
         self._clic(...)
         self.plongee_demandee.emit(...)
@@ -289,8 +306,7 @@ class Ile(Node2D):
     def preparer_depart(self) -> 'void':
         """Appelé au lancement de la descente : l'île se fige et la cloche part avec la transition."""
         self._arreter_maintien(...)
-        PanneauInventaire.fermer(...)
-        PanneauAtelier.fermer(...)
+        self._fermer_panneaux(...)
 
     def reprendre(self) -> 'void':
         """L'île redevient active (fin de remontée, ou retour à l'écran titre depuis une plongée)."""
@@ -298,8 +314,7 @@ class Ile(Node2D):
 
     def afficher_interface(self, afficher: 'bool') -> 'void':
         """Interface de l'île cachée sous l'écran titre (le décor reste visible)."""
-        PanneauInventaire.fermer(...)
-        PanneauAtelier.fermer(...)
+        self._fermer_panneaux(...)
         self._arreter_maintien(...)
 
     def arriver(self, temps_plongee: 'float', gardees: 'Dictionary', perdues: 'Dictionary', urgence: 'bool') -> 'void':

@@ -8,7 +8,8 @@
 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
 sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ;
 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ;
-36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île).
+36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ;
+39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée).
 Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -24,6 +25,7 @@ from __future__ import annotations
 from ..godot import SceneTree
 from ..scripts.art_abysse import ArtAbysse
 from ..scripts.atelier import Atelier
+from ..scripts.carnet import Carnet
 from ..scripts.dive import Dive
 from ..scripts.inventaire import Inventaire
 from ..scripts.jeu import Jeu
@@ -58,6 +60,7 @@ class Captures(SceneTree):
         self._scenario_machines(...)
         self._scenario_palier2(...)
         self._scenario_palier3(...)
+        self._scenario_trouvailles(...)
         self._scenario_menus(...)
         self._couper_son_et_quitter(...)
 
@@ -153,6 +156,19 @@ class Captures(SceneTree):
         self._souris(...)
         self._verifier_grille_monde(...)
         self._fermer_jeu(...)
+
+    def _scenario_trouvailles(self) -> 'void':
+        Inventaire()
+        self._atelier(...)
+        Carnet.trouver(...)
+        Carnet.voir_machine(...)
+        Jeu()  # instantiate()
+        self._images(...)
+        self._capturer(...)
+        self._fermer_jeu(...)
+        self._nouvelle_plongee(...)
+        self._verifier_obscurite(...)
+        self._fermer_plongee(...)
 
     def _scenario_menus(self) -> 'void':
         self._atelier(...)

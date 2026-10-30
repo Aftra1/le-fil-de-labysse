@@ -124,6 +124,7 @@ func continuer() -> void:
 	Game.inventaire = Inventaire.depuis_dictionnaire(partie["inventaire"], Game.ressources.keys())
 	Game.atelier.charger_niveaux(partie["ameliorations"])
 	Game.atelier.charger_ilots(partie["ilots"])
+	Game.atelier.carnet.charger(partie["carnet"])
 	Game.atelier.charger_machines(partie["machines"])
 	Game.atelier.charger_niveaux_machines(partie["machines_ameliorations"])
 	Game.atelier.charger_fourneaux(partie["fourneaux"])
@@ -161,6 +162,7 @@ func donnees_partie() -> Dictionary:
 		"machines_ameliorations": Game.atelier.niveaux_machines.duplicate(true),
 		"palier": Game.atelier.palier,
 		"fourneaux": Game.atelier.recettes_fourneau.duplicate(),
+		"carnet": Game.atelier.carnet.vers_dictionnaire(),
 		"reglages": Son.reglages(),
 		"ile": _ile.etat_sources(),
 	}

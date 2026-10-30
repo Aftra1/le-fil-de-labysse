@@ -1,0 +1,140 @@
+{
+	"chance_par_zone": 0.75,
+	"duree_minage": 2.0,
+	"pages": [
+		{
+			"id": "lagon",
+			"titre": "Perles du Lagon",
+			"bonus": "Le Lagon de lumière se mine 25 % plus vite.",
+			"minage": 1.25
+		},
+		{
+			"id": "coraux",
+			"titre": "Fossiles des Coraux",
+			"bonus": "La Forêt de coraux se mine 25 % plus vite.",
+			"minage": 1.25
+		},
+		{
+			"id": "faille",
+			"titre": "Reliques de la Faille",
+			"bonus": "La Faille volcanique consomme 20 % d'air en moins.",
+			"oxygene": 0.8
+		},
+		{
+			"id": "machines",
+			"titre": "Machines",
+			"bonus": "Toutes les machines produisent 10 % plus vite.",
+			"machines": 1.1
+		}
+	],
+	"trouvailles": [
+		{
+			"id": "perle_aube",
+			"zone": "lagon",
+			"nom": "Perle de l'aube",
+			"description": "Les plongeurs d'Ilume l'offraient aux nouveau-nés : on disait qu'elle gardait la première lumière du jour."
+		},
+		{
+			"id": "perles_jumelles",
+			"zone": "lagon",
+			"nom": "Perles jumelles",
+			"description": "Deux perles soudées dans la même coquille. Les amoureux du lagon en portaient chacun une moitié."
+		},
+		{
+			"id": "perle_noire",
+			"zone": "lagon",
+			"nom": "Perle noire",
+			"description": "Elle ne reflète rien. Les anciens la jetaient à l'eau pour remercier ce qui vivait en dessous."
+		},
+		{
+			"id": "perle_lune",
+			"zone": "lagon",
+			"nom": "Perle de lune",
+			"description": "Elle luit faiblement la nuit : c'était la lampe des pêcheurs, quand Ilume flottait encore."
+		},
+		{
+			"id": "perle_larme",
+			"zone": "lagon",
+			"nom": "Perle-larme",
+			"description": "Longue comme une goutte. Une chanson dit qu'une reine en pleura une pour chaque île tombée."
+		},
+		{
+			"id": "perle_vent",
+			"zone": "lagon",
+			"nom": "Perle du vent",
+			"description": "Percée d'un trou fin, elle siffle quand on souffle dedans : l'appel des marchands de vent."
+		},
+		{
+			"id": "ammonite",
+			"zone": "coraux",
+			"nom": "Ammonite spiralée",
+			"description": "Plus vieille que les îles. Sa spirale est gravée sur toutes les portes de la cité engloutie."
+		},
+		{
+			"id": "dent_abysse",
+			"zone": "coraux",
+			"nom": "Dent de l'abysse",
+			"description": "Longue comme une main. Ce qui la portait nageait ici bien avant les coraux."
+		},
+		{
+			"id": "coquille_ailee",
+			"zone": "coraux",
+			"nom": "Coquille ailée",
+			"description": "Deux ailes de pierre. On croyait qu'elle volait jusqu'aux îles par les nuits sans vent."
+		},
+		{
+			"id": "feuille_pierre",
+			"zone": "coraux",
+			"nom": "Feuille de pierre",
+			"description": "Une feuille d'arbre devenue roche : il y avait donc des forêts sur les îles avant qu'elles ne coulent."
+		},
+		{
+			"id": "arete_passeur",
+			"zone": "coraux",
+			"nom": "Arête du Passeur",
+			"description": "Le dos d'un poisson immense que les gardiens d'autrefois appelaient « le Passeur »."
+		},
+		{
+			"id": "oeuf_corail",
+			"zone": "coraux",
+			"nom": "Œuf de corail",
+			"description": "Pris dans le corail, intact et tiède. Quelque chose attend encore d'éclore, tout en bas."
+		},
+		{
+			"id": "cle_braise",
+			"zone": "faille",
+			"nom": "Clé de braise",
+			"description": "Elle ouvrait la grande forge d'Ilume, où l'on tressait les câbles. Elle brûle encore un peu."
+		},
+		{
+			"id": "medaillon_fil",
+			"zone": "faille",
+			"nom": "Médaillon du Fil",
+			"description": "Un fil d'or tressé autour d'une pierre : l'insigne des premiers gardiens, ceux qui tenaient les câbles."
+		},
+		{
+			"id": "couronne_brisee",
+			"zone": "faille",
+			"nom": "Couronne brisée",
+			"description": "La couronne de la dernière reine d'Ilume. L'autre moitié est restée là-haut, dans la lumière."
+		},
+		{
+			"id": "cloche_ancienne",
+			"zone": "faille",
+			"nom": "Cloche ancienne",
+			"description": "Une cloche de plongée minuscule, en bronze. La tienne lui ressemble : quelqu'un a gardé le modèle."
+		},
+		{
+			"id": "lampe_profondeurs",
+			"zone": "faille",
+			"nom": "Lampe des profondeurs",
+			"description": "Sans flamme, elle s'allume quand la créature lumineuse approche. Les anciens savaient lui parler."
+		},
+		{
+			"id": "tablette_gravee",
+			"zone": "faille",
+			"nom": "Tablette gravée",
+			"description": "« Nous avons tiré trop fort sur le Fil. Que le dernier gardien le tienne doucement. »"
+		}
+	]
+}

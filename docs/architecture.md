@@ -9,11 +9,14 @@
 |---|---|---|---|
 | `scripts/art_abysse.gd` | ArtAbysse | RefCounted | Pixel art de l'abysse (plongée), dessiné dans le monde 320x180 (voir VueMonde). |
 | `scripts/art_ile.gd` | ArtIle | RefCounted | Pixel art du monde du haut (île, ciel, nuages, cloche, interface), généré en code. |
+| `scripts/art_trouvailles.gd` | ArtTrouvailles | RefCounted | Pixel art des trouvailles rares (carnet, annonces) et de leur éclat en plongée. |
 | `scripts/atelier.gd` | Atelier | RefCounted | Atelier de l'île : fabrique des composants à partir des ressources (data/recettes.json) et installe les améliorations de la cloche, niveau par niveau. |
 | `scripts/atelier_ui.gd` | PanneauAtelier | CanvasLayer | Interface de l'atelier (640x360) : panneau opaque en cadres or et crème. |
 | `scripts/autoload/game.gd` | Game | Node | Autoload « Game » : point central du jeu. |
 | `scripts/autoload/son.gd` | Son | Node | Autoload « Son » : ambiances et effets sonores, tous synthétisés en code au démarrage (Synthe). |
 | `scripts/bell.gd` | Cloche | CharacterBody2D | La cloche de plongée : déplacement avec inertie et flottabilité douce. |
+| `scripts/carnet.gd` | Carnet | RefCounted | Carnet de collection : les trouvailles rares de l'abysse (data/trouvailles.json) et les machines déjà construites. |
+| `scripts/carnet_ui.gd` | PanneauCarnet | CanvasLayer | Carnet de collection (640x360) : panneau opaque en cadres or et crème, comme l'atelier. |
 | `scripts/dive.gd` | Dive | Node2D | Plongée : décor par zones, câble, oxygène, minage, sac et règles de remontée. |
 | `scripts/donnees.gd` | Donnees | RefCounted | Lecture des fichiers de données du dossier data/. |
 | `scripts/ecran_titre.gd` | EcranTitre | MenuCadre | Écran titre, en haut de l'écran pour laisser voir l'île figée : Continuer (grisé sans sauvegarde), Nouvelle partie (confirmation si une partie existe déjà), Quitter. |
@@ -62,7 +65,7 @@ Autoload « Game » : point central du jeu. Déclare toutes les actions d'entré
   - `nom_ressource(id)`
   - `couleur_ressource(id)`
 - **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Inventaire, Palette, Pixel
-- **Utilisé par** : Dive, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauInventaire
+- **Utilisé par** : Dive, Ile, InterfaceIle, Jeu, PanneauAtelier, PanneauCarnet, PanneauInventaire
 
 ### `scripts/autoload/son.gd` : Son
 
@@ -137,7 +140,18 @@ Pixel art du monde du haut (île, ciel, nuages, cloche, interface), généré en
   - `icone(id, k)` : Icône d'une ressource (inventaire, barre de ressources).
   - … et 4 autres
 - **Dépend de** : ArtAbysse, Palette, Pixel
-- **Utilisé par** : ArtAbysse, Dive, Game, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauInventaire, SourceRessource, Transition
+- **Utilisé par** : ArtAbysse, Dive, Game, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauCarnet, PanneauInventaire, SourceRessource, Transition
+
+### `scripts/art_trouvailles.gd` : ArtTrouvailles
+
+Pixel art des trouvailles rares (carnet, annonces) et de leur éclat en plongée. Chaque trouvaille est un motif de 10 pixels de large (lettres = couleurs de la palette, voir COULEURS), avec un contour sombre. En plongée, on ne voit qu'un éclat scintillant de la couleur lumineuse de la zone (cyan, corail, or : jamais assombrie par l'obscurité) ; la trouvaille se révèle quand on la ramasse.
+
+- **Hérite de** : RefCounted
+- **Fonctions principales** :
+  - `icone(id, decouverte)` : Image de la trouvaille (carnet, annonce). Inconnue : la silhouette sombre du même motif.
+  - `dessiner_eclat(toile, centre, zone, phase)` : Éclat d'une trouvaille en plongée : une étoile à quatre branches qui scintille (phase 0 à 3).
+- **Dépend de** : Palette, Pixel
+- **Utilisé par** : Gisement, PanneauCarnet, RunTests
 
 ### `scripts/atelier.gd` : Atelier
 
@@ -166,8 +180,8 @@ Atelier de l'île : fabrique des composants à partir des ressources (data/recet
   - `est_construite(id)`
   - `est_relie(ilot)`
   - … et 45 autres
-- **Dépend de** : Donnees, Inventaire
-- **Utilisé par** : Captures, Dive, Game, Ile, Jeu, PanneauAtelier, Playtest, RunTests
+- **Dépend de** : Carnet, Donnees, Inventaire
+- **Utilisé par** : Captures, Dive, Game, Ile, Jeu, PanneauAtelier, PanneauCarnet, Playtest, RunTests
 
 ### `scripts/atelier_ui.gd` : PanneauAtelier
 
@@ -201,6 +215,50 @@ La cloche de plongée : déplacement avec inertie et flottabilité douce. Les or
 - **Dépend de** : Pixel
 - **Utilisé par** : Dive, RunTests
 
+### `scripts/carnet.gd` : Carnet
+
+Carnet de collection : les trouvailles rares de l'abysse (data/trouvailles.json) et les machines déjà construites. Quatre pages : Perles du Lagon, Fossiles des Coraux, Reliques de la Faille (6 trouvailles chacune) et Machines (une case par sorte de machine). Une page complète donne un bonus durable. Le carnet appartient à la partie (gardé par l'atelier, enregistré dans la sauvegarde).
+
+- **Hérite de** : RefCounted
+- **Fonctions principales** :
+  - `pages()` : Pages : [{ id, titre, bonus, … }], dans l'ordre d'affichage.
+  - `page(id)`
+  - `cases(id_page)` : Identifiants des cases d'une page (trouvailles de la zone, ou sortes de machines).
+  - `trouvaille(id)` : Réglages d'une trouvaille : { id, zone, nom, description } (vide si elle est inconnue).
+  - `chance_par_zone()`
+  - `duree_minage()`
+  - `a_trouve(id)`
+  - `trouver(id)` : Note une trouvaille ; renvoie vrai si elle est nouvelle.
+  - `voir_machine(id)`
+  - `restantes(zone)` : Trouvailles de cette zone pas encore découvertes.
+  - `est_dans_carnet(id_page, id)`
+  - `remplies(id_page)`
+  - `page_complete(id_page)`
+  - `pourcentage()` : Pourcentage du carnet rempli (trouvailles et machines), arrondi à l'entier inférieur.
+  - `facteur_minage(zone)` : Vitesse de minage dans une zone (page de ses trouvailles complète : ×1,25).
+  - `facteur_oxygene(zone)` : Consommation d'air dans une zone (page de la Faille complète : ×0,8 dans la Faille).
+  - `facteur_machines()` : Vitesse de production des machines (page des machines complète : ×1,1).
+  - `vers_dictionnaire()`
+  - `charger(donnees)` : Carnet lu depuis une sauvegarde : identifiants inconnus et doublons ignorés.
+- **Dépend de** : Donnees
+- **Utilisé par** : Atelier, Captures, Dive, Jeu, PanneauCarnet, RunTests
+
+### `scripts/carnet_ui.gd` : PanneauCarnet
+
+Carnet de collection (640x360) : panneau opaque en cadres or et crème, comme l'atelier. En haut, le pourcentage du carnet et quatre pages (perles, fossiles, reliques, machines) ; à gauche, les six cases de la page (trouvailles agrandies ×3 au pixel près, silhouettes tant qu'elles ne sont pas trouvées) ; à droite, la fiche de la case choisie et le bonus de la page. S'ouvre et se ferme avec K ou le bouton « Carnet » ; Échap ou un clic à côté le ferme.
+
+- **Hérite de** : CanvasLayer
+- **Fonctions principales** :
+  - `est_ouvert()`
+  - `ouvrir()`
+  - `fermer()`
+  - `basculer()`
+  - `choisir_page(nom)`
+  - `selectionner(id)`
+  - `rafraichir()`
+- **Dépend de** : ArtIle, ArtTrouvailles, Atelier, Carnet, Game, Palette, Pixel
+- **Utilisé par** : Ile
+
 ### `scripts/dive.gd` : Dive
 
 Plongée : décor par zones, câble, oxygène, minage, sac et règles de remontée. Pas de game over : à 0 d'oxygène, la cloche remonte toute seule et une partie du butin est perdue. Quand la cloche revient en surface après être descendue sous PROFONDEUR_ARMEMENT_M, la plongée est terminée : on émet retour_ile et la scène Jeu lance la remontée vers l'île. Rendu : le monde est dessiné en 320x180 (VueMonde, ArtAbysse) ; la logique reste en 640x360.
@@ -214,7 +272,7 @@ Plongée : décor par zones, câble, oxygène, minage, sac et règles de remont�
   - `dessiner_monde(toile, vue, avec_ciel, avec_cloche)` : Décor, gisements, câble et cloche dans « vue » (pixels du monde de la plongée). La transition l'appelle aussi (sans ciel ni cloche) pour que la surface raccorde sans coupure.
   - `cloche_position()` : Position de la cloche et haut de la vue (640x360), pour une remontée qui part de cette image.
   - `haut_camera()`
-- **Dépend de** : ArtAbysse, ArtIle, Atelier, Cloche, Donnees, Game, Gisement, Interface, Palette, Pixel, Sac, Son, VueMonde
+- **Dépend de** : ArtAbysse, ArtIle, Atelier, Carnet, Cloche, Donnees, Game, Gisement, Interface, Palette, Pixel, Sac, Son, VueMonde
 - **Utilisé par** : Captures, Jeu, RunTests
 
 ### `scripts/donnees.gd` : Donnees
@@ -225,7 +283,7 @@ Lecture des fichiers de données du dossier data/.
 - **Fonctions principales** :
   - `charger_json(chemin)`
 - **Dépend de** : aucun script
-- **Utilisé par** : ArtAbysse, Atelier, Dive, Game, Ile, Palette, Playtest, RunTests
+- **Utilisé par** : ArtAbysse, Atelier, Carnet, Dive, Game, Ile, Palette, Playtest, RunTests
 
 ### `scripts/ecran_titre.gd` : EcranTitre
 
@@ -244,14 +302,14 @@ Lecture des fichiers de données du dossier data/.
 
 ### `scripts/gisement.gd` : Gisement
 
-Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage. Il ne se dessine pas lui-même : la plongée appelle dessiner_monde() dans le monde 320x180.
+Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage. Il ne se dessine pas lui-même : la plongée appelle dessiner_monde() dans le monde 320x180. Une trouvaille rare est un gisement d'une seule unité (minerai « trouvaille ») qui ne prend pas de place dans le sac ; elle se montre comme un éclat scintillant de la couleur de sa zone.
 
 - **Hérite de** : Node2D
 - **Fonctions principales** :
   - `configurer(id_minerai, teinte, duree, stock_initial)`
   - `retirer_unite()` : Retire une unité ; le gisement disparaît quand il est épuisé.
   - `dessiner_monde(toile)` : Dessin dans le monde 320x180 (appelé par la plongée) : sprite avec contour bleu nuit et ombre d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan.
-- **Dépend de** : ArtAbysse, Palette, Pixel, VueMonde
+- **Dépend de** : ArtAbysse, ArtTrouvailles, Palette, Pixel, VueMonde
 - **Utilisé par** : Dive, RunTests
 
 ### `scripts/hud.gd` : Interface
@@ -291,7 +349,8 @@ L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inve
 - **Hérite de** : Node2D
 - **Signaux** : `plongee_demandee`, `partie_modifiee`
 - **Fonctions principales** :
-  - `panneau_ouvert()` : Un seul panneau ouvert à la fois (inventaire ou atelier).
+  - `panneau_ouvert()` : Un seul panneau ouvert à la fois (inventaire, atelier ou carnet).
+  - `basculer_carnet()` : Carnet de collection (K ou le bouton « Carnet »).
   - `actualiser_machines()` : Crée les machines construites à l'atelier (et retire celles qui n'y sont plus : nouvelle partie), applique leurs améliorations, et retire de l'île les filons couverts par une foreuse.
   - `machine(lieu)` : Machine posée sur un emplacement (null s'il est libre).
   - `centre_emplacement(lieu)` : Centre de la zone cliquable d'un emplacement (640x360), au-dessus du sol.
@@ -307,7 +366,7 @@ L'île flottante : récolte à la souris (vent, nuages, cristaux solaires), inve
   - `etat_sources()` : État des sources fixes (les nuages ne sont pas sauvegardés : ils réapparaissent seuls).
   - `restaurer_sources(donnees)` : Reprend l'état sauvegardé des sources ; ce qui manque ou est faux garde la valeur de départ.
   - `reinitialiser_sources()` : Sources remises à leur stock de départ (nouvelle partie).
-- **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Game, InterfaceIle, Inventaire, Palette, PanneauAtelier, PanneauInventaire, Pixel, Son, SourceRessource, VueMonde
+- **Dépend de** : ArtAbysse, ArtIle, Atelier, Donnees, Game, InterfaceIle, Inventaire, Palette, PanneauAtelier, PanneauCarnet, PanneauInventaire, Pixel, Son, SourceRessource, VueMonde
 - **Utilisé par** : Jeu, Playtest, RunTests, Transition
 
 ### `scripts/inventaire.gd` : Inventaire
@@ -359,7 +418,7 @@ Scène principale : enchaîne l'île, la transition et la plongée. L'île reste
   - `fermer_pause()`
   - `retour_au_titre()`
   - `quitter()`
-- **Dépend de** : Atelier, Dive, EcranTitre, Game, Ile, Interface, Inventaire, MenuCadre, MenuPause, Sauvegarde, Son, Transition
+- **Dépend de** : Atelier, Carnet, Dive, EcranTitre, Game, Ile, Interface, Inventaire, MenuCadre, MenuPause, Sauvegarde, Son, Transition
 - **Utilisé par** : Captures, Playtest, RunTests
 
 ### `scripts/menu_cadre.gd` : MenuCadre
@@ -399,7 +458,7 @@ Palette fixe du jeu (data/palette.json) : toutes les couleurs affichées en vien
   - `plus_sombre(teinte, crans)` : Le ton juste en dessous dans la même rampe (ombre portée « un ton plus sombre »).
   - `plus_clair(teinte, crans)` : Le ton juste au-dessus dans la même rampe (reflets, repères).
 - **Dépend de** : Donnees
-- **Utilisé par** : ArtAbysse, ArtIle, Captures, Dive, Game, Gisement, Ile, Interface, MenuPause, Pixel, RunTests, SourceRessource, Transition
+- **Utilisé par** : ArtAbysse, ArtIle, ArtTrouvailles, Captures, Dive, Game, Gisement, Ile, Interface, MenuPause, PanneauCarnet, Pixel, RunTests, SourceRessource, Transition
 
 ### `scripts/pixel.gd` : Pixel
 
@@ -426,7 +485,7 @@ Outils de dessin « pixel art » : tout est dessiné au pixel entier, sans antia
   - `trame(niveau, couleur)` : Trame ordonnée (Bayer 4x4) : niveau 0 = transparent, 16 = plein.
   - `nuage(largeur, hauteur, couleur, ombre)` : Nuage arrondi (trois bosses), ombré en bas.
 - **Dépend de** : Palette
-- **Utilisé par** : ArtAbysse, ArtIle, Captures, Cloche, Dive, Game, Gisement, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauInventaire, RunTests, SourceRessource, Transition, VueMonde
+- **Utilisé par** : ArtAbysse, ArtIle, ArtTrouvailles, Captures, Cloche, Dive, Game, Gisement, Ile, Interface, InterfaceIle, MenuCadre, PanneauAtelier, PanneauCarnet, PanneauInventaire, RunTests, SourceRessource, Transition, VueMonde
 
 ### `scripts/sac.gd` : Sac
 
@@ -530,11 +589,11 @@ Rendu du monde en 320x180, affiché ×2 sous l'interface (qui reste en 640x360).
 
 ### `tests/captures.gd` : Captures
 
-Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ; 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ; 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
+Joue deux scénarios automatiques et enregistre les captures PNG dans docs/captures/ : 00 : la palette ; 01-05 : la plongée seule (dive.tscn) ; 06-13 : le jeu complet (île, transitions, plongée) ; 14-19 : l'atelier et les améliorations de la cloche (câble, lanterne, réservoir) ; 28-29 : la Faille volcanique (pierre de braise, fond de magma, lanterne de niveau 2) ; 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause, sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ; 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ; 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ; 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée). Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json (un antialiasing ou une transparence créerait des couleurs intermédiaires). On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2 pixels d'écran doit être d'une seule couleur (aucun pixel du monde plus petit). Les blocs commencent au décalage de la caméra (0 ou 1 pixel d'écran) : la vérification en tient compte. Enfin, on vérifie les raccords : fin de la descente = début de la plongée, fin de la plongée = début de la remontée, au pixel près (horloge des particules figée pendant la comparaison). Nécessite un affichage (Xvfb + Mesa logiciel) : voir tests/captures.sh.
 
 - **Hérite de** : SceneTree
-- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_palier2`, `_scenario_palier3`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`, `_gisement_proche`
-- **Dépend de** : ArtAbysse, Atelier, Dive, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, VueMonde
+- **Fonctions** : `_initialize`, `_scenarios`, `_planche_palette`, `_scenario_plongee`, `_scenario_jeu`, `_scenario_ameliorations`, `_scenario_ilot`, `_scenario_machines`, `_scenario_palier2`, `_scenario_palier3`, `_scenario_trouvailles`, `_scenario_menus`, `_ouvrir_jeu_titre`, `_fermer_jeu`, `_effacer_sauvegarde`, `_atelier`, `_nouvelle_plongee`, `_fermer_plongee`, `_verifier_obscurite`, `_images`
+- **Dépend de** : ArtAbysse, Atelier, Carnet, Dive, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, VueMonde
 
 ### `tests/playtest.gd` : Playtest
 
@@ -550,4 +609,4 @@ Tests de logique (étapes 1 à 5). Lancement : voir tests/lancer.sh ou le README
 
 - **Hérite de** : SceneTree
 - **Fonctions** : `_initialize`, `_lancer`, `_titre`, `_verifier`, `_images`, `_secondes`, `_demarrer`, `_terminer`, `_somme`, `_vers_fenetre`, `_souris`, `_bouton`, `_cliquer`, `_touche`, `_gisements`, `_test_inertie`, `_test_flottabilite`, `_test_bornes`, `_test_oxygene_baisse_et_recharge`, `_test_remontee_automatique`
-- **Dépend de** : ArtAbysse, Atelier, Cloche, Dive, Donnees, Gisement, Ile, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, SourceRessource, Synthe, VueMonde
+- **Dépend de** : ArtAbysse, ArtTrouvailles, Atelier, Carnet, Cloche, Dive, Donnees, Gisement, Ile, Inventaire, Jeu, Palette, Pixel, Sac, Sauvegarde, SourceRessource, Synthe, VueMonde

@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from ..godot import SceneTree
 from ..scripts.art_abysse import ArtAbysse
+from ..scripts.art_trouvailles import ArtTrouvailles
 from ..scripts.atelier import Atelier
 from ..scripts.bell import Cloche
+from ..scripts.carnet import Carnet
 from ..scripts.dive import Dive
 from ..scripts.donnees import Donnees
 from ..scripts.gisement import Gisement
@@ -102,6 +104,10 @@ class RunTests(SceneTree):
         self._test_palier2_sauvegarde(...)
         self._test_sac_12(...)
         self._test_nuages_devant(...)
+        self._test_carnet_logique(...)
+        self._test_trouvailles_plongee(...)
+        self._test_carnet_panneau(...)
+        self._test_carnet_sauvegarde(...)
         self._test_palier3_logique(...)
         self._test_palier3_ile(...)
         self._test_palier3_sauvegarde(...)
@@ -710,6 +716,62 @@ class RunTests(SceneTree):
         self._demarrer(...)
         self._verifier(...)
         self._terminer(...)
+
+    def _test_carnet_logique(self) -> 'void':
+        Carnet.pages(...)
+        Carnet.cases(...)
+        Carnet.trouvaille(...)
+        self._verifier(...)
+        Carnet.trouver(...)
+        Carnet.pourcentage(...)
+        Carnet.page_complete(...)
+        Carnet.facteur_minage(...)
+        Carnet.restantes(...)
+        Carnet.facteur_oxygene(...)
+        Atelier.liste_machines(...)
+        Carnet.voir_machine(...)
+        Atelier.recharge_machine(...)
+        Carnet.charger(...)
+
+    def _trouvailles_generees(self) -> 'Array[Gisement]':
+        self._gisements(...)
+
+    def _test_trouvailles_plongee(self) -> 'void':
+        self._demarrer(...)
+        Donnees.charger_json(...)
+        self._trouvailles_generees(...)
+        self._verifier(...)
+        self._images(...)
+        self._son(...)
+        self._secondes(...)
+        Carnet.cases(...)
+        Carnet.trouver(...)
+        Carnet.restantes(...)
+        Carnet.page_complete(...)
+        self._gisements(...)
+        self._terminer(...)
+
+    def _test_carnet_panneau(self) -> 'void':
+        self._ouvrir_ile(...)
+        self._touche(...)
+        self._images(...)
+        self._verifier(...)
+        Carnet.trouver(...)
+        self._cliquer(...)
+        self._centre(...)
+        Carnet.cases(...)
+        Carnet.trouvaille(...)
+        self._fermer_ile(...)
+
+    def _test_carnet_sauvegarde(self) -> 'void':
+        self._effacer_sauvegarde(...)
+        self._ouvrir_jeu(...)
+        self._ingredients(...)
+        self._fermer_jeu(...)
+        self._images(...)
+        self._verifier(...)
+        self._cliquer(...)
+        self._centre(...)
 
     def _test_nuages_devant(self) -> 'void':
         self._ouvrir_ile(...)

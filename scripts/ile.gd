@@ -70,6 +70,7 @@ var _monde := VueMonde.new()
 @onready var _interface: InterfaceIle = $HUD
 @onready var _panneau: PanneauInventaire = $Inventaire
 @onready var _atelier: PanneauAtelier = $Atelier
+var _carnet := PanneauCarnet.new()
 
 
 func _ready() -> void:
@@ -84,7 +85,10 @@ func _ready() -> void:
 	_creer_sources()
 	for i in int(_reglages["nuages"]["minimum"]) + 1:
 		_creer_nuage(_hasard.randf_range(60.0, 580.0))
+	_carnet.name = "Carnet"
+	add_child(_carnet)
 	_interface.bouton_inventaire.pressed.connect(_basculer_inventaire)
+	_interface.bouton_carnet.pressed.connect(basculer_carnet)
 	_atelier.fabrique.connect(_sur_fabrication)
 	_interface.rafraichir_inventaire()
 
@@ -98,19 +102,34 @@ func _notification(quoi: int) -> void:
 			source.free()
 
 
-## Un seul panneau ouvert à la fois (inventaire ou atelier).
+## Un seul panneau ouvert à la fois (inventaire, atelier ou carnet).
 func panneau_ouvert() -> bool:
-	return _panneau.est_ouvert() or _atelier.est_ouvert()
+	return _panneau.est_ouvert() or _atelier.est_ouvert() or _carnet.est_ouvert()
+
+
+func _fermer_panneaux() -> void:
+	_panneau.fermer()
+	_atelier.fermer()
+	_carnet.fermer()
 
 
 func _basculer_inventaire() -> void:
 	_atelier.fermer()
+	_carnet.fermer()
 	_panneau.basculer()
 
 
 func _basculer_atelier() -> void:
 	_panneau.fermer()
+	_carnet.fermer()
 	_atelier.basculer()
+
+
+## Carnet de collection (K ou le bouton « Carnet »).
+func basculer_carnet() -> void:
+	_panneau.fermer()
+	_atelier.fermer()
+	_carnet.basculer()
 
 
 ## genre : « composant », « amelioration » ou « construction » (voir PanneauAtelier.fabrique).
@@ -159,9 +178,11 @@ func _unhandled_input(evenement: InputEvent) -> void:
 	elif evenement.is_action_pressed("atelier"):
 		_basculer_atelier()
 		get_viewport().set_input_as_handled()
+	elif evenement.is_action_pressed("carnet"):
+		basculer_carnet()
+		get_viewport().set_input_as_handled()
 	elif evenement.is_action_pressed("pause") and panneau_ouvert():
-		_panneau.fermer()
-		_atelier.fermer()
+		_fermer_panneaux()
 		get_viewport().set_input_as_handled()
 	elif panneau_ouvert():
 		return
@@ -574,8 +595,7 @@ func preparer_depart() -> void:
 	_arreter_maintien()
 	for effet in _effets.get_children():
 		effet.queue_free()
-	_panneau.fermer()
-	_atelier.fermer()
+	_fermer_panneaux()
 	_interface.visible = false
 	cloche_visible = false
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
@@ -595,8 +615,7 @@ func reprendre() -> void:
 func afficher_interface(afficher: bool) -> void:
 	_interface.visible = afficher
 	if not afficher:
-		_panneau.fermer()
-		_atelier.fermer()
+		_fermer_panneaux()
 		_arreter_maintien()
 
 

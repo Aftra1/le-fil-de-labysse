@@ -9,6 +9,8 @@ extends SceneTree
 ## palier 3 : fourneau (le robot règle sa recette d'un clic sur le fourneau selon le raffiné qui manque, et
 ## l'arrête quand rien ne manque) → sonde → arche de braise (100 vents : entrepôt) → sac à 16 places →
 ## niveaux 2 du moulin, de la foreuse et du filet → entrepôt à 499.
+## Trouvailles : en plongée, le robot ramasse les éclats rares qu'il connaît (parfait) ou qu'il a aperçus
+## (humain) et qui sont à portée du câble ; il ne plonge pas exprès pour eux (le carnet reste facultatif).
 ## Mesures d'économie : origine de chaque ressource (machines, sources de l'île, plongées, fourneau) et où elle
 ## est dépensée (atelier, fourneau).
 ## passerelle de nuage → réservoir et câble de niveau 2 → plongées dans la Faille volcanique
@@ -555,6 +557,15 @@ func _plonger(besoins: Dictionary) -> void:
 	while _jeu.etat != 2:
 		await _image()
 	var plongee: Node = _jeu.plongee()
+	if _video:
+		# Démonstration : un éclat de trouvaille dans la zone la plus profonde que le câble atteint.
+		var zone_voulue := "faille" if _game.atelier.longueur_cable_m() >= 450.0 else "coraux"
+		for essai in 50:
+			if plongee.get_node("Gisements").get_children().any(func(g: Node) -> bool:
+					return not g.is_queued_for_deletion() and g.zone == zone_voulue):
+				break
+			plongee._generer_gisements()
+			await _image()
 	var mesure := {
 		"numero": _plongees.size() + 1, "debut_s": debut, "profondeur_max_m": 0.0, "oxygene_fin": -1.0,
 		"oxygene_max": plongee.oxygene_max, "urgence": false, "gardees": {}, "perdues": {},
@@ -565,7 +576,8 @@ func _plonger(besoins: Dictionary) -> void:
 		mesure["oxygene_fin"] = plongee.oxygene
 		mesure["gardees"] = gardees
 		mesure["perdues"] = perdues
-		mesure["urgence"] = urgence)
+		mesure["urgence"] = urgence
+		mesure["trouvailles"] = plongee.trouvailles_plongee.duplicate())
 	var debut_eau := _secondes()
 	_marque_video("sous_l_eau")
 	await _conduire(plongee, besoins, mesure)
@@ -575,6 +587,8 @@ func _plonger(besoins: Dictionary) -> void:
 	while _jeu.etat != 0:
 		await _image()
 	mesure["duree_totale_s"] = _secondes() - debut
+	for id: String in mesure.get("trouvailles", []):
+		_noter("Trouvaille : %s (carnet %d %%)" % [id, _game.atelier.carnet.pourcentage()])
 	_plongees.append(mesure)
 	for id: String in mesure["gardees"]:
 		_compter(_plongee_recolte, id, int(mesure["gardees"][id]))
@@ -624,6 +638,8 @@ func _conduire(plongee: Node, besoins: Dictionary, mesure: Dictionary) -> void:
 		en_exploration = false
 		var sac: Dictionary = plongee._sac.compter()
 		var voulus := _voulus(besoins, sac)
+		if _trouvaille_connue(plongee, vus):
+			voulus["trouvaille"] = 1
 		if not remonter:
 			remonter = plongee._sac.est_plein() or voulus.is_empty() \
 				or plongee.oxygene < _oxygene_pour_remonter(cloche.position.y) + _temps_vers(cloche, cible) * _conso_a(cloche.position.y)
@@ -683,7 +699,8 @@ func _regarder(plongee: Node, cloche: Node2D, vus: Array) -> void:
 		if y < haut or y > haut + 360.0:
 			continue
 		var sombre := ArtAbysse.niveau_obscurite(y / 10.0, _game.atelier.obscurite_max()) > 0
-		if sombre and cloche.position.distance_to(enfant.position) > rayon:
+		# Un éclat de trouvaille brille dans le noir : il se voit dès qu'il est à l'écran.
+		if sombre and enfant.trouvaille == "" and cloche.position.distance_to(enfant.position) > rayon:
 			continue
 		vus.append(enfant)
 
@@ -729,12 +746,22 @@ func _voulus(besoins: Dictionary, sac: Dictionary) -> Dictionary:
 	return voulus
 
 
+## Vrai si un éclat de trouvaille connu (ou aperçu) est à portée du câble.
+func _trouvaille_connue(plongee: Node, vus: Array) -> bool:
+	var connus: Array = plongee.get_node("Gisements").get_children() if _profil["connait_gisements"] else vus
+	for enfant in connus:
+		if is_instance_valid(enfant) and not enfant.is_queued_for_deletion() and enfant.trouvaille != "" \
+				and enfant.position.y <= plongee.limite_px + 24.0:
+			return true
+	return false
+
+
 ## Gisement voulu le plus proche, atteignable avec le câble ; le minerai le plus profond passe d'abord.
 ## Le joueur humain ne choisit que parmi les gisements qu'il a aperçus.
 func _choisir_gisement(plongee: Node, cloche: Node2D, voulus: Dictionary, abandonnees: Array, vus: Array) -> Node2D:
 	var limite: float = plongee.limite_px + 24.0
 	var connus: Array = plongee.get_node("Gisements").get_children() if _profil["connait_gisements"] else vus
-	for minerai: String in MINERAIS:
+	for minerai: String in ["trouvaille"] + MINERAIS:
 		if not voulus.has(minerai):
 			continue
 		var meilleur: Node2D = null
@@ -805,64 +832,47 @@ func _pousser(distance: float, vitesse: float) -> bool:
 ## deux pierres de braise déjà en poche (il en faut quatre pour la lanterne de niveau 2).
 func _preparer_sauvegarde_video() -> void:
 	Sauvegarde.ecrire({
-		"inventaire": {"vent": 150, "nuage": 20, "cristal_solaire": 30, "cristal_lagon": 4, "corail": 3,
-			"pierre_braise": 3, "lingot_solaire": 4, "nacre": 3, "verre_lagon": 3},
+		"inventaire": {"vent": 20, "nuage": 10, "cristal_solaire": 8},
 		"ameliorations": {"cable": 2, "lanterne": 2, "reservoir": 2, "sac": 1},
 		"ilots": ["ilot_est", "ilot_nord"],
-		"machines": {"ile_ouest": "moulin", "ile_centre": "filet", "filon_2": "foreuse", "nord_est": "entrepot",
-			"nord_ouest": "fourneau", "ilot_est": "sonde"},
+		"machines": {"ile_ouest": "moulin", "ile_centre": "filet", "filon_2": "foreuse", "nord_est": "entrepot"},
 		"palier": 3,
-		"fourneaux": {"nord_ouest": ""},
-		"ile": {"machines": {"ile_ouest": {"stock": 5, "recharge": 0.0}, "ile_centre": {"stock": 6, "recharge": 0.0},
-			"filon_2": {"stock": 4, "recharge": 0.0}}},
+		"carnet": {"trouvailles": ["perle_aube", "perle_lune", "perle_vent", "ammonite", "feuille_pierre", "cle_braise"],
+			"machines": ["moulin", "filet", "foreuse", "entrepot"]},
 	})
 
 
-## Séquence vidéo (avec le son) : le palier 3. Un clic sur le fourneau ouvre son panneau : lingot solaire en
-## boucle ; il rougeoie et fume en prenant cristaux et vent dans l'inventaire ; atelier : l'arche de braise
-## (100 vents, grâce à l'entrepôt) relie l'îlot du couchant, puis le sac de plongée à 16 places ; plongée dans
-## le Lagon de lumière ; au retour, la sonde a pêché du cristal de lagon et le fourneau a produit des lingots.
+## Séquence vidéo (avec le son) : les trouvailles. Le carnet (K) : perles, fossiles, reliques, avec leur
+## histoire et le bonus de chaque page ; plongée jusqu'à la Faille, où un éclat doré brille dans le noir :
+## la cloche le ramasse (une relique : son et annonce) ; au retour, la relique est dans le carnet.
 ## Les trajets verticaux sont repérés (lignes « VIDEO ») pour être accélérés au montage (tests/playtest.sh).
 func _sequence_video() -> void:
-	await _attendre(2.5)
-	var fourneau: SourceRessource = _ile.machine("nord_ouest")
-	await _deplacer_souris(fourneau.position)
-	await _cliquer(fourneau.position)
-	await _attendre(1.0)
-	for bouton in _atelier_ui._liste.get_children():
-		if bouton.get_meta("id") == "lingot_solaire":
-			await _cliquer(_centre(bouton))
+	await _attendre(2.0)
+	await _touche(KEY_K)
 	await _attendre(1.5)
-	await _cliquer(_centre(_atelier_ui._bouton))
+	var carnet_ui: Node = _ile.get_node("Carnet")
+	carnet_ui.selectionner("perle_lune")
+	await _attendre(2.5)
+	await _cliquer(_centre(carnet_ui._onglets["coraux"]))
+	carnet_ui.selectionner("ammonite")
+	await _attendre(2.5)
+	await _cliquer(_centre(carnet_ui._onglets["faille"]))
+	carnet_ui.selectionner("cle_braise")
+	await _attendre(2.5)
+	await _touche(KEY_K)
 	await _attendre(1.0)
-	await _touche(KEY_ESCAPE)
-	await _attendre(4.0)
-	await _touche(KEY_C)
+	await _plonger({"pierre_braise": 2})
+	await _attendre(1.5)
+	await _touche(KEY_K)
 	await _attendre(0.8)
-	await _cliquer(_centre(_atelier_ui._onglets["construction"]))
-	for bouton in _atelier_ui._liste.get_children():
-		if bouton.get_meta("id") == "arche":
-			await _cliquer(_centre(bouton))
-	await _attendre(1.8)
-	await _cliquer(_centre(_atelier_ui._bouton))
-	await _attendre(1.0)
-	await _cliquer(_centre(_atelier_ui._onglets["ameliorations"]))
-	for bouton in _atelier_ui._liste.get_children():
-		if bouton.get_meta("id") == "sac":
-			await _cliquer(_centre(bouton))
+	await _cliquer(_centre(carnet_ui._onglets["faille"]))
+	var nouvelle: Array = _plongees[-1]["trouvailles"] if not _plongees.is_empty() else []
+	if not nouvelle.is_empty():
+		carnet_ui.choisir_page(str(_game.atelier.carnet.trouvaille(nouvelle[0])["zone"]))
+		carnet_ui.selectionner(nouvelle[0])
+	await _attendre(4.0)
+	await _touche(KEY_K)
 	await _attendre(1.5)
-	await _cliquer(_centre(_atelier_ui._bouton))
-	await _attendre(1.0)
-	await _touche(KEY_C)
-	await _attendre(2.5)
-	await _plonger({"cristal_lagon": 16})
-	await _attendre(1.5)
-	await _cliquer(_ile.machine("ilot_est").position)
-	await _attendre(1.0)
-	await _cliquer(fourneau.position)
-	await _attendre(1.5)
-	await _touche(KEY_ESCAPE)
-	await _attendre(2.5)
 
 
 ## Repère de montage pour la vidéo (temps de jeu = temps du film).
@@ -922,6 +932,8 @@ func _ecrire_mesures() -> void:
 		"depenses_atelier": _game.atelier.depenses,
 		"consomme_fourneau": _game.atelier.consomme_fourneau,
 		"inventaire_max": _inventaire_max,
+		"carnet": {"pourcentage": _game.atelier.carnet.pourcentage(), "trouvailles": _game.atelier.carnet.trouvees,
+			"machines": _game.atelier.carnet.machines_vues},
 		"niveaux_machines": _game.atelier.niveaux_machines,
 		"evenements": _evenements,
 		"termine": _objectifs_restants().is_empty(),

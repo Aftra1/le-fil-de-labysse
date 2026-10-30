@@ -20,6 +20,7 @@ from ..godot import Node2D
 from ..scripts.atelier import Atelier
 from ..scripts.autoload.game import Game
 from ..scripts.autoload.son import Son
+from ..scripts.carnet import Carnet
 from ..scripts.dive import Dive
 from ..scripts.ecran_titre import EcranTitre
 from ..scripts.hud import Interface
@@ -111,6 +112,7 @@ class Jeu(Node2D):
         Inventaire.depuis_dictionnaire(...)
         Atelier.charger_niveaux(...)
         Atelier.charger_ilots(...)
+        Carnet.charger(...)
         Atelier.charger_machines(...)
         Atelier.charger_niveaux_machines(...)
         Atelier.charger_fourneaux(...)
@@ -135,6 +137,7 @@ class Jeu(Node2D):
     def donnees_partie(self) -> 'Dictionary':
         """Données de la partie à sauvegarder."""
         Inventaire.vers_dictionnaire(...)
+        Carnet.vers_dictionnaire(...)
         Son.reglages(...)
         Ile.etat_sources(...)
 

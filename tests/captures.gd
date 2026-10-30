@@ -6,7 +6,8 @@ extends SceneTree
 ## 20-27 : écran titre, îlot (22-24 : non relié, construction de la passerelle, relié), menu pause,
 ## sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ;
 ## 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ;
-## 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île).
+## 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ;
+## 39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée).
 ## Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 ## (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 ## On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -45,6 +46,7 @@ func _scenarios() -> void:
 	await _scenario_machines()
 	await _scenario_palier2()
 	await _scenario_palier3()
+	await _scenario_trouvailles()
 	await _scenario_menus()
 	_effacer_sauvegarde()
 	print("PALETTE : %s" % ("toutes les captures respectent la palette" if _captures_hors_palette == 0
@@ -482,6 +484,67 @@ func _scenario_palier3() -> void:
 	await _capturer("38-palier3")
 	await _verifier_grille_monde(ile)
 	await _fermer_jeu(jeu)
+	root.get_node("Game").inventaire = Inventaire.new()
+
+
+# --- 39-42 : trouvailles et carnet ------------------------------------------------------------
+
+func _scenario_trouvailles() -> void:
+	root.get_node("Game").inventaire = Inventaire.new()
+	var carnet: Carnet = _atelier().carnet
+	for id: String in ["perle_aube", "perle_lune", "perle_larme", "perle_vent", "ammonite", "cle_braise",
+			"couronne_brisee", "tablette_gravee", "lampe_profondeurs"]:
+		carnet.trouver(id)
+	for id: String in ["moulin", "filet", "foreuse"]:
+		carnet.voir_machine(id)
+	var jeu: Node = load("res://scenes/jeu.tscn").instantiate()
+	jeu.avec_titre = false
+	root.add_child(jeu)
+	var ile: Node = jeu.get_node("Ile")
+	await _images(20)
+	ile.basculer_carnet()
+	var panneau: Node = ile.get_node("Carnet")
+	panneau.choisir_page("lagon")
+	panneau.selectionner("perle_lune")
+	await _images(3)
+	await _capturer("39-carnet-perles")
+	panneau.choisir_page("faille")
+	panneau.selectionner("tablette_gravee")
+	await _images(3)
+	await _capturer("40-carnet-reliques")
+	panneau.fermer()
+	await _fermer_jeu(jeu)
+
+	# En plongée : un éclat dans la Faille (sa lueur dorée n'est jamais assombrie), puis ramassé.
+	_atelier().niveaux = {"cable": 2, "lanterne": 1, "reservoir": 2}
+	var plongee := await _nouvelle_plongee()
+	var eclat: Node2D = null
+	for essai in 60:
+		for enfant in plongee.get_node("Gisements").get_children():
+			if not enfant.is_queued_for_deletion() and enfant.trouvaille != "" and enfant.zone == "faille":
+				eclat = enfant
+		if eclat != null:
+			break
+		plongee._generer_gisements()
+		await _images(1)
+	if eclat != null:
+		var cloche: CharacterBody2D = plongee.get_node("Bell")
+		cloche.position = eclat.position + Vector2(36.0, -30.0)
+		cloche.controle_actif = false
+		ArtAbysse.figer_temps = true    # éclat et particules immobiles : même image avec et sans obscurité
+		await _images(120)
+		await _capturer("41-eclat-faille")
+		await _verifier_obscurite(plongee)
+		ArtAbysse.figer_temps = false
+		plongee.get_node("HUD").visible = true
+		plongee._ramasser_trouvaille(eclat.trouvaille)
+		eclat.retirer_unite()
+		await _images(10)
+		await _capturer("42-trouvaille-ramassee")
+	else:
+		push_warning("Aucun éclat dans la Faille en 60 tirages.")
+	await _fermer_plongee(plongee)
+	_atelier().niveaux = {"cable": 0, "lanterne": 0, "reservoir": 0}
 	root.get_node("Game").inventaire = Inventaire.new()
 
 

@@ -2,6 +2,8 @@ class_name Gisement
 extends Node2D
 ## Un gisement de minerai : un petit sprite de cristaux, un stock limité et une jauge de minage.
 ## Il ne se dessine pas lui-même : la plongée appelle dessiner_monde() dans le monde 320x180.
+## Une trouvaille rare est un gisement d'une seule unité (minerai « trouvaille ») qui ne prend pas de
+## place dans le sac ; elle se montre comme un éclat scintillant de la couleur de sa zone.
 
 const RAYON := 7.0
 const RAYON_ANNEAU := 12
@@ -13,6 +15,9 @@ var minerai := ""
 var couleur := Color.WHITE
 var duree_minage := 1.0
 var stock := 0
+## Trouvaille rare (data/trouvailles.json) et sa zone ; vide pour un gisement de minerai.
+var trouvaille := ""
+var zone := ""
 
 ## Avancement du minage de l'unité en cours (0 à 1).
 var progres := 0.0:
@@ -56,12 +61,19 @@ func retirer_unite() -> void:
 ## d'un ton plus sombre que l'eau, stock en points, anneau et jauge en lueur cyan.
 func dessiner_monde(toile: CanvasItem) -> void:
 	var p := VueMonde.vers_monde(position)
+	var rayon: int = RAYON_ANNEAU / VueMonde.ECHELLE
+	if trouvaille != "":
+		ArtTrouvailles.dessiner_eclat(toile, p, zone, int(ArtAbysse.temps() * 4.0) % 4)
+		if en_evidence:
+			Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("cyan.3")), p)
+		if progres > 0.0:
+			Pixel.sprite(toile, Pixel.jauge(rayon, progres, Palette.couleur("cyan.3")), p)
+		return
 	Pixel.sprite_ombre(toile, ArtAbysse.gisement(minerai, grise), p, Palette.plus_sombre(ArtAbysse.couleur_eau(p.y)))
 	var plein := Palette.couleur(ArtAbysse.lueur(minerai))
 	for i in stock:
 		var point := (p + Vector2((i - (stock - 1) / 2.0) * 2.0, 6.0)).floor()
 		toile.draw_rect(Rect2(point, Vector2.ONE), Palette.couleur("metal.3") if grise else plein)
-	var rayon: int = RAYON_ANNEAU / VueMonde.ECHELLE
 	if en_evidence and not grise:
 		Pixel.sprite(toile, Pixel.anneau(rayon, Palette.couleur("cyan.3")), p)
 	if progres > 0.0:
