@@ -9,6 +9,8 @@ const MARGE := 6.0
 const TAILLE_BARRE := Vector2(96.0, 10.0)
 const SEUIL_OXYGENE_BAS := 0.25
 const DUREE_ANNONCE := 4.0
+## Haut des annonces : sous le panneau d'état (air, profondeur, zone, sac), avec une marge.
+const HAUT_ANNONCE := 126.0
 const COULEUR_TEXTE := "cyan.3"
 
 var _taille_barre := TAILLE_BARRE
@@ -48,12 +50,13 @@ func _ready() -> void:
 	etat.add_child(colonne)
 	ArtIle.ancrer(etat, 0.0, 0.0, MARGE)
 
+	# Les annonces passent sous le panneau d'air et de profondeur (jamais par-dessus), centrées.
 	_annonce_panneau = _panneau()
 	_annonce = _etiquette("")
 	_annonce_panneau.add_child(_annonce)
 	ArtIle.ancrer(_annonce_panneau, 0.5, 0.0, 0.0)
-	_annonce_panneau.offset_top = MARGE
-	_annonce_panneau.offset_bottom = MARGE
+	_annonce_panneau.offset_top = HAUT_ANNONCE
+	_annonce_panneau.offset_bottom = HAUT_ANNONCE
 	_annonce_panneau.visible = false
 
 	_message_panneau = _panneau()
@@ -91,12 +94,21 @@ func glisser(progression: float) -> void:
 	_glissement = clampf(progression, 0.0, 1.0)
 	var reste := 1.0 - smoothstep(0.0, 1.0, _glissement)
 	_decaler(_etat, Vector2(-roundf(reste * (_etat.size.x + MARGE)), 0.0))
-	_decaler(_annonce_panneau, Vector2(0.0, -roundf(reste * (_annonce_panneau.size.y + MARGE))))
+	_decaler(_annonce_panneau, Vector2(0.0, -roundf(reste * (_annonce_panneau.size.y + HAUT_ANNONCE))))
 	_decaler(_message_panneau, Vector2(0.0, roundf(reste * (_message_panneau.size.y + MARGE))))
 
 
 func progression_glissement() -> float:
 	return _glissement
+
+
+## Rectangles du panneau d'état et de l'annonce à l'écran (tests : ils ne se chevauchent jamais).
+func rect_etat() -> Rect2:
+	return _etat.get_global_rect()
+
+
+func rect_annonce() -> Rect2:
+	return _annonce_panneau.get_global_rect()
 
 
 ## Décalage du panneau par rapport à sa place (pixels d'écran).

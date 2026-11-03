@@ -292,6 +292,9 @@ func _ramasser_trouvaille(id: String) -> void:
 	var page := str(donnees["zone"])
 	if carnet.page_complete(page):
 		_interface.annoncer("Page complète : %s" % str(carnet.page(page)["bonus"]), 6.0)
+		# Page des perles : la place de sac en plus sert tout de suite.
+		_sac.capacite = Game.atelier.places_sac()
+		_rafraichir_sac()
 	else:
 		_interface.annoncer("Trouvaille : %s !" % str(donnees["nom"]), 5.0)
 

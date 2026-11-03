@@ -20,6 +20,7 @@ from ..godot import RefCounted
 from ..scripts.carnet import Carnet
 from ..scripts.donnees import Donnees
 from ..scripts.inventaire import Inventaire
+from ..scripts.marchand import Marchand
 
 
 class Atelier(RefCounted):
@@ -37,6 +38,7 @@ class Atelier(RefCounted):
     depenses: 'Dictionary'
     consomme_fourneau: 'Dictionary'
     carnet: Carnet
+    marchand: Marchand
     _recettes: 'Dictionary'
     _effets: 'Dictionary'
     _machines: 'Dictionary'
@@ -330,7 +332,9 @@ class Atelier(RefCounted):
         self._effet(...)
 
     def places_sac(self) -> 'int':
+        """Places du sac : niveau du sac, plus la place offerte par la page des perles du carnet."""
         self._effet(...)
+        Carnet.places_sac_bonus(...)
 
     def manquants(self, ingredients: 'Dictionary') -> 'Dictionary':
         """Ce qui manque pour une recette : { id: quantité manquante }."""

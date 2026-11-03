@@ -5,8 +5,8 @@
 		{
 			"id": "lagon",
 			"titre": "Perles du Lagon",
-			"bonus": "Le Lagon de lumière se mine 25 % plus vite.",
-			"minage": 1.25
+			"bonus": "Le sac de plongée gagne une place.",
+			"sac": 1
 		},
 		{
 			"id": "coraux",

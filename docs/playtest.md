@@ -1,4 +1,109 @@
-# Playtest automatique : boucle complète avec les machines et les trouvailles
+# Playtest automatique : équilibrage final et marchand de vent
+
+Date : 30 octobre 2026, branche `ccr-689e44f3-yxa53i` (étape 7, PR E).
+
+Changements essayés : marchand de vent (passe toutes les 4 min de jeu, 3 échanges du palier, une réplique par
+visite), entrepôt au palier 3, fourneau à 15 s et deuxième fourneau (suggéré par l'atelier, construit par le
+robot après l'arche), place de sac pour la page des perles, corrections de confort. Le filet garde sa production.
+
+Méthode :
+- **Référence de durée : le robot parfait** (ton rythme en est proche).
+- Après les objectifs, le robot continue, de façon facultative, jusqu'au **carnet à 100 %**. Il plonge pour
+  les trouvailles qui manquent, en commençant par la page la plus profonde ; le joueur humain fouille la moitié
+  basse de la zone. La fin des objectifs et le carnet complet sont mesurés à part.
+- Au marchand, le robot ne fait un échange que s'il lui donne une ressource qui manque aux 3 prochains
+  objectifs, contre des ouates ou des vents dont ces objectifs n'ont pas besoin.
+- Playtest à 2 parties par profil pendant le travail, puis 4 parties par profil pour ce rapport.
+
+### Résultats (quatre parties par profil)
+
+| | **Robot parfait (référence)** | Joueur humain |
+|---|---|---|
+| Fin des objectifs | **23 min 31 à 26 min 03** (moyenne 24 min 48 ; PR D : 25 min 53) | 25 min 38 à 27 min 04 (moyenne 26 min 11 ; PR D : 27 min 30) |
+| Carnet à 100 % | **25 min 00 à 26 min 29** (moyenne 25 min 53) | 50 min 42 à 57 min 30 (moyenne 53 min 41) |
+| Carnet à la fin des objectifs | 91 à 100 % | 54 à 70 % |
+| Plongées (objectifs / total) | 12 à 16 / 13 à 16 | 13 à 15 / 27 à 31 |
+| Remontées automatiques | 0 | 0 |
+| Attentes de plus de 10 s | **0** (PR D : 0 à 3) | **0** (PR D : 1 à 7, le fourneau) |
+| Ouates restantes en fin de partie | **52 à 78** (PR C : 119) | **22 à 60** (PR C : 105) |
+
+- **Durée, honnêtement** :
+  - Au rythme du robot parfait, la partie principale dure environ 25 min, et le carnet est presque complet
+    à la fin des objectifs : il est fini 1 à 3 min plus tard (26 min en moyenne).
+  - Les 30 à 40 min visées ne sont donc pas atteintes à ce rythme. Je n'ai rien rallongé artificiellement.
+  - Un joueur qui ne sait pas où sont les éclats met 26 min pour les objectifs et environ 54 min pour le
+    carnet complet. Les reliques, dans le bas de la Faille, demandent une quinzaine de plongées de plus.
+  - Le temps du carnet dépend donc surtout de la façon de chercher.
+- **Les petites attentes ont disparu** : il n'y a plus aucune attente de plus de 10 s dans les 8 parties
+  (fourneau à 15 s et deuxième fourneau).
+- **Les paliers** :
+  - le palier 2 s'ouvre entre 2 min 15 et 2 min 54 (parfait) ;
+  - le palier 3 s'ouvre entre 7 min 47 et 10 min 10 (parfait) ;
+  - l'entrepôt arrive au palier 3, juste avant l'arche et ses 100 vents (plus haut niveau de vent : 100 à 107).
+
+### Marchand de vent : ce qui passe chez lui, et les plongées
+
+| | Robot parfait | Joueur humain |
+|---|---|---|
+| Passages par partie | 4 | 5 à 6 |
+| Échanges faits | 0 à 4 | 0 à 2 |
+| Ouates vendues (part des ouates obtenues) | 0 à 75 (**0 à 26 %**) | 0 à 40 (**0 à 19 %**) |
+| Vents vendus | **0** | **0** |
+| Reçu | vents (8 à 16), poches d'air (2), cristaux solaires (3) | vents (8), 1 lingot solaire |
+| **Ressources de l'abysse reçues** | **aucune** | **aucune** |
+
+- **Aucun échange ne rend une plongée inutile** :
+  - le marchand ne donne jamais de minerai de l'abysse (cristal de lagon, corail, pierre de braise), ni ce qui
+    en est fait (lentille, verre de lagon, nacre). Un test le vérifie sur toutes les données ;
+  - pour les objectifs, les plongées rapportent toujours autant de corail (44 à 46 par partie, comme en PR C) ;
+  - elles rapportent 15 à 17 pierres de braise avant le carnet, et 19 à 27 cristaux de lagon (PR C : 30).
+    Le cristal de lagon en moins vient de la sonde et du bassin, pas du marchand.
+- **Les ouates** :
+  - le surplus passe de 105 à 119 ouates à 22 à 78 ;
+  - le marchand en écoule jusqu'à un quart ;
+  - le reste de la baisse vient de la nacre faite au deuxième fourneau et d'un jeu un peu plus court.
+- Le robot est strict : il n'échange que contre ce qui manque à ses 3 prochains objectifs. Un joueur qui achète
+  pour plus tard écoulerait davantage d'ouates : il reste donc de la marge pour vendre.
+- **Le marchand ne bloque jamais** :
+  - s'il arrive pendant une plongée, il attend le retour et reste alors ses 60 s ;
+  - s'il est déjà là au départ d'une plongée, il ne repart pas sous l'eau et reste encore au moins 20 s au
+    retour.
+
+### Corrections de confort
+
+- **Carnet** :
+  - le bouton affiche « Carnet (K) • » tant qu'une nouvelle trouvaille n'a pas été regardée ;
+  - le carnet s'ouvre alors directement sur elle ; sinon, il se rouvre là où on l'a laissé.
+- **Réserves des machines** : au-delà de 10, une petite jauge remplace la rangée de points (moulin ×3 : 24).
+- **Plongée** : les annonces passent sous le panneau d'air et ne le chevauchent plus.
+- **Atelier** :
+  - le titre « Atelier » n'est plus affiché (les onglets suffisent), le détail est plus large et l'interligne
+    plus serré ;
+  - le panneau garde au moins 16 px de marge en haut et en bas (28 à 332 sur 360).
+- **Nuages** :
+  - leur bande descend à y = 94 à 128, sous les boutons du haut et sous l'aide : ils ne sont plus cachés ni
+    impossibles à cliquer ;
+  - ils passent derrière les îlots et les machines.
+- **Moulin** : redessiné plus grand (tour à deux étages, porte, ailes de 11 pixels).
+
+### Vidéo
+
+Séquence de 106 s avec le son :
+1. Le dirigeable du marchand arrive par la droite (corne), avec l'annonce.
+2. Un clic sur le dirigeable ouvre ses échanges, avec sa réplique (« Tu tiens le Fil, toi ? Alors tiens-le
+   doucement. On l'a déjà tiré trop fort, autrefois. »).
+3. Deux échanges d'ouates : « Fait », puis l'annonce « Échangé : Vent ×8 ».
+4. Une plongée jusqu'à la Faille (descente et remontée accélérées ×2), où la cloche ramasse la Lampe des
+   profondeurs.
+5. Au retour, « Carnet (K) • » : le carnet s'ouvre directement sur la nouvelle relique.
+
+- MP4 (7,2 Mo, 1280x720, son AAC, moyenne −18 dB, crête −1 dB) : `docs/playtest/sequence.mp4`
+- GIF (sans son) : `docs/playtest/sequence.gif`
+
+---
+
+# Rapport précédent : boucle complète avec les machines et les trouvailles (étape 7, PR D)
+
 
 Date : 30 octobre 2026, branche `etape-7-trouvailles` (étape 7, PR D).
 

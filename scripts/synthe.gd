@@ -12,7 +12,8 @@ const DUREE_BOUCLE := 8.0    # secondes
 const CRETE := 0.9           # niveau maximal d'un son (marge avant saturation)
 
 const EFFETS := ["clic", "nuage", "vent", "cristal", "bassin", "minage", "unite", "sac_plein",
-	"oxygene_bas", "craquement", "remontee_auto", "fabrication", "installation", "construction", "souffle", "machine", "foreuse", "fourneau", "sonde", "trouvaille"]
+	"oxygene_bas", "craquement", "remontee_auto", "fabrication", "installation", "construction", "souffle", "machine", "foreuse", "fourneau", "sonde", "trouvaille",
+	"marchand", "echange"]
 const AMBIANCES := ["ile", "lagon", "coraux", "faille"]
 
 static var _hasard := RandomNumberGenerator.new()
@@ -90,6 +91,19 @@ static func effet(id: String) -> AudioStreamWAV:
 			var bulle := _bulle(0.16, 300.0, 700.0, 0.45)
 			bulle.append_array(_bip(0.08, 1046.5, 0.25))
 			return _wav(bulle, FREQ)
+		"marchand":
+			# Arrivée du marchand : deux appels de corne douce (quinte qui descend), dans un souffle de vent.
+			var corne := _corne(0.55, 392.0, 0.5)
+			corne.append_array(_corne(0.8, 261.6, 0.5))
+			var vent := _souffle_balaye(corne.size() / float(FREQ), 250.0, 900.0, 0.12)
+			for i in mini(corne.size(), vent.size()):
+				corne[i] += vent[i]
+			return _wav(_normaliser(corne, 0.55), FREQ)
+		"echange":
+			# Échange : petit froissement d'étoffe, puis deux tintements de grelots.
+			var etoffe := _bruit_filtre(0.12, 1400.0, 0.01, 0.1, 0.3)
+			etoffe.append_array(_arpege([1046.5, 1568.0], 0.07, 0.35, 0.4))
+			return _wav(etoffe, FREQ)
 	push_warning("Son inconnu : %s" % id)
 	return _wav(PackedFloat32Array([0.0]), FREQ)
 
@@ -218,6 +232,19 @@ static func _arpege(notes: Array, ecart: float, duree: float, volume: float) -> 
 
 
 ## Bip discret (oxygène bas) : attaque et chute douces, aucune arête.
+## Corne de brume douce : fondamentale et deux harmoniques, attaque lente, léger vibrato.
+static func _corne(duree: float, frequence: float, volume: float) -> PackedFloat32Array:
+	var n := int(duree * FREQ)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	for i in n:
+		var t := float(i) / FREQ
+		var f := frequence * (1.0 + 0.006 * sin(TAU * 5.0 * t))
+		var onde := sin(TAU * f * t) + 0.35 * sin(TAU * 2.0 * f * t) + 0.12 * sin(TAU * 3.0 * f * t)
+		s[i] = onde * _enveloppe(t, duree, 0.12, 0.3) * volume / 1.5
+	return s
+
+
 static func _bip(duree: float, frequence: float, volume: float) -> PackedFloat32Array:
 	var n := int(duree * FREQ)
 	var s := PackedFloat32Array()

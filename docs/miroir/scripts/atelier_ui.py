@@ -25,9 +25,10 @@ from ..scripts.pixel import Pixel
 
 class PanneauAtelier(CanvasLayer):
     LARGEUR_LISTE = 196.0
-    LARGEUR_DETAIL = 300.0
-    HAUTEUR_DETAIL = 196.0
+    LARGEUR_DETAIL = 340.0
+    HAUTEUR_DETAIL = 180.0
     ECART = 4
+    INTERLIGNE = -6
     COULEUR_TEXTE = "contour_haut"
     COULEUR_MANQUE = "corail.2"
     MODES = ...
@@ -130,6 +131,10 @@ class PanneauAtelier(CanvasLayer):
         Atelier.prochaine_amelioration_machine(...)
         Atelier.machine(...)
         self._texte_emplacement(...)
+        Atelier.nombre_machines(...)
+        self._nombre(...)
+        Atelier.recharge_machine(...)
+        Atelier.plafond_machine(...)
         Atelier.recette_fourneau(...)
         Atelier.ingredients_composant(...)
         self._ligne_ingredient(...)

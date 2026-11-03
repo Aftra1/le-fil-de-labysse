@@ -68,6 +68,13 @@ func _process(delta: float) -> void:
 		_annonce_panneau.visible = _annonce_restante > 0.0
 
 
+## « Carnet (K) • » tant qu'une nouvelle trouvaille n'a pas été regardée dans le carnet.
+func marquer_carnet(nouveau: bool) -> void:
+	var texte := "Carnet (K) •" if nouveau else "Carnet (K)"
+	if bouton_carnet.text != texte:
+		bouton_carnet.text = texte
+
+
 func rafraichir_inventaire() -> void:
 	for id: String in _quantites:
 		(_quantites[id] as Label).text = str(Game.inventaire.quantite(id))

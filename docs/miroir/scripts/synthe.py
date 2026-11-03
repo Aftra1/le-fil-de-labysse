@@ -47,6 +47,8 @@ class Synthe(RefCounted):
         Synthe._craquement(...)
         Synthe._alarme_douce(...)
         Synthe._construction(...)
+        Synthe._corne(...)
+        Synthe._normaliser(...)
 
     @staticmethod
     def ambiances() -> 'Dictionary':
@@ -101,8 +103,13 @@ class Synthe(RefCounted):
         Synthe._normaliser(...)
 
     @staticmethod
+    def _corne(duree: 'float', frequence: 'float', volume: 'float') -> 'PackedFloat32Array':
+        """Bip discret (oxygène bas) : attaque et chute douces, aucune arête.
+        Corne de brume douce : fondamentale et deux harmoniques, attaque lente, léger vibrato."""
+        Synthe._enveloppe(...)
+
+    @staticmethod
     def _bip(duree: 'float', frequence: 'float', volume: 'float') -> 'PackedFloat32Array':
-        """Bip discret (oxygène bas) : attaque et chute douces, aucune arête."""
         Synthe._normaliser(...)
 
     @staticmethod

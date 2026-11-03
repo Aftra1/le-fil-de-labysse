@@ -26,6 +26,7 @@ from ..scripts.ecran_titre import EcranTitre
 from ..scripts.hud import Interface
 from ..scripts.ile import Ile
 from ..scripts.inventaire import Inventaire
+from ..scripts.marchand import Marchand
 from ..scripts.menu_cadre import MenuCadre
 from ..scripts.menu_pause import MenuPause
 from ..scripts.sauvegarde import Sauvegarde
@@ -117,6 +118,7 @@ class Jeu(Node2D):
         Atelier.charger_niveaux_machines(...)
         Atelier.charger_fourneaux(...)
         Atelier.charger_palier(...)
+        Marchand.charger(...)
         Ile.restaurer_sources(...)
         Ile.rattraper(...)
         Sauvegarde.secondes_depuis(...)
@@ -138,6 +140,7 @@ class Jeu(Node2D):
         """Données de la partie à sauvegarder."""
         Inventaire.vers_dictionnaire(...)
         Carnet.vers_dictionnaire(...)
+        Marchand.vers_dictionnaire(...)
         Son.reglages(...)
         Ile.etat_sources(...)
 

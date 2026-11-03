@@ -11,8 +11,10 @@ extends Node2D
 ## La foreuse solaire se pose sur un filon, qui ne se récolte plus à la main ; l'entrepôt ne produit
 ## rien (il relève le plafond de l'inventaire). Le premier corail rapporté ouvre le palier 2, la première
 ## pierre de braise le palier 3 : le fourneau (un clic récupère sa réserve et ouvre le choix du raffiné qu'il
-## fabrique en boucle avec les ingrédients de l'inventaire) et la sonde (qui ne produit qu'en plongée).
+## fabrique en boucle avec les ingrédients de l'inventaire), la sonde (qui ne produit qu'en plongée) et l'entrepôt.
 ## Les sources se rechargent avec le temps, y compris pendant la plongée (voir rattraper()).
+## Le marchand de vent (Marchand, data/marchand.json) passe de temps en temps : son dirigeable arrive par la
+## droite, reste 60 s au-dessus de l'île et repart ; un clic dessus ouvre ses échanges (PanneauMarchand).
 ## Échap ferme un panneau ouvert ; sinon il remonte à la scène principale (menu pause).
 ## Rendu : le monde est dessiné en 320x180 (VueMonde, affiché ×2) ; la logique reste en 640x360.
 
@@ -43,6 +45,12 @@ const FORMES_MACHINES := {
 }
 const ZONE_EMPLACEMENT := Vector2(12.0, 16.0)   # demi-taille, centrée 16 px au-dessus du sol
 const RAYON_MACHINE := 16.0
+## Dirigeable du marchand : position d'arrêt (640x360), demi-taille de la zone cliquable, durée du vol
+## d'arrivée et de départ (il glisse depuis le bord droit de l'écran et y repart).
+const POSITION_MARCHAND := Vector2(548.0, 116.0)
+const ZONE_MARCHAND := Vector2(26.0, 18.0)
+const DUREE_VOL := 4.0
+const DEPART_MARCHAND_X := 700.0
 
 var cloche_visible := true
 
@@ -56,6 +64,7 @@ var _machines: Dictionary = {}           # emplacement -> SourceRessource
 var _souris := Vector2(-100.0, -100.0)
 var _survol_cloche := false
 var _survol_cabane := false
+var _survol_marchand := false
 var _survol: SourceRessource = null      # source sous la souris
 var _maintien: SourceRessource = null
 var _progres_maintien := 0.0
@@ -71,6 +80,7 @@ var _monde := VueMonde.new()
 @onready var _panneau: PanneauInventaire = $Inventaire
 @onready var _atelier: PanneauAtelier = $Atelier
 var _carnet := PanneauCarnet.new()
+var _marchand := PanneauMarchand.new()
 
 
 func _ready() -> void:
@@ -87,6 +97,9 @@ func _ready() -> void:
 		_creer_nuage(_hasard.randf_range(60.0, 580.0))
 	_carnet.name = "Carnet"
 	add_child(_carnet)
+	_marchand.name = "Marchand"
+	add_child(_marchand)
+	_marchand.echange_fait.connect(_sur_echange)
 	_interface.bouton_inventaire.pressed.connect(_basculer_inventaire)
 	_interface.bouton_carnet.pressed.connect(basculer_carnet)
 	_atelier.fabrique.connect(_sur_fabrication)
@@ -102,26 +115,29 @@ func _notification(quoi: int) -> void:
 			source.free()
 
 
-## Un seul panneau ouvert à la fois (inventaire, atelier ou carnet).
+## Un seul panneau ouvert à la fois (inventaire, atelier, carnet ou marchand).
 func panneau_ouvert() -> bool:
-	return _panneau.est_ouvert() or _atelier.est_ouvert() or _carnet.est_ouvert()
+	return _panneau.est_ouvert() or _atelier.est_ouvert() or _carnet.est_ouvert() or _marchand.est_ouvert()
 
 
 func _fermer_panneaux() -> void:
 	_panneau.fermer()
 	_atelier.fermer()
 	_carnet.fermer()
+	_marchand.fermer()
 
 
 func _basculer_inventaire() -> void:
 	_atelier.fermer()
 	_carnet.fermer()
+	_marchand.fermer()
 	_panneau.basculer()
 
 
 func _basculer_atelier() -> void:
 	_panneau.fermer()
 	_carnet.fermer()
+	_marchand.fermer()
 	_atelier.basculer()
 
 
@@ -129,7 +145,14 @@ func _basculer_atelier() -> void:
 func basculer_carnet() -> void:
 	_panneau.fermer()
 	_atelier.fermer()
+	_marchand.fermer()
 	_carnet.basculer()
+
+
+## Échanges du marchand (clic sur son dirigeable, tant qu'il est là).
+func ouvrir_marchand() -> void:
+	_fermer_panneaux()
+	_marchand.ouvrir()
 
 
 ## genre : « composant », « amelioration » ou « construction » (voir PanneauAtelier.fabrique).
@@ -146,10 +169,7 @@ func _sur_fabrication(id: String, genre: String) -> void:
 		"machine":
 			actualiser_machines()
 			var lieu := _atelier.dernier_emplacement
-			_interface.annoncer("Construit : %s. %s" % [atelier.nom_machine(id),
-				"L'inventaire garde maintenant jusqu'à %d de chaque ressource." % Game.inventaire.plafond
-				if machine(lieu) != null and machine(lieu).forme == SourceRessource.Forme.ENTREPOT
-				else "Un clic dessus récupère sa production."])
+			_interface.annoncer("Construit : %s. %s" % [atelier.nom_machine(id), _conseil_machine(id, lieu)])
 			Son.jouer("construction")
 		"fourneau":
 			var lieu := _atelier.fourneau_lieu
@@ -167,6 +187,56 @@ func _sur_fabrication(id: String, genre: String) -> void:
 			Son.jouer("fabrication")
 	_interface.rafraichir_inventaire()
 	partie_modifiee.emit()
+
+
+## Ce que l'annonce dit après la construction d'une machine.
+func _conseil_machine(id: String, lieu: String) -> String:
+	if machine(lieu) != null and machine(lieu).forme == SourceRessource.Forme.ENTREPOT:
+		return "L'inventaire garde maintenant jusqu'à %d de chaque ressource." % Game.inventaire.plafond
+	if id == "fourneau" and Game.atelier.nombre_machines("fourneau") == 1:
+		return "Un clic dessus choisit son raffiné. Un deuxième fourneau en ferait un autre en même temps."
+	if id == "fourneau":
+		return "Un clic dessus choisit son raffiné."
+	return "Un clic dessus récupère sa production."
+
+
+## Un échange chez le marchand : annonce de ce qui est reçu, son et sauvegarde.
+func _sur_echange(id: String) -> void:
+	var recu := PackedStringArray()
+	var donnees := Game.atelier.marchand.echange(id)
+	for ressource: String in donnees["recoit"]:
+		recu.append("%s ×%d" % [Game.nom_ressource(ressource), int(donnees["recoit"][ressource])])
+	_interface.annoncer("Échangé : %s." % " + ".join(recu))
+	Son.jouer("echange")
+	_interface.rafraichir_inventaire()
+	partie_modifiee.emit()
+
+
+## Temps du marchand sur l'île : arrivée (annonce et corne) et départ (son panneau se ferme).
+func _avancer_marchand(secondes: float) -> void:
+	var evenement := Game.atelier.marchand.avancer(secondes, true, Game.atelier.palier)
+	if evenement == "arrivee":
+		_interface.annoncer("Le marchand de vent est là : clic sur son dirigeable pour échanger.", 6.0)
+		Son.jouer("marchand")
+	elif evenement == "depart":
+		_marchand.fermer()
+		_interface.annoncer("Le marchand de vent repart. Il repassera plus tard.")
+
+
+## Position du dirigeable (640x360) : il glisse depuis le bord droit, se balance doucement, puis y repart.
+func position_marchand() -> Vector2:
+	var marchand := Game.atelier.marchand
+	var vol := minf(marchand.temps_present(), marchand.restant) / DUREE_VOL
+	var x := lerpf(DEPART_MARCHAND_X, POSITION_MARCHAND.x, smoothstep(0.0, 1.0, clampf(vol, 0.0, 1.0)))
+	var balancement := roundf(sin(ArtAbysse.temps() * 1.4)) * 2.0
+	return Vector2(roundf(x / 2.0) * 2.0, POSITION_MARCHAND.y + balancement)
+
+
+func _souris_sur_marchand() -> bool:
+	if not Game.atelier.marchand.est_present():
+		return false
+	var centre := position_marchand()
+	return absf(_souris.x - centre.x) <= ZONE_MARCHAND.x and absf(_souris.y - centre.y) <= ZONE_MARCHAND.y
 
 
 func _unhandled_input(evenement: InputEvent) -> void:
@@ -196,6 +266,8 @@ func _unhandled_input(evenement: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	_avancer_marchand(delta)
+	_interface.marquer_carnet(Game.atelier.carnet.a_voir != "")
 	_gerer_nuages(delta)
 	_mettre_a_jour_survol()
 	_gerer_maintien(delta)
@@ -209,6 +281,8 @@ func _clic() -> void:
 		plongee_demandee.emit()
 	elif _survol_cabane:
 		_basculer_atelier()
+	elif _survol_marchand:
+		ouvrir_marchand()
 	elif _survol_ilot != "":
 		_panneau.fermer()
 		_atelier.ouvrir()
@@ -309,9 +383,11 @@ func _mettre_a_jour_survol() -> void:
 	var sur_cloche := not panneau_ouvert() and _souris_sur_cloche()
 	var sur_cabane := not panneau_ouvert() and not sur_cloche \
 		and absf(_souris.x - POSITION_CABANE.x) <= ZONE_CABANE.x and absf(_souris.y - POSITION_CABANE.y) <= ZONE_CABANE.y
-	# Priorité du clic : cloche, cabane, sources fixes et machines, îlot isolé, emplacement libre ; un nuage
-	# qui passe devant ne prend le clic que si rien d'autre n'est sous la souris.
-	var libre := not panneau_ouvert() and not sur_cloche and not sur_cabane
+	# Priorité du clic : cloche, cabane, dirigeable du marchand, sources fixes et machines, îlot isolé,
+	# emplacement libre ; un nuage qui passe devant ne prend le clic que si rien d'autre n'est sous la souris.
+	var sur_marchand := not panneau_ouvert() and not sur_cloche and not sur_cabane and _souris_sur_marchand()
+	_survol_marchand = sur_marchand
+	var libre := not panneau_ouvert() and not sur_cloche and not sur_cabane and not sur_marchand
 	var survol: SourceRessource = _source_sous_souris(_sources) if libre else null
 	_survol_cloche = sur_cloche
 	_survol_cabane = sur_cabane
@@ -329,7 +405,7 @@ func _mettre_a_jour_survol() -> void:
 		_survol = survol
 		if _survol != null:
 			_survol.en_survol = true
-	var cliquable := _survol_cloche or _survol_cabane or _survol_ilot != "" or _survol_emplacement != "" \
+	var cliquable := _survol_cloche or _survol_cabane or _survol_marchand or _survol_ilot != "" or _survol_emplacement != "" \
 		or (_survol != null and _survol.est_disponible())
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if cliquable else Input.CURSOR_ARROW)
 
@@ -339,6 +415,8 @@ func _texte_aide() -> String:
 		return "Plonger : clic sur la cloche (ou E / Espace)"
 	if _survol_cabane:
 		return "Atelier : clic sur la cabane (ou C)"
+	if _survol_marchand:
+		return "Marchand de vent : clic pour échanger (il repart dans %d s)" % ceili(Game.atelier.marchand.restant)
 	if _survol_ilot != "":
 		return str(_ilot(_survol_ilot)["aide"])
 	if _survol_emplacement != "":
@@ -623,6 +701,8 @@ func afficher_interface(afficher: bool) -> void:
 func arriver(temps_plongee: float, gardees: Dictionary, perdues: Dictionary, urgence: bool) -> void:
 	reprendre()
 	rattraper(temps_plongee)
+	# Le temps de plongée compte pour le passage du marchand (s'il arrive, il attend le retour sur l'île).
+	Game.atelier.marchand.avancer(temps_plongee, false, Game.atelier.palier)
 	for lieu: String in _machines:
 		(_machines[lieu] as SourceRessource).recharger_plongee(temps_plongee)
 
@@ -644,7 +724,9 @@ func arriver(temps_plongee: float, gardees: Dictionary, perdues: Dictionary, urg
 		for id: String in Game.atelier.liste_machines():
 			if int(Game.atelier.machine(id)["palier"]) == Game.atelier.palier:
 				noms.append(Game.atelier.nom_machine(id).to_lower())
-		var texte := "Palier %d : %s à l'atelier, onglet Machines." % [Game.atelier.palier, " et ".join(noms)]
+		var liste := ", ".join(PackedStringArray(noms.slice(0, -1))) + " et " + str(noms[-1]) if noms.size() > 1 \
+			else "".join(PackedStringArray(noms))
+		var texte := "Palier %d : %s à l'atelier, onglet Machines." % [Game.atelier.palier, liste]
 		# Après l'annonce du butin (ou de la perte), pour ne pas la cacher.
 		if _interface.texte_annonce() == "":
 			_interface.annoncer(texte)
@@ -734,6 +816,7 @@ func _dessiner_monde(toile: Node2D) -> void:
 	for enfant in _nuages.get_children():
 		if not enfant.is_queued_for_deletion():
 			(enfant as SourceRessource).dessiner_monde(toile)
+	_dessiner_marchand(toile)
 	_dessiner_cabane(toile)
 	_dessiner_ilots(toile)
 	_dessiner_emplacements(toile)
@@ -749,6 +832,24 @@ func _dessiner_monde(toile: Node2D) -> void:
 		if _survol_cloche:
 			var zone := (ZONE_CLOCHE * K).round()
 			Pixel.cadre(toile, Rect2(cloche - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
+
+
+## Dirigeable du marchand (devant les nuages, derrière les îlots) et son hélice qui tourne.
+func _dessiner_marchand(toile: Node2D) -> void:
+	if not Game.atelier.marchand.est_present():
+		return
+	var centre := VueMonde.vers_monde(position_marchand())
+	var texture := ArtIle.dirigeable()
+	Pixel.sprite_ombre(toile, texture, centre, Palette.plus_sombre(ArtIle.couleur_ciel_monde(centre.y)))
+	var coin := (centre - texture.get_size() / 2.0).floor()
+	var moyeu := coin + Vector2(texture.get_width(), 6)
+	toile.draw_rect(Rect2(moyeu - Vector2(1, 0), Vector2(2, 1)), Palette.couleur(ArtIle.CONTOUR))
+	var tour := int(ArtAbysse.temps() * 10.0) % 2
+	var pale := Rect2(moyeu + Vector2(1, -2), Vector2(1, 5)) if tour == 0 else Rect2(moyeu + Vector2(0, 0), Vector2(3, 1))
+	toile.draw_rect(pale, Palette.couleur("metal.3"))
+	if _survol_marchand:
+		var zone := (ZONE_MARCHAND * K).round()
+		Pixel.cadre(toile, Rect2(centre - zone, zone * 2.0 + Vector2.ONE), Palette.couleur("nuage.4"))
 
 
 ## Cabane de l'atelier : fenêtre allumée et fumée qui monte quand une fabrication est possible.

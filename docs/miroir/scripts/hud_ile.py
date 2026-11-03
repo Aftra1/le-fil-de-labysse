@@ -40,6 +40,10 @@ class InterfaceIle(CanvasLayer):
     def _process(self, delta: 'float') -> 'void':
         ...
 
+    def marquer_carnet(self, nouveau: 'bool') -> 'void':
+        """« Carnet (K) • » tant qu'une nouvelle trouvaille n'a pas été regardée dans le carnet."""
+        ...
+
     def rafraichir_inventaire(self) -> 'void':
         Inventaire.quantite(...)
 

@@ -36,6 +36,8 @@ var depenses: Dictionary = {}
 var consomme_fourneau: Dictionary = {}
 ## Carnet de collection de la partie (trouvailles et machines déjà construites).
 var carnet := Carnet.new()
+## Le marchand de vent de la partie (passages et échanges).
+var marchand := Marchand.new()
 
 var _recettes: Dictionary = {}
 var _effets: Dictionary = {}
@@ -480,8 +482,9 @@ func oxygene_max() -> float:
 	return _effet("reservoir", "oxygene_max")
 
 
+## Places du sac : niveau du sac, plus la place offerte par la page des perles du carnet.
 func places_sac() -> int:
-	return int(_effet("sac", "places"))
+	return int(_effet("sac", "places")) + carnet.places_sac_bonus()
 
 
 # --- Outils ----------------------------------------------------------------------------------

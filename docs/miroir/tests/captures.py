@@ -9,7 +9,9 @@
 sauvegarde abîmée ; 30-32 : machines du palier 1 (emplacement libre, onglet Machines, moulin et filet) ;
 33-35 : palier 2 (îlot du nord isolé, amélioration d'une machine, foreuse, entrepôt et îlot du nord relié) ;
 36-38 : palier 3 (arche de braise à l'atelier, panneau du fourneau, fourneau et sonde sur l'île) ;
-39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée).
+39-42 : trouvailles (carnet : perles et reliques ; éclat dans la Faille, puis la trouvaille ramassée) ;
+43-46 : marchand de vent et confort (dirigeable qui arrive, « Carnet (K) • », jauge de réserve, grand moulin ;
+ses échanges ; carnet ouvert sur la dernière trouvaille ; annonce de plongée sous le panneau d'air).
 Chaque capture est vérifiée : tous ses pixels doivent être des couleurs de data/palette.json
 (un antialiasing ou une transparence créerait des couleurs intermédiaires).
 On vérifie aussi la grille du monde (320x180 affiché ×2) : interface masquée, chaque bloc de 2x2
@@ -29,10 +31,12 @@ from ..scripts.carnet import Carnet
 from ..scripts.dive import Dive
 from ..scripts.inventaire import Inventaire
 from ..scripts.jeu import Jeu
+from ..scripts.marchand import Marchand
 from ..scripts.palette import Palette
 from ..scripts.pixel import Pixel
 from ..scripts.sac import Sac
 from ..scripts.sauvegarde import Sauvegarde
+from ..scripts.source_ressource import SourceRessource
 from ..scripts.vue_monde import VueMonde
 
 
@@ -61,6 +65,7 @@ class Captures(SceneTree):
         self._scenario_palier2(...)
         self._scenario_palier3(...)
         self._scenario_trouvailles(...)
+        self._scenario_marchand(...)
         self._scenario_menus(...)
         self._couper_son_et_quitter(...)
 
@@ -168,6 +173,24 @@ class Captures(SceneTree):
         self._fermer_jeu(...)
         self._nouvelle_plongee(...)
         self._verifier_obscurite(...)
+        self._fermer_plongee(...)
+
+    def _scenario_marchand(self) -> 'void':
+        Inventaire()
+        self._atelier(...)
+        Atelier.machine(...)
+        Inventaire.ajouter(...)
+        Atelier.construire(...)
+        Atelier.construire_machine(...)
+        Carnet.trouver(...)
+        Jeu()  # instantiate()
+        self._images(...)
+        self._capturer(...)
+        self._cliquer(...)
+        Marchand.peut_echanger(...)
+        self._touche(...)
+        self._fermer_jeu(...)
+        self._nouvelle_plongee(...)
         self._fermer_plongee(...)
 
     def _scenario_menus(self) -> 'void':
