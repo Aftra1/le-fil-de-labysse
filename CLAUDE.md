@@ -1,3 +1,5 @@
+Langue : toujours écrire en français — messages, rapports, résumés, descriptions de PR et commits.
+
 # CLAUDE.md — Le Fil de l'Abysse
 
 ## Méthode
